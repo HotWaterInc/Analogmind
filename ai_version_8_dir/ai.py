@@ -30,7 +30,7 @@ class Autoencoder(nn.Module):
 def run_ai():
     # Load data from data.json
 
-    json_data = get_json_data('data.json')
+    json_data = get_json_data('./data.json')
     sensor_data = [item['sensor_data'] for item in json_data]
     sensor_data = normalize_data_min_max(np.array(sensor_data))
 
@@ -83,6 +83,13 @@ def evaluate_error(train_data, autoencoder):
 
     print(f'Total error on samples: {total_error:.4f} so for each sample the average error is {total_error/(nr_of_samples*8):.4f}')
 
+from pathlib import Path
+def get_script_path() -> Path:
+    return Path(__file__).resolve()
+
+
 
 if __name__ == "__main__":
-    run_ai()
+    # run_ai()
+    script_path = get_script_path()
+    print(script_path)

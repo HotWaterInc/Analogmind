@@ -1,0 +1,1 @@
+from .ai import get_script_path

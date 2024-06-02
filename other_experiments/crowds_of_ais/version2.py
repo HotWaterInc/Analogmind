@@ -4,6 +4,43 @@ import torch.optim as optim
 import numpy as np
 from utils import normalize_data_min_max, get_json_data
 
+class BigAutoencoder(nn.Module):
+    def __init__(self):
+        super(BigAutoencoder, self).__init__()
+
+        # Encoder
+        self.layer1 = nn.Sequential(
+            nn.Linear(8, 16*5),  # Reduce dimension to bottleneck
+            nn.Sigmoid()
+        )
+
+        self.layer2 = nn.Sequential(
+            nn.Linear(16*5, 4),  # Reduce dimension to bottleneck
+            nn.Sigmoid()
+        )
+        self.layer3 = nn.Sequential(
+
+            nn.Linear(4, 16*5),  # Expand back to original dimension
+            nn.Sigmoid()
+        )
+
+        self.layer4 = nn.Sequential(
+            nn.Linear(16*5, 8),  # Expand back to original dimension
+            nn.Sigmoid()
+        )
+
+    def encoder(self, x):
+        x = self.layer1(x)
+        x = self.layer2(x)
+        return x
+
+    def forward(self, x):
+        encoded = self.encoder(x)
+        decoded = self.layer3(encoded)
+        decoded = self.layer4(decoded)
+        return encoded, decoded
+
+
 class Autoencoder(nn.Module):
     def __init__(self):
         super(Autoencoder, self).__init__()
@@ -68,15 +105,30 @@ def train_ai(autoencoder, train_data, num_epochs, learning_rate):
 
     return autoencoder
 
-def run_ai():
+def run_big_ai(epochs = 100):
     json_data = get_json_data('../../data.json')
     sensor_data = [item['sensor_data'] for item in json_data]
     sensor_data = normalize_data_min_max(np.array(sensor_data))
+    encoder_epoch = epochs
 
     train_data = torch.tensor(sensor_data, dtype=torch.float32)
     autoencoders = []
-    nr_encoders = 30
-    encoder_epoch = 100
+
+    super_network = BigAutoencoder()
+    super_network = train_ai(super_network, train_data, num_epochs=encoder_epoch, learning_rate=0.01)
+    error_super_network = evaluate_error(train_data, super_network, nr_samples=len(train_data))
+
+    return error_super_network
+
+def run_ai(epochs = 100, nr_encoders = 5):
+    json_data = get_json_data('../../data.json')
+    sensor_data = [item['sensor_data'] for item in json_data]
+    sensor_data = normalize_data_min_max(np.array(sensor_data))
+    nr_encoders = nr_encoders
+    encoder_epoch = epochs
+
+    train_data = torch.tensor(sensor_data, dtype=torch.float32)
+    autoencoders = []
     for i in range(nr_encoders):
         autoencoder = Autoencoder()
         autoencoder = train_ai(autoencoder, train_data, num_epochs=encoder_epoch, learning_rate=0.01)
@@ -141,7 +193,12 @@ def version2():
     super_network_error_array = []
     trials = 1
     for i in range(trials):
-        average_error, error_of_averages, super_network_error = run_ai()
+        average_error, error_of_averages, super_network_error = run_ai(epochs=100)
+        # big_network_error = run_big_ai(epochs=100)
+        # print(f"Big network error: {big_network_error:.4f}")
+        # print(f"Super network error: {super_network_error:.4f}")
+        # print(f"Average error: {average_error:.4f}")
+        # print(f"Error of averages: {error_of_averages:.4f}")
         average_error_array.append(average_error)
         error_of_averages_array.append(error_of_averages)
         super_network_error_array.append(super_network_error)

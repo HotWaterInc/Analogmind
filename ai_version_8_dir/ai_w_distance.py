@@ -105,6 +105,7 @@ def train_autoencoder_with_distance_constraint(autoencoder, train_data, paired_i
         sampled_pairs = [non_paired_indices[i] for i in sampled_indices]
         avg_distance = 0
         avg_expected_distance = 0
+
         for (i, j) in sampled_pairs:
             # keep non-adjacent far from each other
             encoded_i = autoencoder.encoder(train_data[i].unsqueeze(0))
@@ -154,8 +155,8 @@ def train_autoencoder_with_distance_constraint(autoencoder, train_data, paired_i
     return autoencoder
 
 
-def process_data():
-    json_data = get_json_data('data.json')
+def process_data(dataset_path='../data.json'):
+    json_data = get_json_data(dataset_path  )
     all_sensor_data = [[item['sensor_data'], item["i_index"], item["j_index"]] for item in json_data]
     sensor_data = [item['sensor_data'] for item in json_data]
     sensor_data = normalize_data_min_max(np.array(sensor_data))
@@ -309,17 +310,148 @@ def evaluate_error(train_data, autoencoder):
     print(
         f'Total error on samples: {total_error:.4f} so for each sample the average error is {total_error / (nr_of_samples * 8):.4f}')
 
+def run_lee_improved(autoencoder, all_sensor_data, sensor_data):
+    # same as normal lee, but keeps a queue of current pairs, and for each one of them takes the 3 closes adjacent pairs and puts them in the queue
+    # if the current pair is the target pair, the algorithm stops
+
+    starting_coords = (2,7)
+    target_coords = (7, 9)
+    start_coords_data = []
+    end_coords_data = []
+
+    for i in range(len(all_sensor_data)):
+        i_x, i_y = all_sensor_data[i][1], all_sensor_data[i][2]
+        if i_x == starting_coords[0] and i_y == starting_coords[1]:
+            start_coords_data = sensor_data[i].unsqueeze(0)
+        if i_x == target_coords[0] and i_y == target_coords[1]:
+            end_coords_data = sensor_data[i].unsqueeze(0)
+
+    start_embedding = autoencoder.encoder(start_coords_data)
+
+    end_embedding = autoencoder.encoder(end_coords_data)
+
+    # take all adjacent coords
+    # calculate their embeddings
+    # take the closest adjacent embedding to the end embedding and "step" towards it ( as in go in that direction )
+    # repeat until the closest embedding is the end embedding
+
+    current_coords = starting_coords
+    explored_coords = []
+
+    queue = [starting_coords]
+
+    while(current_coords != target_coords):
+        current_coords = queue.pop(0)
+        explored_coords.append(current_coords)
+        print(f"Current coords: {current_coords}")
+        if current_coords[0] == target_coords[0] and current_coords[1] == target_coords[1]:
+            return
+
+        closest_distances = [1000, 1000, 1000]
+
+        selected_coords = [[-1,-1], [-1,-1], [-1,-1]]
+
+        for i in range(len(all_sensor_data)):
+            i_x, i_y = all_sensor_data[i][1], all_sensor_data[i][2]
+            # take only adjacent
+            abs_dist = abs(i_x - current_coords[0]) + abs(i_y - current_coords[1])
+            if 0 < abs_dist <= 2:
+                i_embedding = autoencoder.encoder(sensor_data[i].unsqueeze(0))
+                distance = torch.norm((i_embedding - end_embedding), p=2).item()
+
+                if distance < closest_distances[0]:
+                    closest_distances[2] = closest_distances[1]
+                    closest_distances[1] = closest_distances[0]
+                    closest_distances[0] = distance
+                    selected_coords[2] = selected_coords[1]
+                    selected_coords[1] = selected_coords[0]
+                    selected_coords[0] = [i_x, i_y]
+                elif distance < closest_distances[1]:
+                    closest_distances[2] = closest_distances[1]
+                    closest_distances[1] = distance
+                    selected_coords[2] = selected_coords[1]
+                    selected_coords[1] = [i_x, i_y]
+                elif distance < closest_distances[2]:
+                    closest_distances[2] = distance
+                    selected_coords[2] = [i_x, i_y]
+
+                # if distance < closest_distances[2]:
+                #     closest_distances[2] = distance
+                #     place_in_queue = True
+
+
+
+        # queue.append(selected_coords[0])
+        for selected_coord in selected_coords:
+            if selected_coord not in explored_coords and selected_coord not in queue:
+                queue.append(selected_coord)
+
+
+        if current_coords == target_coords:
+            break
+
+
+def run_lee(autoencoder, all_sensor_data, sensor_data):
+    starting_coords = (3,3)
+    target_coords = (11,10)
+
+    start_coords_data = []
+    end_coords_data = []
+
+    for i in range(len(all_sensor_data)):
+        i_x, i_y = all_sensor_data[i][1], all_sensor_data[i][2]
+        if i_x == starting_coords[0] and i_y == starting_coords[1]:
+            start_coords_data = sensor_data[i].unsqueeze(0)
+        if i_x == target_coords[0] and i_y == target_coords[1]:
+            end_coords_data = sensor_data[i].unsqueeze(0)
+
+    start_embedding = autoencoder.encoder(start_coords_data)
+    end_embedding = autoencoder.encoder(end_coords_data)
+
+    # take all adjacent coords
+    # calculate their embeddings
+    # take the closest adjacent embedding to the end embedding and "step" towards it ( as in go in that direction )
+    # repeat until the closest embedding is the end embedding
+
+    current_coords = starting_coords
+    explored_coords = []
+
+    while(current_coords != target_coords):
+        current_embedding = autoencoder.encoder(sensor_data[i].unsqueeze(0))
+        closest_distance = 1000
+        closest_coords = None
+        for i in range(len(all_sensor_data)):
+            i_x, i_y = all_sensor_data[i][1], all_sensor_data[i][2]
+            # take only adjacent
+            abs_dist = abs(i_x - current_coords[0]) + abs(i_y - current_coords[1])
+            if abs_dist <= 2 and abs_dist > 0:
+                i_embedding = autoencoder.encoder(sensor_data[i].unsqueeze(0))
+                distance = torch.norm((i_embedding - end_embedding), p=2).item()
+                if distance < closest_distance:
+                    closest_distance = distance
+                    closest_coords = (i_x, i_y)
+
+        current_coords = closest_coords
+        explored_coords.append(current_coords)
+        print(f"Current coords: {current_coords}")
+        if current_coords == target_coords:
+            break
+
 
 def run_loaded_ai():
-    all_sensor_data, sensor_data = process_data()
+    all_sensor_data, sensor_data = process_data(dataset_path="../data15.json")
     autoencoder = load_autoencoder('autoencoder_v1_working.pth')
-    run_tests(autoencoder, all_sensor_data, sensor_data)
+    # run_tests(autoencoder, all_sensor_data, sensor_data)
+    # run_lee(autoencoder, all_sensor_data, sensor_data)
+    run_lee_improved(autoencoder, all_sensor_data, sensor_data)
+
 
 
 def run_new_ai():
     all_sensor_data, sensor_data = process_data()
     autoencoder = run_ai(all_sensor_data, sensor_data)
     run_tests(autoencoder, all_sensor_data, sensor_data)
+
 
 
 if __name__ == "__main__":

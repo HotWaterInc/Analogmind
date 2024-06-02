@@ -37,7 +37,7 @@ def start_server():
                     decoded_data = decode_data(data)
                     print(f"Data received: {decoded_data}")
                     if decoded_data == "END":
-                        data_handle.write_to_file("data.json")
+                        data_handle.write_to_file("data15.json")
                         conn.close()
                         return
                     else:

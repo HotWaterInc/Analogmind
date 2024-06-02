@@ -170,6 +170,7 @@ def run_new_ai():
     all_sensor_data, sensor_data = process_data()
     autoencoder = load_ai('autoencoder_v1_working.pth', Autoencoder)
     direction_network = run_ai(all_sensor_data, sensor_data, autoencoder)
+    torch.save(direction_network.state_dict(), 'direction_network.pth')
     # run_tests(autoencoder, all_sensor_data, sensor_data)
 
 
