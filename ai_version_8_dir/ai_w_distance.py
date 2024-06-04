@@ -314,10 +314,11 @@ def run_lee_improved(autoencoder, all_sensor_data, sensor_data):
     # same as normal lee, but keeps a queue of current pairs, and for each one of them takes the 3 closes adjacent pairs and puts them in the queue
     # if the current pair is the target pair, the algorithm stops
 
-    starting_coords = (2,7)
-    target_coords = (7, 9)
+    starting_coords = (2,2)
+    target_coords = (2, 12)
     start_coords_data = []
     end_coords_data = []
+    banned_coords = [(0,5), (1,5), (2,5), (3,5), (4,5), (5,5), (6,5)]
 
     for i in range(len(all_sensor_data)):
         i_x, i_y = all_sensor_data[i][1], all_sensor_data[i][2]
@@ -355,6 +356,9 @@ def run_lee_improved(autoencoder, all_sensor_data, sensor_data):
             i_x, i_y = all_sensor_data[i][1], all_sensor_data[i][2]
             # take only adjacent
             abs_dist = abs(i_x - current_coords[0]) + abs(i_y - current_coords[1])
+            if (i_x, i_y) in banned_coords:
+                continue
+
             if 0 < abs_dist <= 2:
                 i_embedding = autoencoder.encoder(sensor_data[i].unsqueeze(0))
                 distance = torch.norm((i_embedding - end_embedding), p=2).item()

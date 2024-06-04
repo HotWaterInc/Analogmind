@@ -49,3 +49,5 @@ Testing 10 networks, 500 epochs each, super net is trained 10*500 epochs
 - Testing 10-20 networks on large epochs
 - Testing randomized network architectures
 - error of ultra net ( a network which is trained as all others combined and has the size of all others combined ) 
+
+#### Found out this is actually called [ensemble learning](https://arxiv.org/pdf/2104.02395) so its already studied
