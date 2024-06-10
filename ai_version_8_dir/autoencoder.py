@@ -7,7 +7,6 @@ import math
 
 DISTANCE_THRESHOLD = 5
 
-
 class Autoencoder(nn.Module):
     def __init__(self):
         super(Autoencoder, self).__init__()

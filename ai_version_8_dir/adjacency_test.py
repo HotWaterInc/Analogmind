@@ -4,7 +4,7 @@ import torch.optim as optim
 import numpy as np
 from utils import process_data, load_ai
 import math
-from ai_w_distance import Autoencoder
+from autoencoder import Autoencoder
 
 
 

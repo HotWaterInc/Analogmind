@@ -4,8 +4,7 @@ import torch.optim as optim
 import numpy as np
 from utils import process_data, load_ai
 import math
-from ai_w_distance import Autoencoder
-
+from autoencoder import Autoencoder
 
 class DirectionNetwork(nn.Module):
     def __init__(self):
@@ -155,9 +154,6 @@ def evaluate_error(input_pairs, input_pairs_coords, expected_direction, directio
                 displayed_examples -= 1
 
     print(f'Total error on samples: {total_error:.4f} so for each sample the average error is {total_error/(nr_of_samples):.4f}')
-
-
-
 
 
 # def run_loaded_ai():
