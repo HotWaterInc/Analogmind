@@ -2,6 +2,7 @@ from sklearn.preprocessing import MinMaxScaler
 import numpy as np
 import torch
 import json
+import time
 
 def normalize_data_min_max(data):
     scaler = MinMaxScaler()
@@ -37,3 +38,7 @@ def load_ai(name, network_type):
     autoencoder = network_type()
     autoencoder.load_state_dict(torch.load(name))
     return autoencoder
+
+def save_ai(name, network):
+    current_time = time.time()
+    torch.save(network.state_dict(), name + ' - ' + str(current_time) + '.pth')

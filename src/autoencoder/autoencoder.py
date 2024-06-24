@@ -13,23 +13,26 @@ class Autoencoder(nn.Module):
 
         # Encoder
         self.encoder1 = nn.Sequential(
-            nn.Linear(8, 16),  # Reduce dimension to bottleneck
-            nn.ReLU()
+            nn.Linear(8, 16),
+            nn.ReLU(),
+            nn.Dropout(0.2)
         )
 
         self.encoder2 = nn.Sequential(
-            nn.Linear(16, 32),  # Reduce dimension to bottleneck
-            nn.LeakyReLU()
+            nn.Linear(16, 32),
+            nn.LeakyReLU(),
+            nn.Dropout(0.2)
         )
 
         self.encoder3 = nn.Sequential(
-            nn.Linear(32, 16),  # Reduce dimension to bottleneck
-            nn.Tanh()
+            nn.Linear(32, 16),
+            nn.Tanh(),
+            nn.Dropout(0.2)
         )
 
         # Decoder
         self.decoder = nn.Sequential(
-            nn.Linear(16, 8),  # Expand back to original dimension
+            nn.Linear(16, 8),
             nn.Sigmoid()
         )
 
@@ -46,6 +49,9 @@ class Autoencoder(nn.Module):
         decoded = self.decoder(deenc)
         return encoded, decoded
 
+model = Autoencoder()
+optimizer = torch.optim.Adam(model.parameters(), lr=0.001, weight_decay=1e-5)  # weight_decay is the L2 regularization term
+
 
 def train_autoencoder_with_distance_constraint(autoencoder, train_data, paired_indices, non_paired_indices, all_sensor_data):
     criterion = nn.L1Loss()
@@ -58,20 +64,11 @@ def train_autoencoder_with_distance_constraint(autoencoder, train_data, paired_i
     pair_samples_adj = 52
 
     epoch_average_loss = 0
-    epoch_print_rate = 1000
+    epoch_print_rate = 100
 
     for epoch in range(num_epochs):
         epoch_loss = 0.0
         total_reconstruction_loss = 0.0
-
-        # if epoch % 200 == 0 and scale_non_adjacent_distance_loss < 100:
-        #     scale_non_adjacent_distance_loss += 10
-        #     # print(f"Scale non-adjacent distance loss: {scale_non_adjacent_distance_loss}")
-
-        # if epoch % 100 == 0 and scale_adjacent_distance_loss < 5:
-        #     scale_adjacent_distance_loss += 1
-        #     # scale_non_adjacent_distance_loss += 1
-
 
         optimizer.zero_grad()
 
@@ -93,7 +90,6 @@ def train_autoencoder_with_distance_constraint(autoencoder, train_data, paired_i
 
             adjacent_distance_loss += torch.norm((encoded_i - encoded_j) * 2, p=2) * scale_adjacent_distance_loss
             avg_adjacent_distance += torch.norm((encoded_i - encoded_j), p=2).item()
-            # print(f"({all_sensor_data[i][1]}, {all_sensor_data[i][2]}) - ({all_sensor_data[j][1]}, {all_sensor_data[j][2]}) DISTANCE: {torch.norm((encoded_i - encoded_j), p=2).item()}")
 
         adjacent_distance_loss /= pair_samples_adj
         adjacent_distance_loss.backward()
@@ -188,7 +184,6 @@ def run_ai(all_sensor_data, sensor_data):
 
     train_autoencoder_with_distance_constraint(autoencoder, sensor_data, paired_indices, non_paired_indices, all_sensor_data)
 
-    torch.save(autoencoder.state_dict(), 'autoencoder_v2.pth')
     return autoencoder
 
 
@@ -442,11 +437,12 @@ def run_lee(autoencoder, all_sensor_data, sensor_data):
 
 
 def run_loaded_ai():
-    all_sensor_data, sensor_data = process_data(dataset_path="../data15.json")
+    all_sensor_data, sensor_data = process_data(dataset_path="../../data.json")
+    # all_sensor_data, sensor_data = process_data(dataset_path="../../data15.json")
     autoencoder = load_autoencoder('autoencoder_v1_working.pth')
-    # run_tests(autoencoder, all_sensor_data, sensor_data)
+    run_tests(autoencoder, all_sensor_data, sensor_data)
     # run_lee(autoencoder, all_sensor_data, sensor_data)
-    run_lee_improved(autoencoder, all_sensor_data, sensor_data)
+    # run_lee_improved(autoencoder, all_sensor_data, sensor_data)
 
 
 
