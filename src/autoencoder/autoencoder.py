@@ -57,11 +57,11 @@ def train_autoencoder_with_distance_constraint(autoencoder, train_data, paired_i
     criterion = nn.L1Loss()
     optimizer = optim.Adam(autoencoder.parameters(), lr=0.02)
 
-    num_epochs = 20000
+    num_epochs = 10000
     scale_reconstruction_loss = 5
     scale_adjacent_distance_loss = 0.3
     scale_non_adjacent_distance_loss = 0.3
-    pair_samples_adj = 52
+    pair_samples_adj = 24
 
     epoch_average_loss = 0
     epoch_print_rate = 100
@@ -88,8 +88,9 @@ def train_autoencoder_with_distance_constraint(autoencoder, train_data, paired_i
             encoded_i = autoencoder.encoder(train_data[i].unsqueeze(0))
             encoded_j = autoencoder.encoder(train_data[j].unsqueeze(0))
 
-            adjacent_distance_loss += torch.norm((encoded_i - encoded_j) * 2, p=2) * scale_adjacent_distance_loss
-            avg_adjacent_distance += torch.norm((encoded_i - encoded_j), p=2).item()
+            distance = torch.norm((encoded_i - encoded_j), p=2)
+            adjacent_distance_loss += distance * scale_adjacent_distance_loss
+            avg_adjacent_distance += distance.item()
 
         adjacent_distance_loss /= pair_samples_adj
         adjacent_distance_loss.backward()
@@ -110,12 +111,10 @@ def train_autoencoder_with_distance_constraint(autoencoder, train_data, paired_i
             j_x, j_y = all_sensor_data[j][1], all_sensor_data[j][2]
 
             distance = torch.norm((encoded_i - encoded_j), p=2)
-            expected_distance = (math.sqrt((i_x-j_x)**2 + (i_y-j_y)**2)) # amount of distance that should be between indexes
+            expected_distance = (math.sqrt((i_x-j_x)**2 + (i_y-j_y)**2)) #amount of distance that should be between indexes
 
             avg_expected_distance += expected_distance
             avg_distance += distance.item()
-            # DISTANCE_THRESHOLD = 5
-            # if distance < DISTANCE_THRESHOLD:
             non_adjacent_distance_loss += ((distance - expected_distance) ** 2) * scale_non_adjacent_distance_loss
 
 
@@ -151,7 +150,7 @@ def train_autoencoder_with_distance_constraint(autoencoder, train_data, paired_i
 
 
 def process_data(dataset_path='../data.json'):
-    json_data = get_json_data(dataset_path  )
+    json_data = get_json_data(dataset_path)
     all_sensor_data = [[item['sensor_data'], item["i_index"], item["j_index"]] for item in json_data]
     sensor_data = [item['sensor_data'] for item in json_data]
     sensor_data = normalize_data_min_max(np.array(sensor_data))
@@ -193,7 +192,7 @@ def run_tests(autoencoder, all_sensor_data, sensor_data):
     find_all_adjacent_pairs(all_sensor_data, autoencoder, sensor_data)
 
 
-def find_all_adjacent_pairs(all_sensor_data, autoencoder, sensor_data ):
+def find_all_adjacent_pairs(all_sensor_data, autoencoder, sensor_data):
     found_adjacent_pairs = []
     false_positives = []
     true_positives = []
@@ -437,7 +436,7 @@ def run_lee(autoencoder, all_sensor_data, sensor_data):
 
 
 def run_loaded_ai():
-    all_sensor_data, sensor_data = process_data(dataset_path="../../data.json")
+    all_sensor_data, sensor_data = process_data(dataset_path="../../modules/data_handlers/data.json")
     # all_sensor_data, sensor_data = process_data(dataset_path="../../data15.json")
     autoencoder = load_autoencoder('autoencoder_v1_working.pth')
     run_tests(autoencoder, all_sensor_data, sensor_data)
@@ -454,6 +453,6 @@ def run_new_ai():
 
 
 if __name__ == "__main__":
-    # run_new_ai()
-    run_loaded_ai()
+    run_new_ai()
+    # run_loaded_ai()
     pass

@@ -1,10 +1,11 @@
 import socket
-import json
-from data_layer import DataHandling
+from modules.data_handlers.external_data_handle import ExternalDataHandler, DataSampleType, Paths
+from utils import string_to_json
 
 host = 'localhost'
 port = 8080
-data_handle = DataHandling.get_instance()
+data_handle = ExternalDataHandler.get_instance()
+data_handle.set_data_sample(DataSampleType.Data8x8)
 
 def decode_data(data: bytes):
     return data.decode()
@@ -37,11 +38,11 @@ def start_server():
                     decoded_data = decode_data(data)
                     print(f"Data received: {decoded_data}")
                     if decoded_data == "END":
-                        data_handle.write_to_file("data15.json")
+                        data_handle.write_data_array_to_file()
                         conn.close()
                         return
                     else:
-                        data_handle.append_data(decoded_data)
+                        data_handle.append_data(string_to_json(decoded_data))
 
 
 if __name__ == "__main__":

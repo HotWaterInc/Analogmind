@@ -310,6 +310,6 @@ def run_ai(all_sensor_data, sensor_data):
     find_all_adjacent_pairs(all_sensor_data, autoencoder, sensor_data)
 
 if __name__ == "__main__":
-    all_sensor_data, sensor_data = process_data("../data.json")
+    all_sensor_data, sensor_data = process_data("../modules/data_handlers/data.json")
     run_ai(all_sensor_data, sensor_data)
 
