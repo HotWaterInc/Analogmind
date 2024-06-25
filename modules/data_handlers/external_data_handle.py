@@ -2,14 +2,7 @@
 import json
 import enum
 from utils import get_project_root
-
-class DataSampleType(enum.Enum):
-    Data8x8 = 1
-    Data15x15 = 2
-
-class Paths(enum.Enum):
-    Data8x8 = 'data/data8x8.json'
-    Data15x15 = 'data/data15x15.json'
+from .parameters import DataSampleType, Paths, get_file_path
 
 def get_file_path(data_sample: DataSampleType):
     if data_sample == DataSampleType.Data8x8:
