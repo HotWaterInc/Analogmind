@@ -2,12 +2,12 @@
 import json
 import enum
 from utils import get_project_root
-from .parameters import DataSampleType, Paths, get_file_path
+from .parameters import CollectedDataType, Paths, get_file_path
 
-def get_file_path(data_sample: DataSampleType):
-    if data_sample == DataSampleType.Data8x8:
+def get_file_path(data_sample: CollectedDataType):
+    if data_sample == CollectedDataType.Data8x8:
         return Paths.Data8x8.value
-    elif data_sample == DataSampleType.Data15x15:
+    elif data_sample == CollectedDataType.Data15x15:
         return Paths.Data15x15.value
     else:
         return None
@@ -16,7 +16,7 @@ class ExternalDataHandler:
     __instance = None
 
     data_array = []
-    data_sample = DataSampleType.Data8x8
+    data_sample = CollectedDataType.Data8x8
 
     @staticmethod
     def get_instance():
@@ -31,7 +31,7 @@ class ExternalDataHandler:
             ExternalDataHandler.__instance = self
             self.data_array = []
 
-    def set_data_sample(self, data_sample: DataSampleType):
+    def set_data_sample(self, data_sample: CollectedDataType):
         self.data_sample = data_sample
 
     def append_data(self, data):

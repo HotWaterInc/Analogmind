@@ -1,10 +1,12 @@
 import torch
-from parameters import AI_MODELS_TRACKER_PATH
-from parameters import AIPaths, AIType, get_model_path
+from .parameters import AI_MODELS_TRACKER_PATH
+from .parameters import AIPaths, AIType, get_model_path
 import json
+from utils import prefix_path_with_root
 
 def get_current_track_number(model_type: AIType):
-    with open(AI_MODELS_TRACKER_PATH, 'r') as file:
+    absolute_path = prefix_path_with_root(AI_MODELS_TRACKER_PATH)
+    with open(absolute_path, 'r') as file:
         data = json.load(file)
 
     if AIType.Autoencoder == model_type:
@@ -13,47 +15,63 @@ def get_current_track_number(model_type: AIType):
         return data['variational_autoencoder']['track_number']
 
 def update_tracker(model_type: AIType, complete_name: str):
-    with open(AI_MODELS_TRACKER_PATH, 'r') as file:
+    absolute_path = prefix_path_with_root(AI_MODELS_TRACKER_PATH)
+    with open(absolute_path, 'r') as file:
         data = json.load(file)
 
+    last_track_number = get_current_track_number(model_type)
+    data['autoencoder']['track_number'] += 1
     if AIType.Autoencoder == model_type:
-        data['autoencoder']['track_number'] += 1
-        data['autoencoder']['models'].append(complete_name)
+        data['autoencoder']['models'][last_track_number] = complete_name
     elif AIType.VariationalAutoencoder == model_type:
-        data['variational_autoencoder']['track_number'] += 1
-        data['variational_autoencoder']['models'].append(complete_name)
+        data['variational_autoencoder']['models'][last_track_number] = complete_name
 
-    with open(AI_MODELS_TRACKER_PATH, 'w') as file:
+    with open(absolute_path, 'w') as file:
         json.dump(data, file, indent=4)
 
 
-def save_ai(name, model_type: AIType):
+def save_ai(name, model_type: AIType, model):
     model_path = get_model_path(model_type)
     last_track_number = get_current_track_number(model_type)
     name = name + "_" + str(last_track_number) + ".pth"
 
-    if AIType.Autoencoder == model_type:
-        name = "autoencoder_" + name
-    elif AIType.VariationalAutoencoder == model_type:
-        name = "variational_autoencoder_" + name
+    local_model_path = model_path + name
+    absolute_model_path = prefix_path_with_root(local_model_path)
 
-    torch.save(name, model_path + name)
+    torch.save(model, absolute_model_path)
     update_tracker(model_type, name)
 
-def get_latest_model_name(model_type: AIType):
-    with open(AI_MODELS_TRACKER_PATH, 'r') as file:
+def get_model_name_by_version(model_type: AIType, version: int):
+    absolute_path = prefix_path_with_root(AI_MODELS_TRACKER_PATH)
+    with open(absolute_path, 'r') as file:
         data = json.load(file)
         if AIType.Autoencoder == model_type:
-            return data['autoencoder']['models'][-1]
+            return data['autoencoder']['models'][version]
         if AIType.VariationalAutoencoder == model_type:
-            return data['variational_autoencoder']['models'][-1]
+            return data['variational_autoencoder']['models'][version]
 
-def load_ai(model_type: AIType, latest: bool = True, complete_name: str = ""):
-    if latest:
-        last_track_number = get_current_track_number(model_type)
-        complete_name = get_latest_model_name(model_type)
+def get_latest_model_name(model_type: AIType):
+    absolute_path = prefix_path_with_root(AI_MODELS_TRACKER_PATH)
+    last_track_number =f"{get_current_track_number(model_type) - 1}"
 
+    with open(absolute_path, 'r') as file:
+        data = json.load(file)
+        print(data)
+        if AIType.Autoencoder == model_type:
+            return data['autoencoder']['models'][last_track_number]
+        if AIType.VariationalAutoencoder == model_type:
+            return data['variational_autoencoder']['models'][last_track_number]
+
+def load_latest_ai(model_type: AIType):
+    complete_name = get_latest_model_name(model_type)
     model_path = get_model_path(model_type)
-    model = torch.load(model_path + complete_name)
+    absolute_model_path = prefix_path_with_root(model_path + complete_name)
+    model = torch.load(absolute_model_path)
     return model
 
+def load_ai_version(model_type: AIType, version: int):
+    complete_name = get_model_name_by_version(model_type, version)
+    model_path = get_model_path(model_type)
+    absolute_model_path = prefix_path_with_root(model_path + complete_name)
+    model = torch.load(absolute_model_path)
+    return model

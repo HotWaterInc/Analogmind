@@ -1,6 +1,6 @@
 import enum
 
-class DataSampleType(enum.Enum):
+class CollectedDataType(enum.Enum):
     Data8x8 = 1
     Data15x15 = 2
 
@@ -26,11 +26,14 @@ def get_model_path(ai_type: AIType):
     else:
         return None
 
-def get_file_path(data_sample: DataSampleType):
-    if data_sample == DataSampleType.Data8x8:
+def get_file_path(data_sample: CollectedDataType):
+    if data_sample == CollectedDataType.Data8x8:
         return Paths.Data8x8.value
-    elif data_sample == DataSampleType.Data15x15:
+    elif data_sample == CollectedDataType.Data15x15:
         return Paths.Data15x15.value
     else:
         return None
 
+DATA_NAME_FIELD = "name"
+DATA_SENSORS_FIELD = "data"
+DATA_PARAMS_FIELD = "params"

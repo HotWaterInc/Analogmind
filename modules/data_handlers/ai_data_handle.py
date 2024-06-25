@@ -1,10 +1,11 @@
 import json
-from utils import get_project_root
-from .parameters import DataSampleType, Paths, get_file_path
+from utils import get_project_root, prefix_path_with_root
+from .parameters import CollectedDataType, Paths, get_file_path
 
-def read_data_array_from_file(self, data_sample: DataSampleType):
+def read_data_array_from_file(data_sample: CollectedDataType):
     root_path = get_project_root()
-    file_path = root_path + "/" + get_file_path(self.data_sample)
+    local_path = get_file_path(data_sample)
+    file_path = prefix_path_with_root(local_path)
 
     with open(file_path, 'r') as file:
         data_arr = json.load(file)

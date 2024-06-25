@@ -2,10 +2,16 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 import numpy as np
-from utils import normalize_data_min_max, parse_json_string, get_json_data
 import math
+from modules.data_handlers.ai_models_handle import save_ai, load_latest_ai, AIType
+from modules.data_handlers.ai_data_processing import normalize_data_min_max
+from modules.data_handlers.ai_data_handle import read_data_array_from_file
+from modules.data_handlers.parameters import CollectedDataType
+from modules.data_handlers.parameters import DATA_NAME_FIELD, DATA_SENSORS_FIELD, DATA_PARAMS_FIELD
+
 
 DISTANCE_THRESHOLD = 5
+indices_properties = []
 
 class Autoencoder(nn.Module):
     def __init__(self):
@@ -149,39 +155,37 @@ def train_autoencoder_with_distance_constraint(autoencoder, train_data, paired_i
     return autoencoder
 
 
-def process_data(dataset_path='../data.json'):
-    json_data = get_json_data(dataset_path)
-    all_sensor_data = [[item['sensor_data'], item["i_index"], item["j_index"]] for item in json_data]
-    sensor_data = [item['sensor_data'] for item in json_data]
+def preprocess_data(data_type):
+    json_data = read_data_array_from_file(data_type)
+
+    all_sensor_data = [[item[DATA_SENSORS_FIELD], item[DATA_PARAMS_FIELD]["i"], item[DATA_PARAMS_FIELD]["j"]] for item in json_data]
+    sensor_data = [item[DATA_SENSORS_FIELD] for item in json_data]
     sensor_data = normalize_data_min_max(np.array(sensor_data))
     sensor_data = torch.tensor(sensor_data, dtype=torch.float32)
-
     return all_sensor_data, sensor_data
 
 
-def load_autoencoder(name):
-    autoencoder = Autoencoder()
-    autoencoder.load_state_dict(torch.load(name))
-    return autoencoder
 
-
-def run_ai(all_sensor_data, sensor_data):
+def process_adjacency_properties(all_sensor_data):
     # if indexes are adjacent in the matrix, they are paired
-    paired_indices = []
-    non_paired_indices = []
     for i in range(len(all_sensor_data)):
         for j in range(i + 1, len(all_sensor_data)):
             i_x, i_y = all_sensor_data[i][1], all_sensor_data[i][2]
             j_x, j_y = all_sensor_data[j][1], all_sensor_data[j][2]
+            indices_properties.append((i, j, abs(i_x - j_x) + abs(i_y - j_y)))
 
-            if abs(i_x - j_x) + abs(i_y - j_y) <= 1:
-                paired_indices.append((i, j))
-            elif abs(i_x - j_x) + abs(i_y - j_y) > 1:
-                non_paired_indices.append((i, j))
+def run_ai(all_sensor_data, sensor_data):
+    paired_indices = []
+    non_paired_indices = []
+    length = len(indices_properties)
+    for i in range(length):
+        if indices_properties[i][2] == 1:
+            paired_indices.append((indices_properties[i][0], indices_properties[i][1]))
+        else:
+            non_paired_indices.append((indices_properties[i][0], indices_properties[i][1]))
 
     autoencoder = Autoencoder()
-
-    train_autoencoder_with_distance_constraint(autoencoder, sensor_data, paired_indices, non_paired_indices, all_sensor_data)
+    # train_autoencoder_with_distance_constraint(autoencoder, sensor_data, paired_indices, non_paired_indices, all_sensor_data)
 
     return autoencoder
 
@@ -436,23 +440,25 @@ def run_lee(autoencoder, all_sensor_data, sensor_data):
 
 
 def run_loaded_ai():
-    all_sensor_data, sensor_data = process_data(dataset_path="../../modules/data_handlers/data.json")
-    # all_sensor_data, sensor_data = process_data(dataset_path="../../data15.json")
-    autoencoder = load_autoencoder('autoencoder_v1_working.pth')
-    run_tests(autoencoder, all_sensor_data, sensor_data)
+    all_sensor_data, sensor_data = preprocess_data(CollectedDataType.Data8x8)
+    # all_sensor_data, sensor_data = preprocess_data(CollectedDataType.Data15x15)
+    autoencoder = load_latest_ai(AIType.Autoencoder)
+    # run_tests(autoencoder, all_sensor_data, sensor_data)
     # run_lee(autoencoder, all_sensor_data, sensor_data)
     # run_lee_improved(autoencoder, all_sensor_data, sensor_data)
 
 
 
 def run_new_ai():
-    all_sensor_data, sensor_data = process_data()
+    all_sensor_data, sensor_data = preprocess_data(CollectedDataType.Data8x8)
+    process_adjacency_properties(all_sensor_data)
     autoencoder = run_ai(all_sensor_data, sensor_data)
-    run_tests(autoencoder, all_sensor_data, sensor_data)
+    save_ai("autoencod1", AIType.Autoencoder, autoencoder)
+    # run_tests(autoencoder, all_sensor_data, sensor_data)
 
 
 
 if __name__ == "__main__":
-    run_new_ai()
-    # run_loaded_ai()
+    # run_new_ai()
+    run_loaded_ai()
     pass

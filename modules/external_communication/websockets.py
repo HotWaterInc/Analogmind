@@ -1,11 +1,11 @@
 import socket
-from modules.data_handlers.external_data_handle import ExternalDataHandler, DataSampleType, Paths
+from modules.data_handlers.external_data_handle import ExternalDataHandler, CollectedDataType, Paths
 from utils import string_to_json
 
 host = 'localhost'
 port = 8080
 data_handle = ExternalDataHandler.get_instance()
-data_handle.set_data_sample(DataSampleType.Data8x8)
+data_handle.set_data_sample(CollectedDataType.Data8x8)
 
 def decode_data(data: bytes):
     return data.decode()

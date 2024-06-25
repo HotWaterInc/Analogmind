@@ -1,14 +1,11 @@
 {
-  "autoencoder": {
-    "track_number": 0,
-    "models": [
-
-    ]
-  },
-  "variational_autoencoder": {
-    "track_number": 0,
-    "models": [
-
-    ]
-  }
+    "autoencoder": {
+        "track_number": 0,
+        "models": {
+        }
+    },
+    "variational_autoencoder": {
+        "track_number": 0,
+        "models": {}
+    }
 }
