@@ -1,7 +1,9 @@
 {
     "autoencoder": {
-        "track_number": 0,
+        "track_number": 2,
         "models": {
+            "0": "autoencod1_0.pth",
+            "1": "autoencod_1.pth"
         }
     },
     "variational_autoencoder": {

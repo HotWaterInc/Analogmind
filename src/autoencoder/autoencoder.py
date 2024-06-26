@@ -8,9 +8,9 @@ from modules.data_handlers.ai_data_processing import normalize_data_min_max
 from modules.data_handlers.ai_data_handle import read_data_array_from_file
 from modules.data_handlers.parameters import CollectedDataType
 from modules.data_handlers.parameters import DATA_NAME_FIELD, DATA_SENSORS_FIELD, DATA_PARAMS_FIELD
+from eval import DISTANCE_THRESHOLD
 
 
-DISTANCE_THRESHOLD = 5
 indices_properties = []
 
 class Autoencoder(nn.Module):
@@ -59,15 +59,17 @@ model = Autoencoder()
 optimizer = torch.optim.Adam(model.parameters(), lr=0.001, weight_decay=1e-5)  # weight_decay is the L2 regularization term
 
 
-def train_autoencoder_with_distance_constraint(autoencoder, train_data, paired_indices, non_paired_indices, all_sensor_data):
+def train_autoencoder_with_distance_constraint(autoencoder, train_data, paired_indices, non_paired_indices, all_sensor_data, epochs = 1000):
     criterion = nn.L1Loss()
     optimizer = optim.Adam(autoencoder.parameters(), lr=0.02)
 
-    num_epochs = 10000
+    num_epochs = epochs
     scale_reconstruction_loss = 5
     scale_adjacent_distance_loss = 0.3
     scale_non_adjacent_distance_loss = 0.3
-    pair_samples_adj = 24
+
+    pair_samples_adj = 52
+    pair_samples_non_adj = 52
 
     epoch_average_loss = 0
     epoch_print_rate = 100
@@ -103,7 +105,7 @@ def train_autoencoder_with_distance_constraint(autoencoder, train_data, paired_i
 
         non_adjacent_distance_loss = torch.tensor(0.0)
 
-        sampled_indices = np.random.choice(len(non_paired_indices), pair_samples_adj, replace=False)
+        sampled_indices = np.random.choice(len(non_paired_indices), pair_samples_non_adj, replace=False)
         sampled_pairs = [non_paired_indices[i] for i in sampled_indices]
         avg_distance = 0
         avg_expected_distance = 0
@@ -125,7 +127,7 @@ def train_autoencoder_with_distance_constraint(autoencoder, train_data, paired_i
 
 
         if non_adjacent_distance_loss > 0:
-            non_adjacent_distance_loss /= pair_samples_adj
+            non_adjacent_distance_loss /= pair_samples_non_adj
             non_adjacent_distance_loss.backward()
 
         optimizer.step()
@@ -146,7 +148,7 @@ def train_autoencoder_with_distance_constraint(autoencoder, train_data, paired_i
             print(
                 f'{str_epoch} - {str_reconstruction_loss} - {str_adjacent_distance_loss} - {str_non_adjacent_distance_loss} ')
             print(
-                f'AVG = {epoch_average_loss} adjacent_distance ={avg_adjacent_distance / pair_samples_adj:.4f} non_adjacent_distance = {avg_distance / pair_samples_adj:.4f} ')
+                f'AVG = {epoch_average_loss} adjacent_distance ={avg_adjacent_distance / pair_samples_adj:.4f} non_adjacent_distance = {avg_distance / pair_samples_non_adj:.4f} ')
 
             # print(f"Average distance for non-adjacent pairs: {avg_distance / pair_samples_adj:.4f}")
             # print(f"Average expected distance for non-adjacent pairs: {avg_expected_distance / pair_samples_adj:.4f}")
@@ -185,7 +187,7 @@ def run_ai(all_sensor_data, sensor_data):
             non_paired_indices.append((indices_properties[i][0], indices_properties[i][1]))
 
     autoencoder = Autoencoder()
-    # train_autoencoder_with_distance_constraint(autoencoder, sensor_data, paired_indices, non_paired_indices, all_sensor_data)
+    train_autoencoder_with_distance_constraint(autoencoder, sensor_data, paired_indices, non_paired_indices, all_sensor_data, epochs=20000)
 
     return autoencoder
 
@@ -233,7 +235,7 @@ def find_all_adjacent_pairs(all_sensor_data, autoencoder, sensor_data):
                 true_non_adjacent_pairs += 1
                 # print(f"({i_x}, {i_y}) - ({j_x}, {j_y}) NON ADJC: {distance:.4f}")
 
-            if distance < 1.2: # it is expected that adjacent distance is about sqrt(2) at least
+            if distance < DISTANCE_THRESHOLD: # it is expected that adjacent distance is about sqrt(2) at least
                 avg_distance_between_found_adjacent += math.sqrt((ixy[0] - jxy[0]) ** 2 + (ixy[1] - jxy[1]) ** 2)
                 found_adjacent_pairs.append((i, j))
                 # print(f"({i_x}, {i_y}) - ({j_x}, {j_y})")
@@ -301,7 +303,6 @@ def evaluate_error(train_data, autoencoder):
         for i, idx in enumerate(indices):
             data = train_data[idx].unsqueeze(0)  # Add batch dimension
             encoder, reconstructed = autoencoder(data)
-            # print(f'Random Training Sample {i+1} - Difference: {data.numpy() - reconstructed.numpy()}')
             total_error += torch.sum(torch.abs(data - reconstructed)).item()
 
     print(
@@ -443,8 +444,8 @@ def run_loaded_ai():
     all_sensor_data, sensor_data = preprocess_data(CollectedDataType.Data8x8)
     # all_sensor_data, sensor_data = preprocess_data(CollectedDataType.Data15x15)
     autoencoder = load_latest_ai(AIType.Autoencoder)
-    # run_tests(autoencoder, all_sensor_data, sensor_data)
-    # run_lee(autoencoder, all_sensor_data, sensor_data)
+    run_tests(autoencoder, all_sensor_data, sensor_data)
+    run_lee(autoencoder, all_sensor_data, sensor_data)
     # run_lee_improved(autoencoder, all_sensor_data, sensor_data)
 
 
@@ -453,8 +454,8 @@ def run_new_ai():
     all_sensor_data, sensor_data = preprocess_data(CollectedDataType.Data8x8)
     process_adjacency_properties(all_sensor_data)
     autoencoder = run_ai(all_sensor_data, sensor_data)
-    save_ai("autoencod1", AIType.Autoencoder, autoencoder)
-    # run_tests(autoencoder, all_sensor_data, sensor_data)
+    save_ai("autoencod", AIType.Autoencoder, autoencoder)
+    run_tests(autoencoder, all_sensor_data, sensor_data)
 
 
 
