@@ -1,8 +1,8 @@
 import torch
 from .parameters import AI_MODELS_TRACKER_PATH
-from .parameters import AIPaths, AIType, get_model_path
+from .parameters import AIType, get_model_path
 import json
-from utils import prefix_path_with_root
+from src.utils import prefix_path_with_root
 
 def get_current_track_number(model_type: AIType):
     absolute_path = prefix_path_with_root(AI_MODELS_TRACKER_PATH)
@@ -65,6 +65,7 @@ def get_latest_model_name(model_type: AIType):
 def load_latest_ai(model_type: AIType):
     complete_name = get_latest_model_name(model_type)
     model_path = get_model_path(model_type)
+    print(model_path + complete_name)
     absolute_model_path = prefix_path_with_root(model_path + complete_name)
     model = torch.load(absolute_model_path)
     return model

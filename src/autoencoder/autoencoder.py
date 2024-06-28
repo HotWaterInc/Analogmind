@@ -3,11 +3,11 @@ import torch.nn as nn
 import torch.optim as optim
 import numpy as np
 import math
-from modules.data_handlers.ai_models_handle import save_ai, load_latest_ai, AIType
-from modules.data_handlers.ai_data_processing import normalize_data_min_max
-from modules.data_handlers.ai_data_handle import read_data_array_from_file
-from modules.data_handlers.parameters import CollectedDataType
-from modules.data_handlers.parameters import DATA_NAME_FIELD, DATA_SENSORS_FIELD, DATA_PARAMS_FIELD
+from src.modules.data_handlers.ai_models_handle import save_ai, load_latest_ai, AIType
+from src.modules.data_handlers.ai_data_processing import normalize_data_min_max
+from src.modules.data_handlers.ai_data_handle import read_data_array_from_file
+from src.modules.data_handlers.parameters import CollectedDataType
+from src.modules.data_handlers.parameters import DATA_SENSORS_FIELD, DATA_PARAMS_FIELD
 from eval import DISTANCE_THRESHOLD
 
 
@@ -21,19 +21,16 @@ class Autoencoder(nn.Module):
         self.encoder1 = nn.Sequential(
             nn.Linear(8, 16),
             nn.ReLU(),
-            nn.Dropout(0.2)
         )
 
         self.encoder2 = nn.Sequential(
             nn.Linear(16, 32),
             nn.LeakyReLU(),
-            nn.Dropout(0.2)
         )
 
         self.encoder3 = nn.Sequential(
             nn.Linear(32, 16),
             nn.Tanh(),
-            nn.Dropout(0.2)
         )
 
         # Decoder
@@ -56,12 +53,11 @@ class Autoencoder(nn.Module):
         return encoded, decoded
 
 model = Autoencoder()
-optimizer = torch.optim.Adam(model.parameters(), lr=0.001, weight_decay=1e-5)  # weight_decay is the L2 regularization term
 
 
 def train_autoencoder_with_distance_constraint(autoencoder, train_data, paired_indices, non_paired_indices, all_sensor_data, epochs = 1000):
     criterion = nn.L1Loss()
-    optimizer = optim.Adam(autoencoder.parameters(), lr=0.02)
+    optimizer = optim.Adam(autoencoder.parameters(), lr=0.01)
 
     num_epochs = epochs
     scale_reconstruction_loss = 5
@@ -72,7 +68,7 @@ def train_autoencoder_with_distance_constraint(autoencoder, train_data, paired_i
     pair_samples_non_adj = 52
 
     epoch_average_loss = 0
-    epoch_print_rate = 100
+    epoch_print_rate = 1000
 
     for epoch in range(num_epochs):
         epoch_loss = 0.0
@@ -148,7 +144,7 @@ def train_autoencoder_with_distance_constraint(autoencoder, train_data, paired_i
             print(
                 f'{str_epoch} - {str_reconstruction_loss} - {str_adjacent_distance_loss} - {str_non_adjacent_distance_loss} ')
             print(
-                f'AVG = {epoch_average_loss} adjacent_distance ={avg_adjacent_distance / pair_samples_adj:.4f} non_adjacent_distance = {avg_distance / pair_samples_non_adj:.4f} ')
+                f'AVG = {epoch_average_loss}')
 
             # print(f"Average distance for non-adjacent pairs: {avg_distance / pair_samples_adj:.4f}")
             # print(f"Average expected distance for non-adjacent pairs: {avg_expected_distance / pair_samples_adj:.4f}")
@@ -187,7 +183,7 @@ def run_ai(all_sensor_data, sensor_data):
             non_paired_indices.append((indices_properties[i][0], indices_properties[i][1]))
 
     autoencoder = Autoencoder()
-    train_autoencoder_with_distance_constraint(autoencoder, sensor_data, paired_indices, non_paired_indices, all_sensor_data, epochs=20000)
+    train_autoencoder_with_distance_constraint(autoencoder, sensor_data, paired_indices, non_paired_indices, all_sensor_data, epochs=30000)
 
     return autoencoder
 
@@ -445,7 +441,7 @@ def run_loaded_ai():
     # all_sensor_data, sensor_data = preprocess_data(CollectedDataType.Data15x15)
     autoencoder = load_latest_ai(AIType.Autoencoder)
     run_tests(autoencoder, all_sensor_data, sensor_data)
-    run_lee(autoencoder, all_sensor_data, sensor_data)
+    # run_lee(autoencoder, all_sensor_data, sensor_data)
     # run_lee_improved(autoencoder, all_sensor_data, sensor_data)
 
 
@@ -457,9 +453,8 @@ def run_new_ai():
     save_ai("autoencod", AIType.Autoencoder, autoencoder)
     run_tests(autoencoder, all_sensor_data, sensor_data)
 
-
-
-if __name__ == "__main__":
+def run_autoencoder():
     # run_new_ai()
-    run_loaded_ai()
+    # run_loaded_ai()
+    print("Running autoencoder")
     pass

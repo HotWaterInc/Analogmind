@@ -1,7 +1,6 @@
 # singleton for handling data
 import json
-import enum
-from utils import get_project_root
+from src.utils import get_project_root
 from .parameters import CollectedDataType, Paths, get_file_path
 
 def get_file_path(data_sample: CollectedDataType):

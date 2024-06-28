@@ -2,8 +2,7 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 import numpy as np
-from utils import process_data, load_ai
-import math
+from src.utils import process_data, load_ai
 from autoencoder import Autoencoder
 
 

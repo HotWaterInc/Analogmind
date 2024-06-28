@@ -1,6 +1,6 @@
 import json
-from utils import get_project_root, prefix_path_with_root
-from .parameters import CollectedDataType, Paths, get_file_path
+from src.utils import get_project_root, prefix_path_with_root
+from .parameters import CollectedDataType, get_file_path
 
 def read_data_array_from_file(data_sample: CollectedDataType):
     root_path = get_project_root()

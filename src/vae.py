@@ -1,9 +1,7 @@
 import torch
 import torch.nn as nn
-import torch.optim as optim
 import numpy as np
-from utils import normalize_data_min_max, parse_json_string, get_json_data
-import math
+from src.utils import normalize_data_min_max, get_json_data
 from torch.optim import Adam
 
 cuda = True
@@ -310,6 +308,6 @@ def run_ai(all_sensor_data, sensor_data):
     find_all_adjacent_pairs(all_sensor_data, autoencoder, sensor_data)
 
 if __name__ == "__main__":
-    all_sensor_data, sensor_data = process_data("../modules/data_handlers/data.json")
+    all_sensor_data, sensor_data = process_data("modules/data_handlers/data.json")
     run_ai(all_sensor_data, sensor_data)
 
