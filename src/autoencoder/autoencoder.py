@@ -8,7 +8,7 @@ from src.modules.data_handlers.ai_data_processing import normalize_data_min_max
 from src.modules.data_handlers.ai_data_handle import read_data_array_from_file
 from src.modules.data_handlers.parameters import CollectedDataType
 from src.modules.data_handlers.parameters import DATA_SENSORS_FIELD, DATA_PARAMS_FIELD
-from eval import DISTANCE_THRESHOLD
+from .eval import DISTANCE_THRESHOLD
 
 
 indices_properties = []
@@ -443,8 +443,6 @@ def run_loaded_ai():
     run_tests(autoencoder, all_sensor_data, sensor_data)
     # run_lee(autoencoder, all_sensor_data, sensor_data)
     # run_lee_improved(autoencoder, all_sensor_data, sensor_data)
-
-
 
 def run_new_ai():
     all_sensor_data, sensor_data = preprocess_data(CollectedDataType.Data8x8)

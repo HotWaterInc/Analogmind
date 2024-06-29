@@ -21,3 +21,4 @@ class ActionController:
 def detach_action(json_data):
     print("Detaching action")
     actions = ActionController.get_instance()
+    print(json_data)
