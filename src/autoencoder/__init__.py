@@ -1,3 +1,3 @@
-from .autoencoder import run_autoencoder
+from .autoencoder import run_autoencoder, Autoencoder
 
-__all__ = ['run_autoencoder']
+__all__ = ['run_autoencoder', 'Autoencoder']

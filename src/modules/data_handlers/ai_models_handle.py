@@ -76,3 +76,10 @@ def load_ai_version(model_type: AIType, version: int):
     absolute_model_path = prefix_path_with_root(model_path + complete_name)
     model = torch.load(absolute_model_path)
     return model
+
+def load_manually_saved_ai(model_name:str):
+    model_path = get_model_path(AIType.ManuallySaved)
+    absolute_model_path = prefix_path_with_root(model_path + model_name)
+    print(absolute_model_path)
+    model = torch.load(absolute_model_path)
+    return model

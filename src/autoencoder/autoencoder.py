@@ -3,11 +3,11 @@ import torch.nn as nn
 import torch.optim as optim
 import numpy as np
 import math
-from src.modules.data_handlers.ai_models_handle import save_ai, load_latest_ai, AIType
+from src.modules.data_handlers.ai_models_handle import save_ai, load_latest_ai, load_manually_saved_ai, AIType
 from src.modules.data_handlers.ai_data_processing import normalize_data_min_max
-from src.modules.data_handlers.ai_data_handle import read_data_array_from_file
+from src.modules.data_handlers.ai_data_handle import read_data_from_file, read_other_data_from_file, write_other_data_to_file
 from src.modules.data_handlers.parameters import CollectedDataType
-from src.modules.data_handlers.parameters import DATA_SENSORS_FIELD, DATA_PARAMS_FIELD
+from src.modules.data_handlers.parameters import *
 from .eval import DISTANCE_THRESHOLD
 
 
@@ -53,6 +53,7 @@ class Autoencoder(nn.Module):
         return encoded, decoded
 
 model = Autoencoder()
+
 
 
 def train_autoencoder_with_distance_constraint(autoencoder, train_data, paired_indices, non_paired_indices, all_sensor_data, epochs = 1000):
@@ -154,9 +155,9 @@ def train_autoencoder_with_distance_constraint(autoencoder, train_data, paired_i
 
 
 def preprocess_data(data_type):
-    json_data = read_data_array_from_file(data_type)
-
+    json_data = read_data_from_file(data_type)
     all_sensor_data = [[item[DATA_SENSORS_FIELD], item[DATA_PARAMS_FIELD]["i"], item[DATA_PARAMS_FIELD]["j"]] for item in json_data]
+
     sensor_data = [item[DATA_SENSORS_FIELD] for item in json_data]
     sensor_data = normalize_data_min_max(np.array(sensor_data))
     sensor_data = torch.tensor(sensor_data, dtype=torch.float32)
@@ -439,7 +440,10 @@ def run_lee(autoencoder, all_sensor_data, sensor_data):
 def run_loaded_ai():
     all_sensor_data, sensor_data = preprocess_data(CollectedDataType.Data8x8)
     # all_sensor_data, sensor_data = preprocess_data(CollectedDataType.Data15x15)
-    autoencoder = load_latest_ai(AIType.Autoencoder)
+
+    # autoencoder = load_latest_ai(AIType.Autoencoder)
+    autoencoder = load_manually_saved_ai("autoenc_8x8.pth")
+
     run_tests(autoencoder, all_sensor_data, sensor_data)
     # run_lee(autoencoder, all_sensor_data, sensor_data)
     # run_lee_improved(autoencoder, all_sensor_data, sensor_data)
@@ -451,8 +455,56 @@ def run_new_ai():
     save_ai("autoencod", AIType.Autoencoder, autoencoder)
     run_tests(autoencoder, all_sensor_data, sensor_data)
 
+def generate_grid_connections():
+    json_data = read_data_from_file(CollectedDataType.Data8x8)
+    all_sensor_data = [[item[DATA_SENSORS_FIELD], item[DATA_PARAMS_FIELD]["i"], item[DATA_PARAMS_FIELD]["j"]] for item in json_data]
+    process_adjacency_properties(all_sensor_data)
+
+    needed_data = [[item[DATA_SENSORS_FIELD], item[DATA_PARAMS_FIELD]["i"], item[DATA_PARAMS_FIELD]["j"], item[DATA_NAME_FIELD]] for item in json_data]
+
+    connections_array = []
+
+    # iterate indices
+    for i in range(len(indices_properties)):
+        if indices_properties[i][2] == 1:
+            start_indice = indices_properties[i][0]
+            end_indice = indices_properties[i][1]
+
+            start_data = needed_data[start_indice]
+            start_i = start_data[1]
+            start_j = start_data[2]
+            start_name = start_data[3]
+
+            end_data = needed_data[end_indice]
+            end_i = end_data[1]
+            end_j = end_data[2]
+            end_name = end_data[3]
+
+            distance = math.sqrt((start_i - end_i) ** 2 + (start_j - end_j) ** 2)
+            direction_vector = (end_i - start_i, end_j - start_j)
+            normalized_direction_vector = (direction_vector[0] / distance, direction_vector[1] / distance)
+
+            print(f"Start: {start_i}, {start_j} End: {end_i}, {end_j} Distance: {distance} Direction: {normalized_direction_vector}")
+            connections_array.append({
+                "start": start_name,
+                "end": end_name,
+                "distance": distance,
+                "direction": normalized_direction_vector
+            })
+
+    write_other_data_to_file("data8x8_connections.json", connections_array)
+
+
+
+
+
+
 def run_autoencoder():
     # run_new_ai()
     # run_loaded_ai()
-    print("Running autoencoder")
+    generate_grid_connections()
     pass
+
+
+if __name__ == '__main__':
+    run_autoencoder()
