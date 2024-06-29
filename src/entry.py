@@ -6,13 +6,16 @@ from src.modules.data_handlers.ai_models_handle import save_ai, load_latest_ai, 
 
 from autoencoder import *
 
+def start_server_thread():
+    server_thread = threading.Thread(target=start_server, daemon=True)
+    server_thread.start()
+    server_thread.join()
+
+
 if __name__ == "__main__":
     configs()
 
-    # server_thread = threading.Thread(target=start_server, daemon=True)
-    # server_thread.start()
-    # server_thread.join()
-
-    # autoencoder = load_manually_saved_ai("autoenc_8x8.pth")
+    # start_server_thread()
     # run_autoencoder()
+
     pass

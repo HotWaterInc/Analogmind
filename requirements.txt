@@ -1,4 +1,5 @@
-torch~=2.3.0+rocm6.0
-numpy~=1.26.3
-scikit-learn~=1.5.0
-websockets~=12.0
+torch
+scikit-learn
+numpy
+websockets
+manim

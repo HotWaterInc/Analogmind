@@ -501,8 +501,8 @@ def generate_grid_connections():
 
 def run_autoencoder():
     # run_new_ai()
-    # run_loaded_ai()
-    generate_grid_connections()
+    run_loaded_ai()
+    # generate_grid_connections()
     pass
 
 
