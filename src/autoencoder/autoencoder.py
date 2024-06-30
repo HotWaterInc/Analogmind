@@ -390,6 +390,51 @@ def run_lee_improved(autoencoder, all_sensor_data, sensor_data):
             break
 
 
+def find_position_data(json_data, current_position_name):
+    for item in json_data:
+        if item[DATA_NAME_FIELD] == current_position_name:
+            return item[DATA_SENSORS_FIELD]
+
+    return None
+
+
+def find_connections(datapoint_name, connections_data):
+    all_cons = []
+    for connection in connections_data:
+        start = connection["start"]
+        end = connection["end"]
+        distance = connection["distance"]
+        direction = connection["direction"]
+        if start == datapoint_name:
+            all_cons.append((start, end, distance, direction))
+        if end == datapoint_name:
+            direction[0] = -direction[0]
+            direction[1] = -direction[1]
+            all_cons.append((end, start, distance, direction))
+
+    return all_cons
+
+def lee_direction_step(autoencoder, current_position_name, target_position_name, json_data, connection_data):
+    # get embedding for current and target
+    current_position_data = find_position_data(json_data, current_position_name)
+    current_embedding = autoencoder.encoder(current_position_data.unsqueeze(0))
+    target_position_data = find_position_data(json_data, target_position_name)
+    target_embedding = autoencoder.encoder(target_position_data.unsqueeze(0))
+
+    connections = find_connections(current_position_name, connection_data)
+    closest_distance = 1000
+    closest_coords = None
+    for connection in connections:
+        end_point = connection[1]
+        end_point_data = find_position_data(json_data, end_point)
+        end_embedding = autoencoder.encoder(end_point_data.unsqueeze(0))
+        distance = torch.norm((end_embedding - target_embedding), p=2).item()
+        if distance < closest_distance:
+            closest_distance = distance
+            closest_coords = end_point
+
+    return closest_coords
+
 def run_lee(autoencoder, all_sensor_data, sensor_data):
     starting_coords = (3,3)
     target_coords = (11,10)
@@ -504,6 +549,7 @@ def run_autoencoder():
     run_loaded_ai()
     # generate_grid_connections()
     pass
+
 
 
 if __name__ == '__main__':
