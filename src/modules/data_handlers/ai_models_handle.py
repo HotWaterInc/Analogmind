@@ -65,9 +65,10 @@ def get_latest_model_name(model_type: AIType):
 def load_latest_ai(model_type: AIType):
     complete_name = get_latest_model_name(model_type)
     model_path = get_model_path(model_type)
-    print(model_path + complete_name)
     absolute_model_path = prefix_path_with_root(model_path + complete_name)
+
     model = torch.load(absolute_model_path)
+
     return model
 
 def load_ai_version(model_type: AIType, version: int):

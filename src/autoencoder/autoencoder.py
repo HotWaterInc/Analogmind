@@ -63,10 +63,10 @@ def train_autoencoder_with_distance_constraint(autoencoder, train_data, paired_i
     num_epochs = epochs
     scale_reconstruction_loss = 5
     scale_adjacent_distance_loss = 0.3
-    scale_non_adjacent_distance_loss = 0.3
+    scale_non_adjacent_distance_loss = 1
 
     pair_samples_adj = 52
-    pair_samples_non_adj = 52
+    pair_samples_non_adj = 224
 
     epoch_average_loss = 0
     epoch_print_rate = 1000
@@ -83,6 +83,7 @@ def train_autoencoder_with_distance_constraint(autoencoder, train_data, paired_i
         loss.backward()
 
         total_reconstruction_loss += loss.item()
+
         adjacent_distance_loss = torch.tensor(0.0)
 
         sampled_indices = np.random.choice(len(paired_indices), pair_samples_adj, replace=False)
@@ -92,6 +93,7 @@ def train_autoencoder_with_distance_constraint(autoencoder, train_data, paired_i
             # keep adjacent close to each other
             encoded_i = autoencoder.encoder(train_data[i].unsqueeze(0))
             encoded_j = autoencoder.encoder(train_data[j].unsqueeze(0))
+
 
             distance = torch.norm((encoded_i - encoded_j), p=2)
             adjacent_distance_loss += distance * scale_adjacent_distance_loss
@@ -128,7 +130,8 @@ def train_autoencoder_with_distance_constraint(autoencoder, train_data, paired_i
             non_adjacent_distance_loss.backward()
 
         optimizer.step()
-        epoch_loss += total_reconstruction_loss + adjacent_distance_loss + non_adjacent_distance_loss
+
+        epoch_loss += total_reconstruction_loss + adjacent_distance_loss.item() + non_adjacent_distance_loss.item()
         epoch_average_loss += epoch_loss
 
         if epoch % epoch_print_rate == 0:
@@ -137,6 +140,7 @@ def train_autoencoder_with_distance_constraint(autoencoder, train_data, paired_i
             # Print average loss for this epoch
             str_epoch = f'Epoch [{epoch + 1}/{num_epochs}]'
             str_reconstruction_loss = f'Reconstruction Loss: {total_reconstruction_loss :.4f}'
+
             str_adjacent_distance_loss = f'Adjacent Distance Loss: {adjacent_distance_loss :.4f}'
             str_non_adjacent_distance_loss = f'Non-Adjacent Distance Loss: {non_adjacent_distance_loss :.4f}'
 
@@ -184,7 +188,7 @@ def run_ai(all_sensor_data, sensor_data):
             non_paired_indices.append((indices_properties[i][0], indices_properties[i][1]))
 
     autoencoder = Autoencoder()
-    train_autoencoder_with_distance_constraint(autoencoder, sensor_data, paired_indices, non_paired_indices, all_sensor_data, epochs=30000)
+    train_autoencoder_with_distance_constraint(autoencoder, sensor_data, paired_indices, non_paired_indices, all_sensor_data, epochs=25000)
 
     return autoencoder
 
@@ -344,7 +348,6 @@ def run_lee_improved(autoencoder, all_sensor_data, sensor_data):
             return
 
         closest_distances = [1000, 1000, 1000]
-
         selected_coords = [[-1,-1], [-1,-1], [-1,-1]]
 
         for i in range(len(all_sensor_data)):
@@ -393,9 +396,10 @@ def run_lee_improved(autoencoder, all_sensor_data, sensor_data):
 def find_position_data(json_data, current_position_name):
     for item in json_data:
         if item[DATA_NAME_FIELD] == current_position_name:
-            return item[DATA_SENSORS_FIELD]
+            return_tensor = torch.tensor(item[DATA_SENSORS_FIELD], dtype=torch.float32)
+            return return_tensor
 
-    return None
+    raise Exception(f"Could not find position data for {current_position_name}")
 
 
 def find_connections(datapoint_name, connections_data):
@@ -418,22 +422,93 @@ def lee_direction_step(autoencoder, current_position_name, target_position_name,
     # get embedding for current and target
     current_position_data = find_position_data(json_data, current_position_name)
     current_embedding = autoencoder.encoder(current_position_data.unsqueeze(0))
+
     target_position_data = find_position_data(json_data, target_position_name)
     target_embedding = autoencoder.encoder(target_position_data.unsqueeze(0))
 
     connections = find_connections(current_position_name, connection_data)
-    closest_distance = 1000
-    closest_coords = None
-    for connection in connections:
-        end_point = connection[1]
-        end_point_data = find_position_data(json_data, end_point)
-        end_embedding = autoencoder.encoder(end_point_data.unsqueeze(0))
-        distance = torch.norm((end_embedding - target_embedding), p=2).item()
-        if distance < closest_distance:
-            closest_distance = distance
-            closest_coords = end_point
+    conn_names = [connection[1] for connection in connections]
+    second_degree_connections = []
+    for conn_name in conn_names:
+        second_degree_connections += find_connections(conn_name, connection_data)
 
-    return closest_coords
+    for connection in second_degree_connections:
+        start = connection[0]
+        end = connection[1]
+        # if start or end is not in conn_names, we add it
+        if start not in conn_names:
+            conn_names.append(start)
+        if end not in conn_names:
+            conn_names.append(end)
+
+    closest_point = None
+    closest_distances = 1000
+
+    for conn_name in conn_names:
+        conn_data = find_position_data(json_data, conn_name)
+        conn_embedding = autoencoder.encoder(conn_data.unsqueeze(0))
+        distance = torch.norm((conn_embedding - target_embedding), p=2).item()
+
+        if distance < closest_distances:
+            closest_distances = distance
+            closest_point = conn_name
+
+    return closest_point
+
+def lee_improved_direction_step(autoencoder, current_position_name, target_position_name, json_data, connection_data):
+    # get embedding for current and target
+    current_position_data = find_position_data(json_data, current_position_name)
+    current_embedding = autoencoder.encoder(current_position_data.unsqueeze(0))
+
+    target_position_data = find_position_data(json_data, target_position_name)
+    target_embedding = autoencoder.encoder(target_position_data.unsqueeze(0))
+
+    connections = find_connections(current_position_name, connection_data)
+    conn_names = [connection[1] for connection in connections]
+    second_degree_connections = []
+    for conn_name in conn_names:
+        second_degree_connections += find_connections(conn_name, connection_data)
+
+    for connection in second_degree_connections:
+        start = connection[0]
+        end = connection[1]
+        # if start or end is not in conn_names, we add it
+        if start not in conn_names:
+            conn_names.append(start)
+        if end not in conn_names:
+            conn_names.append(end)
+
+    if current_position_name == "1_3":
+        print(connections)
+
+    if current_position_name == "1_3":
+        print(conn_names)
+
+    closest_points = [None, None, None]
+    closest_distances = [1000, 1000, 1000]
+
+    for conn_name in conn_names:
+        conn_data = find_position_data(json_data, conn_name)
+        conn_embedding = autoencoder.encoder(conn_data.unsqueeze(0))
+        distance = torch.norm((conn_embedding - target_embedding), p=2).item()
+
+        if distance < closest_distances[0]:
+            closest_distances[2] = closest_distances[1]
+            closest_distances[1] = closest_distances[0]
+            closest_distances[0] = distance
+            closest_points[2] = closest_points[1]
+            closest_points[1] = closest_points[0]
+            closest_points[0] = conn_name
+        elif distance < closest_distances[1]:
+            closest_distances[2] = closest_distances[1]
+            closest_distances[1] = distance
+            closest_points[2] = closest_points[1]
+            closest_points[1] = conn_name
+        elif distance < closest_distances[2]:
+            closest_distances[2] = distance
+            closest_points[2] = conn_name
+
+    return closest_points
 
 def run_lee(autoencoder, all_sensor_data, sensor_data):
     starting_coords = (3,3)
@@ -486,12 +561,11 @@ def run_loaded_ai():
     all_sensor_data, sensor_data = preprocess_data(CollectedDataType.Data8x8)
     # all_sensor_data, sensor_data = preprocess_data(CollectedDataType.Data15x15)
 
-    # autoencoder = load_latest_ai(AIType.Autoencoder)
-    autoencoder = load_manually_saved_ai("autoenc_8x8.pth")
+    autoencoder = load_latest_ai(AIType.Autoencoder)
+    # autoencoder = load_manually_saved_ai("autoenc_8x8.pth")
 
     run_tests(autoencoder, all_sensor_data, sensor_data)
     # run_lee(autoencoder, all_sensor_data, sensor_data)
-    # run_lee_improved(autoencoder, all_sensor_data, sensor_data)
 
 def run_new_ai():
     all_sensor_data, sensor_data = preprocess_data(CollectedDataType.Data8x8)
