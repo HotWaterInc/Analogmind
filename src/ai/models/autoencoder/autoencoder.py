@@ -3,15 +3,17 @@ import torch.nn as nn
 import torch.optim as optim
 import numpy as np
 import math
-from src.modules.data_handlers.ai_models_handle import save_ai, load_latest_ai, load_manually_saved_ai, AIType
-from src.modules.data_handlers.ai_data_processing import normalize_data_min_max
-from src.modules.data_handlers.ai_data_handle import read_data_from_file, read_other_data_from_file, write_other_data_to_file
-from src.modules.data_handlers.parameters import CollectedDataType
+from src.modules.data_handlers.ai_models_handle import save_ai, load_latest_ai
 from src.modules.data_handlers.parameters import *
-from .eval import DISTANCE_THRESHOLD
+from .parameters import DISTANCE_THRESHOLD
+from src.ai.data_processing.ai_data_processing import preprocess_data
+from src.ai.runtime_data_storage import Storage
+from typing import List, Dict, Union
+from src.utils import array_to_tensor
+from src.ai.data_processing.ai_data_processing import normalize_data_min_max, normalize_data_z_score
 
+storage: Storage = None
 
-indices_properties = []
 
 class Autoencoder(nn.Module):
     def __init__(self):
@@ -52,154 +54,174 @@ class Autoencoder(nn.Module):
         decoded = self.decoder(deenc)
         return encoded, decoded
 
+
 model = Autoencoder()
 
 
+def reconstruction_handling(autoencoder: Autoencoder, data: any, criterion: any,
+                            scale_reconstruction_loss: int = 1) -> torch.Tensor:
+    enc, dec = autoencoder(data)
+    return criterion(dec, data) * scale_reconstruction_loss
 
-def train_autoencoder_with_distance_constraint(autoencoder, train_data, paired_indices, non_paired_indices, all_sensor_data, epochs = 1000):
+
+def adjacent_distance_handling(autoencoder: Autoencoder, adjacent_sample_size: int,
+                               scale_adjacent_distance_loss: float) -> tuple[torch.Tensor, float]:
+    """
+    Keeps adjacent pairs close to each other
+    """
+    adjacent_distance_loss = torch.tensor(0.0)
+    average_distance = 0
+    sampled_pairs = storage.sample_adjacent_datapoints(adjacent_sample_size)
+    for pair in sampled_pairs:
+        # keep adjacent close to each other
+        data_point1 = storage.get_data_tensor_by_name(pair["start"])
+        data_point2 = storage.get_data_tensor_by_name(pair["end"])
+
+        encoded_i = autoencoder.encoder(data_point1.unsqueeze(0))
+        encoded_j = autoencoder.encoder(data_point2.unsqueeze(0))
+
+        distance = torch.norm((encoded_i - encoded_j), p=2)
+        average_distance += distance.item()
+
+        adjacent_distance_loss += distance * scale_adjacent_distance_loss
+
+    adjacent_distance_loss /= adjacent_sample_size
+    average_distance /= adjacent_sample_size
+
+    return adjacent_distance_loss, average_distance
+
+
+def non_adjacent_distance_handling(autoencoder: Autoencoder, non_adjacent_sample_size: int,
+                                   scale_non_adjacent_distance_loss: float, distance_factor: float = 1) -> torch.Tensor:
+    """
+    Keeps non-adjacent pairs far from each other
+    """
+    sampled_pairs = storage.sample_non_adjacent_datapoints(non_adjacent_sample_size)
+    non_adjacent_distance_loss = torch.tensor(0.0)
+
+    for pair in sampled_pairs:
+        datapoint1 = storage.get_data_tensor_by_name(pair["start"])
+        datapoint2 = storage.get_data_tensor_by_name(pair["end"])
+
+        encoded_i = autoencoder.encoder(datapoint1.unsqueeze(0))
+        encoded_j = autoencoder.encoder(datapoint2.unsqueeze(0))
+
+        distance = torch.norm((encoded_i - encoded_j), p=2)
+        expected_distance = pair["distance"] * distance_factor
+
+        non_adjacent_distance_loss += ((distance - expected_distance) ** 2) * scale_non_adjacent_distance_loss
+
+    non_adjacent_distance_loss /= non_adjacent_sample_size
+    return non_adjacent_distance_loss
+
+
+from sklearn.preprocessing import StandardScaler
+
+
+def normalize_data_z_score2(data):
+    """
+    Normalizes the data using the StandardScaler, transforming to mean=0 and std=1
+    """
+    scaler = StandardScaler()
+    return scaler.fit_transform(data)
+
+
+def train_autoencoder_with_distance_constraint(autoencoder, epochs=1000):
+    """
+    Trains the autoencoder with 2 additional losses apart from the reconstruction loss:
+    - adjacent distance loss: keeps adjacent pairs close to each other
+    - non-adjacent distance loss: keeps non-adjacent pairs far from each other ( in a proportional way to the distance
+    between them inferred from the data )
+    """
+
+    # parameters
     criterion = nn.L1Loss()
     optimizer = optim.Adam(autoencoder.parameters(), lr=0.01)
 
     num_epochs = epochs
-    scale_reconstruction_loss = 5
+    scale_reconstruction_loss = 1
     scale_adjacent_distance_loss = 0.3
     scale_non_adjacent_distance_loss = 1
 
-    pair_samples_adj = 52
-    pair_samples_non_adj = 224
+    adjacent_sample_size = 52
+    non_adjacent_sample_size = 224
 
     epoch_average_loss = 0
-    epoch_print_rate = 1000
+    reconstruction_average_loss = 0
+    adjacent_average_loss = 0
+    non_adjacent_average_loss = 0
+
+    epoch_print_rate = 100
+
+    train_data = array_to_tensor(np.array(storage.get_pure_sensor_data()))
 
     for epoch in range(num_epochs):
         epoch_loss = 0.0
-        total_reconstruction_loss = 0.0
-
         optimizer.zero_grad()
 
-        # Forward pass
-        enc, dec = autoencoder(train_data)
-        loss = criterion(dec, train_data) * scale_reconstruction_loss
-        loss.backward()
-
-        total_reconstruction_loss += loss.item()
-
         adjacent_distance_loss = torch.tensor(0.0)
-
-        sampled_indices = np.random.choice(len(paired_indices), pair_samples_adj, replace=False)
-        sampled_pairs = [paired_indices[i] for i in sampled_indices]
-        avg_adjacent_distance = 0
-        for (i, j) in sampled_pairs:
-            # keep adjacent close to each other
-            encoded_i = autoencoder.encoder(train_data[i].unsqueeze(0))
-            encoded_j = autoencoder.encoder(train_data[j].unsqueeze(0))
-
-
-            distance = torch.norm((encoded_i - encoded_j), p=2)
-            adjacent_distance_loss += distance * scale_adjacent_distance_loss
-            avg_adjacent_distance += distance.item()
-
-        adjacent_distance_loss /= pair_samples_adj
-        adjacent_distance_loss.backward()
-
         non_adjacent_distance_loss = torch.tensor(0.0)
 
-        sampled_indices = np.random.choice(len(non_paired_indices), pair_samples_non_adj, replace=False)
-        sampled_pairs = [non_paired_indices[i] for i in sampled_indices]
-        avg_distance = 0
-        avg_expected_distance = 0
+        average_distance_adjacent = 0
 
-        for (i, j) in sampled_pairs:
-            # keep non-adjacent far from each other
-            encoded_i = autoencoder.encoder(train_data[i].unsqueeze(0))
-            encoded_j = autoencoder.encoder(train_data[j].unsqueeze(0))
+        enc, dec = autoencoder(train_data)
+        reconstruction_loss = criterion(dec, train_data) * scale_reconstruction_loss
+        reconstruction_loss.backward()
 
-            i_x, i_y = all_sensor_data[i][1], all_sensor_data[i][2]
-            j_x, j_y = all_sensor_data[j][1], all_sensor_data[j][2]
+        # RECONSTRUCTION LOSS
+        # reconstruction_loss = reconstruction_handling(autoencoder, train_data, criterion, scale_reconstruction_loss)
+        # reconstruction_loss.backward()
 
-            distance = torch.norm((encoded_i - encoded_j), p=2)
-            expected_distance = (math.sqrt((i_x-j_x)**2 + (i_y-j_y)**2)) #amount of distance that should be between indexes
-
-            avg_expected_distance += expected_distance
-            avg_distance += distance.item()
-            non_adjacent_distance_loss += ((distance - expected_distance) ** 2) * scale_non_adjacent_distance_loss
-
-
-        if non_adjacent_distance_loss > 0:
-            non_adjacent_distance_loss /= pair_samples_non_adj
-            non_adjacent_distance_loss.backward()
+        # # ADJACENT DISTANCE LOSS
+        # adjacent_distance_loss, average_distance_adjacent = adjacent_distance_handling(autoencoder,
+        #                                                                                adjacent_sample_size,
+        #                                                                                scale_adjacent_distance_loss)
+        # adjacent_distance_loss.backward()
+        #
+        # # NON-ADJACENT DISTANCE LOSS
+        # non_adjacent_distance_loss = non_adjacent_distance_handling(autoencoder, non_adjacent_sample_size,
+        #                                                             scale_non_adjacent_distance_loss,
+        #                                                             distance_factor=average_distance_adjacent)
+        # non_adjacent_distance_loss.backward()
 
         optimizer.step()
 
-        epoch_loss += total_reconstruction_loss + adjacent_distance_loss.item() + non_adjacent_distance_loss.item()
-        epoch_average_loss += epoch_loss
+        epoch_loss += reconstruction_loss.item() + adjacent_distance_loss.item() + non_adjacent_distance_loss.item()
 
-        if epoch % epoch_print_rate == 0:
+        epoch_average_loss += epoch_loss
+        reconstruction_average_loss += reconstruction_loss.item()
+        adjacent_average_loss += adjacent_distance_loss.item()
+        non_adjacent_average_loss += non_adjacent_distance_loss.item()
+
+        if epoch % epoch_print_rate == 0 and epoch != 0:
             epoch_average_loss /= epoch_print_rate
+            reconstruction_average_loss /= epoch_print_rate
+            adjacent_average_loss /= epoch_print_rate
+            non_adjacent_average_loss /= epoch_print_rate
 
             # Print average loss for this epoch
-            str_epoch = f'Epoch [{epoch + 1}/{num_epochs}]'
-            str_reconstruction_loss = f'Reconstruction Loss: {total_reconstruction_loss :.4f}'
-
-            str_adjacent_distance_loss = f'Adjacent Distance Loss: {adjacent_distance_loss :.4f}'
-            str_non_adjacent_distance_loss = f'Non-Adjacent Distance Loss: {non_adjacent_distance_loss :.4f}'
-
-            str_total_loss = f'Total Loss: {(total_reconstruction_loss + adjacent_distance_loss + non_adjacent_distance_loss):.4f}'
-
+            print(f"EPOCH:{epoch}/{num_epochs}")
             print(
-                f'{str_epoch} - {str_reconstruction_loss} - {str_adjacent_distance_loss} - {str_non_adjacent_distance_loss} ')
-            print(
-                f'AVG = {epoch_average_loss}')
-
-            # print(f"Average distance for non-adjacent pairs: {avg_distance / pair_samples_adj:.4f}")
-            # print(f"Average expected distance for non-adjacent pairs: {avg_expected_distance / pair_samples_adj:.4f}")
-            # print(f"Average distance for adjacent pairs: {avg_adjacent_distance / pair_samples_adj:.4f}")
+                f"AVERAGE LOSS:{epoch_average_loss} | RECONSTRUCTION LOSS:{reconstruction_average_loss} | ADJACENT LOSS:{adjacent_average_loss} | NON-ADJACENT LOSS:{non_adjacent_average_loss}")
+            print(f"average distance between adjacent: {average_distance_adjacent}")
+            print("--------------------------------------------------")
 
     return autoencoder
 
 
-def preprocess_data(data_type):
-    json_data = read_data_from_file(data_type)
-    all_sensor_data = [[item[DATA_SENSORS_FIELD], item[DATA_PARAMS_FIELD]["i"], item[DATA_PARAMS_FIELD]["j"]] for item in json_data]
-
-    sensor_data = [item[DATA_SENSORS_FIELD] for item in json_data]
-    sensor_data = normalize_data_min_max(np.array(sensor_data))
-    sensor_data = torch.tensor(sensor_data, dtype=torch.float32)
-    return all_sensor_data, sensor_data
-
-
-
-def process_adjacency_properties(all_sensor_data):
-    # if indexes are adjacent in the matrix, they are paired
-    for i in range(len(all_sensor_data)):
-        for j in range(i + 1, len(all_sensor_data)):
-            i_x, i_y = all_sensor_data[i][1], all_sensor_data[i][2]
-            j_x, j_y = all_sensor_data[j][1], all_sensor_data[j][2]
-            indices_properties.append((i, j, abs(i_x - j_x) + abs(i_y - j_y)))
-
-def run_ai(all_sensor_data, sensor_data):
-    paired_indices = []
-    non_paired_indices = []
-    length = len(indices_properties)
-    for i in range(length):
-        if indices_properties[i][2] == 1:
-            paired_indices.append((indices_properties[i][0], indices_properties[i][1]))
-        else:
-            non_paired_indices.append((indices_properties[i][0], indices_properties[i][1]))
-
+def run_ai():
     autoencoder = Autoencoder()
-    train_autoencoder_with_distance_constraint(autoencoder, sensor_data, paired_indices, non_paired_indices, all_sensor_data, epochs=25000)
-
+    train_autoencoder_with_distance_constraint(autoencoder, epochs=100)
     return autoencoder
 
 
-def run_tests(autoencoder, all_sensor_data, sensor_data):
-    evaluate_error(sensor_data, autoencoder)
-    check_distances_for_paired_indices(all_sensor_data, autoencoder, sensor_data)
-    find_all_adjacent_pairs(all_sensor_data, autoencoder, sensor_data)
+def run_tests(autoencoder):
+    evaluate_reconstruction_error(autoencoder)
+    avg_distance_adj, avg_distance_non_adj = evaluate_distances_between_pairs(autoencoder)
+    evaluate_adjacency_properties(autoencoder, avg_distance_adj * 1.25)
 
 
-def find_all_adjacent_pairs(all_sensor_data, autoencoder, sensor_data):
+def evaluate_adjacency_properties(autoencoder: Autoencoder, distance_threshold: float):
     found_adjacent_pairs = []
     false_positives = []
     true_positives = []
@@ -228,7 +250,6 @@ def find_all_adjacent_pairs(all_sensor_data, autoencoder, sensor_data):
             j_encoded = autoencoder.encoder(sensor_data[j].unsqueeze(0))
             distance = torch.norm((i_encoded - j_encoded), p=2).item()
 
-
             if abs(i_x - j_x) + abs(i_y - j_y) == 1:
                 true_adjacent_pairs += 1
                 # print(f"({i_x}, {i_y}) - ({j_x}, {j_y}) DISTANCE: {distance:.4f}")
@@ -236,7 +257,7 @@ def find_all_adjacent_pairs(all_sensor_data, autoencoder, sensor_data):
                 true_non_adjacent_pairs += 1
                 # print(f"({i_x}, {i_y}) - ({j_x}, {j_y}) NON ADJC: {distance:.4f}")
 
-            if distance < DISTANCE_THRESHOLD: # it is expected that adjacent distance is about sqrt(2) at least
+            if distance < DISTANCE_THRESHOLD:  # it is expected that adjacent distance is about sqrt(2) at least
                 avg_distance_between_found_adjacent += math.sqrt((ixy[0] - jxy[0]) ** 2 + (ixy[1] - jxy[1]) ** 2)
                 found_adjacent_pairs.append((i, j))
                 # print(f"({i_x}, {i_y}) - ({j_x}, {j_y})")
@@ -252,14 +273,14 @@ def find_all_adjacent_pairs(all_sensor_data, autoencoder, sensor_data):
     print(f"Number of FOUND adjacent DISTANT false positives: {len(really_bad_false_positives)}")
     print(f"Number of FOUND TRUE adjacent pairs: {len(true_positives)}")
 
-
     print(
         f"Total number of pairs: {total_pairs} made of {true_adjacent_pairs} adjacent and {true_non_adjacent_pairs} non-adjacent pairs.")
 
     if len(found_adjacent_pairs) == 0:
         return
     print(f"Percentage of false positives: {len(false_positives) / len(found_adjacent_pairs) * 100:.2f}%")
-    print(f"Percentage of DISTANT false positives: {len(really_bad_false_positives) / len(found_adjacent_pairs) * 100:.2f}%")
+    print(
+        f"Percentage of DISTANT false positives: {len(really_bad_false_positives) / len(found_adjacent_pairs) * 100:.2f}%")
     print(f"Percentage of true positives: {len(true_positives) / len(found_adjacent_pairs) * 100:.2f}%")
 
     print(f"Percentage of adjacent paris found: {len(true_positives) / true_adjacent_pairs * 100:.2f}%")
@@ -268,36 +289,59 @@ def find_all_adjacent_pairs(all_sensor_data, autoencoder, sensor_data):
           f" and between found adjacent pairs: {avg_distance_between_found_adjacent / len(found_adjacent_pairs):.4f}")
 
 
-def check_distances_for_paired_indices(all_sensor_data, autoencoder, sensor_data):
-    adjacent_pairs = []
-    non_adjacent_pairs = []
+def evaluate_distances_between_pairs(autoencoder) -> float:
+    """
+    Gives the average distance between connected pairs ( degree 1 ) and non-connected pairs ( degree 2, 3, 4, etc. )
+    """
+    adjacent_data = storage.get_adjacency_data()
+    non_adjacent_data = storage.get_non_adjacent_data()
 
-    distance_adjacent = []
-    distance_non_adjacent = []
-    for i in range(len(all_sensor_data)):
-        for j in range(i + 1, len(all_sensor_data)):
-            i_x, i_y = all_sensor_data[i][1], all_sensor_data[i][2]
-            j_x, j_y = all_sensor_data[j][1], all_sensor_data[j][2]
+    average_adjacent_embedding_distance = 0
+    average_non_adjacent_embedding_distance = 0
 
-            i_encoded = autoencoder.encoder(sensor_data[i].unsqueeze(0))
-            j_encoded = autoencoder.encoder(sensor_data[j].unsqueeze(0))
+    for connection in adjacent_data:
+        start = connection["start"]
+        end = connection["end"]
 
-            distance = torch.norm((i_encoded - j_encoded), p=2).item()
+        start_data = storage.get_data_tensor_by_name(start)
+        end_data = storage.get_data_tensor_by_name(end)
 
-            if abs(i_x - j_x) + abs(i_y - j_y) <= 1:
-                adjacent_pairs.append((i, j))
-                distance_adjacent.append(distance)
-            else:
-                non_adjacent_pairs.append((i, j))
-                distance_non_adjacent.append(distance)
+        start_embedding = autoencoder.encoder(start_data.unsqueeze(0))
+        end_embedding = autoencoder.encoder(end_data.unsqueeze(0))
 
-    print(f"Average distance for adjacent pairs: {sum(distance_adjacent) / len(distance_adjacent):.4f}")
-    print(f"Average distance for non-adjacent pairs: {sum(distance_non_adjacent) / len(distance_non_adjacent):.4f}")
+        distance_from_embeddings = torch.norm((start_embedding - end_embedding), p=2).item()
+        average_adjacent_embedding_distance += distance_from_embeddings
+
+    for connection in non_adjacent_data:
+        start = connection["start"]
+        end = connection["end"]
+
+        start_data = storage.get_data_tensor_by_name(start)
+        end_data = storage.get_data_tensor_by_name(end)
+
+        start_embedding = autoencoder.encoder(start_data.unsqueeze(0))
+        end_embedding = autoencoder.encoder(end_data.unsqueeze(0))
+
+        distance_from_embeddings = torch.norm((start_embedding - end_embedding), p=2).item()
+        average_non_adjacent_embedding_distance += distance_from_embeddings
+
+    average_adjacent_embedding_distance /= len(adjacent_data)
+    print(f"Average distance between connected pairs: {average_adjacent_embedding_distance:.4f}")
+    average_non_adjacent_embedding_distance /= len(non_adjacent_data)
+    print(f"Average distance between non-connected pairs: {average_non_adjacent_embedding_distance:.4f}")
+
+    return average_adjacent_embedding_distance
 
 
-def evaluate_error(train_data, autoencoder):
-    print("\nEvaluation on random samples from training data:")
+def evaluate_reconstruction_error(autoencoder: Autoencoder) -> None:
+    """
+    Evaluates the reconstruction error on random samples from the training data
+    """
+    print("\n")
+    print("Evaluation on random samples from training data:")
+
     nr_of_samples = 64
+    train_data = array_to_tensor(np.array(storage.get_pure_sensor_data()))
     indices = np.random.choice(len(train_data), nr_of_samples, replace=False)
     total_error = 0
     with torch.no_grad():
@@ -309,15 +353,16 @@ def evaluate_error(train_data, autoencoder):
     print(
         f'Total error on samples: {total_error:.4f} so for each sample the average error is {total_error / (nr_of_samples * 8):.4f}')
 
+
 def run_lee_improved(autoencoder, all_sensor_data, sensor_data):
     # same as normal lee, but keeps a queue of current pairs, and for each one of them takes the 3 closes adjacent pairs and puts them in the queue
     # if the current pair is the target pair, the algorithm stops
 
-    starting_coords = (2,2)
+    starting_coords = (2, 2)
     target_coords = (2, 12)
     start_coords_data = []
     end_coords_data = []
-    banned_coords = [(0,5), (1,5), (2,5), (3,5), (4,5), (5,5), (6,5)]
+    banned_coords = [(0, 5), (1, 5), (2, 5), (3, 5), (4, 5), (5, 5), (6, 5)]
 
     for i in range(len(all_sensor_data)):
         i_x, i_y = all_sensor_data[i][1], all_sensor_data[i][2]
@@ -327,7 +372,6 @@ def run_lee_improved(autoencoder, all_sensor_data, sensor_data):
             end_coords_data = sensor_data[i].unsqueeze(0)
 
     start_embedding = autoencoder.encoder(start_coords_data)
-
     end_embedding = autoencoder.encoder(end_coords_data)
 
     # take all adjacent coords
@@ -340,7 +384,7 @@ def run_lee_improved(autoencoder, all_sensor_data, sensor_data):
 
     queue = [starting_coords]
 
-    while(current_coords != target_coords):
+    while (current_coords != target_coords):
         current_coords = queue.pop(0)
         explored_coords.append(current_coords)
         print(f"Current coords: {current_coords}")
@@ -348,7 +392,7 @@ def run_lee_improved(autoencoder, all_sensor_data, sensor_data):
             return
 
         closest_distances = [1000, 1000, 1000]
-        selected_coords = [[-1,-1], [-1,-1], [-1,-1]]
+        selected_coords = [[-1, -1], [-1, -1], [-1, -1]]
 
         for i in range(len(all_sensor_data)):
             i_x, i_y = all_sensor_data[i][1], all_sensor_data[i][2]
@@ -381,13 +425,10 @@ def run_lee_improved(autoencoder, all_sensor_data, sensor_data):
                 #     closest_distances[2] = distance
                 #     place_in_queue = True
 
-
-
         # queue.append(selected_coords[0])
         for selected_coord in selected_coords:
             if selected_coord not in explored_coords and selected_coord not in queue:
                 queue.append(selected_coord)
-
 
         if current_coords == target_coords:
             break
@@ -417,6 +458,7 @@ def find_connections(datapoint_name, connections_data):
             all_cons.append((end, start, distance, direction))
 
     return all_cons
+
 
 def lee_direction_step(autoencoder, current_position_name, target_position_name, json_data, connection_data):
     # get embedding for current and target
@@ -454,6 +496,7 @@ def lee_direction_step(autoencoder, current_position_name, target_position_name,
             closest_point = conn_name
 
     return closest_point
+
 
 def lee_improved_direction_step(autoencoder, current_position_name, target_position_name, json_data, connection_data):
     # get embedding for current and target
@@ -510,9 +553,10 @@ def lee_improved_direction_step(autoencoder, current_position_name, target_posit
 
     return closest_points
 
+
 def run_lee(autoencoder, all_sensor_data, sensor_data):
-    starting_coords = (3,3)
-    target_coords = (11,10)
+    starting_coords = (3, 3)
+    target_coords = (11, 10)
 
     start_coords_data = []
     end_coords_data = []
@@ -535,7 +579,7 @@ def run_lee(autoencoder, all_sensor_data, sensor_data):
     current_coords = starting_coords
     explored_coords = []
 
-    while(current_coords != target_coords):
+    while (current_coords != target_coords):
         current_embedding = autoencoder.encoder(sensor_data[i].unsqueeze(0))
         closest_distance = 1000
         closest_coords = None
@@ -567,63 +611,23 @@ def run_loaded_ai():
     run_tests(autoencoder, all_sensor_data, sensor_data)
     # run_lee(autoencoder, all_sensor_data, sensor_data)
 
-def run_new_ai():
-    all_sensor_data, sensor_data = preprocess_data(CollectedDataType.Data8x8)
-    process_adjacency_properties(all_sensor_data)
-    autoencoder = run_ai(all_sensor_data, sensor_data)
-    save_ai("autoencod", AIType.Autoencoder, autoencoder)
-    run_tests(autoencoder, all_sensor_data, sensor_data)
 
-def generate_grid_connections():
-    json_data = read_data_from_file(CollectedDataType.Data8x8)
-    all_sensor_data = [[item[DATA_SENSORS_FIELD], item[DATA_PARAMS_FIELD]["i"], item[DATA_PARAMS_FIELD]["j"]] for item in json_data]
-    process_adjacency_properties(all_sensor_data)
+def run_new_ai() -> None:
+    global storage
+    storage.load_raw_data(CollectedDataType.Data8x8)
+    storage.normalize_all_data()
 
-    needed_data = [[item[DATA_SENSORS_FIELD], item[DATA_PARAMS_FIELD]["i"], item[DATA_PARAMS_FIELD]["j"], item[DATA_NAME_FIELD]] for item in json_data]
-
-    connections_array = []
-
-    # iterate indices
-    for i in range(len(indices_properties)):
-        if indices_properties[i][2] == 1:
-            start_indice = indices_properties[i][0]
-            end_indice = indices_properties[i][1]
-
-            start_data = needed_data[start_indice]
-            start_i = start_data[1]
-            start_j = start_data[2]
-            start_name = start_data[3]
-
-            end_data = needed_data[end_indice]
-            end_i = end_data[1]
-            end_j = end_data[2]
-            end_name = end_data[3]
-
-            distance = math.sqrt((start_i - end_i) ** 2 + (start_j - end_j) ** 2)
-            direction_vector = (end_i - start_i, end_j - start_j)
-            normalized_direction_vector = (direction_vector[0] / distance, direction_vector[1] / distance)
-
-            print(f"Start: {start_i}, {start_j} End: {end_i}, {end_j} Distance: {distance} Direction: {normalized_direction_vector}")
-            connections_array.append({
-                "start": start_name,
-                "end": end_name,
-                "distance": distance,
-                "direction": normalized_direction_vector
-            })
-
-    write_other_data_to_file("data8x8_connections.json", connections_array)
+    autoencoder = run_ai()
+    # save_ai("autoencod_vardist", AIType.Autoencoder, autoencoder)
+    run_tests(autoencoder)
 
 
+def run_autoencoder() -> None:
+    global storage
+    storage = Storage()
 
-
-
-
-def run_autoencoder():
-    # run_new_ai()
-    run_loaded_ai()
-    # generate_grid_connections()
-    pass
-
+    run_new_ai()
+    # run_loaded_ai()
 
 
 if __name__ == '__main__':

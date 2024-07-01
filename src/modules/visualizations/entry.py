@@ -1,13 +1,9 @@
 from manim import *
-from pyglet.window import key
-from manim.opengl import *
 import logging
 import manim
 from src.modules.data_handlers.ai_data_handle import read_data_from_file, read_other_data_from_file, CollectedDataType
-import threading
-from src.autoencoder import Autoencoder, lee_improved_direction_step, lee_direction_step
-from src.modules.data_handlers.ai_models_handle import load_manually_saved_ai, load_latest_ai, AIType
-from time import sleep
+from src.ai.models.autoencoder import Autoencoder, lee_improved_direction_step, lee_direction_step
+from src.modules.data_handlers.ai_models_handle import load_latest_ai, AIType
 
 RENDERER = manim.RendererType.OPENGL
 

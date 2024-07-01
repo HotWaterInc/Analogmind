@@ -1,12 +1,10 @@
+from torch.optim import Adam
 import torch
 import torch.nn as nn
 import numpy as np
-from src.utils import normalize_data_min_max, get_json_data
-from torch.optim import Adam
-
-cuda = True
-DEVICE = torch.device("cuda" if cuda else "cpu")
-
+from src.ai.data_processing.ai_data_processing import normalize_data_min_max
+from src.modules.data_handlers.ai_data_handle import read_data_from_file
+from src.modules.data_handlers.parameters import *
 
 class Encoder(nn.Module):
     def __init__(self, input_dim, hidden_dim, latent_dim):
@@ -70,6 +68,10 @@ class VariationalAutoencoder(nn.Module):
         mean, log_var = self.Encoder(x)
         x_hat = self.Decoder(mean)
         return x_hat, mean, log_var
+
+    def encoder(self, x):
+        mean, log_var = self.Encoder(x)
+        return mean, log_var
 
 
 class ClassicAutoencoder(nn.Module):
@@ -306,6 +308,17 @@ def run_ai(all_sensor_data, sensor_data):
     evaluate_error(sensor_data, autoencoder)
     check_distances_for_paired_indices(all_sensor_data, autoencoder, sensor_data)
     find_all_adjacent_pairs(all_sensor_data, autoencoder, sensor_data)
+
+
+def preprocess_data(data_type):
+    json_data = read_data_from_file(data_type)
+    all_sensor_data = [[item[DATA_SENSORS_FIELD], item[DATA_PARAMS_FIELD]["i"], item[DATA_PARAMS_FIELD]["j"]] for item in json_data]
+
+    sensor_data = [item[DATA_SENSORS_FIELD] for item in json_data]
+    sensor_data = normalize_data_min_max(np.array(sensor_data))
+    sensor_data = torch.tensor(sensor_data, dtype=torch.float32)
+    return all_sensor_data, sensor_data
+
 
 if __name__ == "__main__":
     all_sensor_data, sensor_data = process_data("modules/data_handlers/data.json")
