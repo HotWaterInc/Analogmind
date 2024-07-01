@@ -88,7 +88,7 @@ class Storage():
         }
 
     def get_adjacency_data(self) -> List[AdjacencyDataSample]:
-        return [self._generate_adjacency_data_sample(item) for item in self.raw_connections_data]
+        return [self._generate_adjacency_data_sample(item, 1) for item in self.raw_connections_data]
 
     def add_custom_data(self, key: str, data: any):
         """
@@ -144,6 +144,17 @@ class Storage():
         return sampled_connections
 
     def get_non_adjacent_data(self) -> List[AdjacencyDataSample]:
+        """
+        Returns all the non-adjacent data
+        """
+        if self._non_adjacent_numpy_array is None:
+            self.build_non_adjacent_numpy_array_from_metadata()
+
+        # eliminate item["distance"] that are 1
+        return [self._generate_adjacency_data_sample(item, item["distance"]) for item in self._non_adjacent_numpy_array
+                if item["distance"] > 1]
+
+    def get_all_adjacent_data(self) -> List[AdjacencyDataSample]:
         """
         Returns all the non-adjacent data
         """

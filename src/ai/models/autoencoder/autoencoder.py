@@ -211,68 +211,59 @@ def train_autoencoder_with_distance_constraint(autoencoder, epochs=1000):
 
 def run_ai():
     autoencoder = Autoencoder()
-    train_autoencoder_with_distance_constraint(autoencoder, epochs=100)
+    train_autoencoder_with_distance_constraint(autoencoder, epochs=200)
     return autoencoder
 
 
 def run_tests(autoencoder):
     evaluate_reconstruction_error(autoencoder)
-    avg_distance_adj, avg_distance_non_adj = evaluate_distances_between_pairs(autoencoder)
-    evaluate_adjacency_properties(autoencoder, avg_distance_adj * 1.25)
+    avg_distance_adj = evaluate_distances_between_pairs(autoencoder)
+    evaluate_adjacency_properties(autoencoder, avg_distance_adj)
 
 
-def evaluate_adjacency_properties(autoencoder: Autoencoder, distance_threshold: float):
+def evaluate_adjacency_properties(autoencoder: Autoencoder, average_distance_adjacent: float):
+    """
+    Evaluates how well the encoder finds adjacencies in the data
+    """
+    distance_threshold = average_distance_adjacent * 5
+
+    adjacent_data = storage.get_adjacency_data()
+    non_adjacent_data = storage.get_non_adjacent_data()
+    all_data = adjacent_data + non_adjacent_data
+
     found_adjacent_pairs = []
     false_positives = []
     true_positives = []
 
     really_bad_false_positives = []
 
-    total_pairs = 0
-    true_adjacent_pairs = 0
-    true_non_adjacent_pairs = 0
+    total_pairs = len(all_data)
+    true_adjacent_pairs = len(adjacent_data)
+    true_non_adjacent_pairs = len(non_adjacent_data)
 
-    avg_distance = 0
-    avg_distance_between_found_adjacent = 0
+    for connection in all_data:
+        start = connection["start"]
+        end = connection["end"]
+        real_life_distance = connection["distance"]
 
-    for i in range(len(all_sensor_data)):
-        for j in range(i + 1, len(all_sensor_data)):
-            i_x, i_y = all_sensor_data[i][1], all_sensor_data[i][2]
-            j_x, j_y = all_sensor_data[j][1], all_sensor_data[j][2]
-            total_pairs += 1
+        i_encoded = autoencoder.encoder(storage.get_data_tensor_by_name(start).unsqueeze(0))
+        j_encoded = autoencoder.encoder(storage.get_data_tensor_by_name(end).unsqueeze(0))
+        distance = torch.norm((i_encoded - j_encoded), p=2).item()
 
-            ixy = (i_x, i_y)
-            jxy = (j_x, j_y)
+        if distance < DISTANCE_THRESHOLD:
+            found_adjacent_pairs.append((start, end))
+            if real_life_distance == 1:
+                true_positives.append((start, end))
+            elif real_life_distance > 1:
+                false_positives.append((start, end))
+            elif real_life_distance > 2:
+                really_bad_false_positives.append((start, end))
 
-            avg_distance += math.sqrt((ixy[0] - jxy[0]) ** 2 + (ixy[1] - jxy[1]) ** 2)
-
-            i_encoded = autoencoder.encoder(sensor_data[i].unsqueeze(0))
-            j_encoded = autoencoder.encoder(sensor_data[j].unsqueeze(0))
-            distance = torch.norm((i_encoded - j_encoded), p=2).item()
-
-            if abs(i_x - j_x) + abs(i_y - j_y) == 1:
-                true_adjacent_pairs += 1
-                # print(f"({i_x}, {i_y}) - ({j_x}, {j_y}) DISTANCE: {distance:.4f}")
-            else:
-                true_non_adjacent_pairs += 1
-                # print(f"({i_x}, {i_y}) - ({j_x}, {j_y}) NON ADJC: {distance:.4f}")
-
-            if distance < DISTANCE_THRESHOLD:  # it is expected that adjacent distance is about sqrt(2) at least
-                avg_distance_between_found_adjacent += math.sqrt((ixy[0] - jxy[0]) ** 2 + (ixy[1] - jxy[1]) ** 2)
-                found_adjacent_pairs.append((i, j))
-                # print(f"({i_x}, {i_y}) - ({j_x}, {j_y})")
-                if abs(i_x - j_x) + abs(i_y - j_y) > 2:
-                    really_bad_false_positives.append((i, j))
-                if abs(i_x - j_x) + abs(i_y - j_y) > 1:
-                    false_positives.append((i, j))
-                elif abs(i_x - j_x) + abs(i_y - j_y) == 1:
-                    true_positives.append((i, j))
-
+    print("PREVIOUS METRICS --------------------------")
     print(f"Number of FOUND adjacent pairs: {len(found_adjacent_pairs)}")
     print(f"Number of FOUND adjacent false positives: {len(false_positives)}")
     print(f"Number of FOUND adjacent DISTANT false positives: {len(really_bad_false_positives)}")
     print(f"Number of FOUND TRUE adjacent pairs: {len(true_positives)}")
-
     print(
         f"Total number of pairs: {total_pairs} made of {true_adjacent_pairs} adjacent and {true_non_adjacent_pairs} non-adjacent pairs.")
 
@@ -282,11 +273,25 @@ def evaluate_adjacency_properties(autoencoder: Autoencoder, distance_threshold: 
     print(
         f"Percentage of DISTANT false positives: {len(really_bad_false_positives) / len(found_adjacent_pairs) * 100:.2f}%")
     print(f"Percentage of true positives: {len(true_positives) / len(found_adjacent_pairs) * 100:.2f}%")
+    print(f"Percentage of adjacent pairs from total found: {len(true_positives) / true_adjacent_pairs * 100:.2f}%")
+    print("--------------------------------------------------")
 
-    print(f"Percentage of adjacent paris found: {len(true_positives) / true_adjacent_pairs * 100:.2f}%")
+    # points which are far from each other yet have very close embeddings
+    sinking_points = 0
+    for connection in all_data:
+        start = connection["start"]
+        end = connection["end"]
+        real_life_distance = connection["distance"]
 
-    print(f"Average distance between all pairs: {avg_distance / total_pairs:.4f}"
-          f" and between found adjacent pairs: {avg_distance_between_found_adjacent / len(found_adjacent_pairs):.4f}")
+        i_encoded = autoencoder.encoder(storage.get_data_tensor_by_name(start).unsqueeze(0))
+        j_encoded = autoencoder.encoder(storage.get_data_tensor_by_name(end).unsqueeze(0))
+        distance = torch.norm((i_encoded - j_encoded), p=2).item()
+
+        if distance < DISTANCE_THRESHOLD and real_life_distance > 2:
+            sinking_points += 1
+
+    print("NEW METRICS --------------------------")
+    print(f"Number of sinking points: {sinking_points}")
 
 
 def evaluate_distances_between_pairs(autoencoder) -> float:
@@ -294,14 +299,16 @@ def evaluate_distances_between_pairs(autoencoder) -> float:
     Gives the average distance between connected pairs ( degree 1 ) and non-connected pairs ( degree 2, 3, 4, etc. )
     """
     adjacent_data = storage.get_adjacency_data()
-    non_adjacent_data = storage.get_non_adjacent_data()
+    non_adjacent_data = storage.get_all_adjacent_data()
 
-    average_adjacent_embedding_distance = 0
-    average_non_adjacent_embedding_distance = 0
+    average_deg1_distance = 0
+    avg_distances = {}
+    max_distance = 0
 
     for connection in adjacent_data:
         start = connection["start"]
         end = connection["end"]
+        distance = connection["distance"]
 
         start_data = storage.get_data_tensor_by_name(start)
         end_data = storage.get_data_tensor_by_name(end)
@@ -310,11 +317,13 @@ def evaluate_distances_between_pairs(autoencoder) -> float:
         end_embedding = autoencoder.encoder(end_data.unsqueeze(0))
 
         distance_from_embeddings = torch.norm((start_embedding - end_embedding), p=2).item()
-        average_adjacent_embedding_distance += distance_from_embeddings
+        average_deg1_distance += distance_from_embeddings
 
     for connection in non_adjacent_data:
         start = connection["start"]
         end = connection["end"]
+        distance = connection["distance"]
+        max_distance = max(max_distance, distance)
 
         start_data = storage.get_data_tensor_by_name(start)
         end_data = storage.get_data_tensor_by_name(end)
@@ -323,14 +332,25 @@ def evaluate_distances_between_pairs(autoencoder) -> float:
         end_embedding = autoencoder.encoder(end_data.unsqueeze(0))
 
         distance_from_embeddings = torch.norm((start_embedding - end_embedding), p=2).item()
-        average_non_adjacent_embedding_distance += distance_from_embeddings
 
-    average_adjacent_embedding_distance /= len(adjacent_data)
-    print(f"Average distance between connected pairs: {average_adjacent_embedding_distance:.4f}")
-    average_non_adjacent_embedding_distance /= len(non_adjacent_data)
-    print(f"Average distance between non-connected pairs: {average_non_adjacent_embedding_distance:.4f}")
+        if f"{distance}" not in avg_distances:
+            avg_distances[f"{distance}"] = {
+                "sum": 0,
+                "count": 0
+            }
 
-    return average_adjacent_embedding_distance
+        avg_distances[f"{distance}"]["sum"] += distance_from_embeddings
+        avg_distances[f"{distance}"]["count"] += 1
+
+    average_deg1_distance /= len(adjacent_data)
+    print(f"Average distance between connected pairs: {average_deg1_distance:.4f}")
+
+    for distance in range(2, max_distance + 1):
+        if f"{distance}" in avg_distances:
+            avg_distances[f"{distance}"]["sum"] /= avg_distances[f"{distance}"]["count"]
+            print(f"Average distance for distance {distance}: {avg_distances[f'{distance}']['sum']:.4f}")
+
+    return average_deg1_distance
 
 
 def evaluate_reconstruction_error(autoencoder: Autoencoder) -> None:

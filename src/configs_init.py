@@ -13,6 +13,7 @@ def configs_communication():
     communication.send_data = send_data
     communication.receive_data = detach_action
 
+
 def config_actions(action1, action2, action3):
     actions = ActionController.get_instance()
     actions.action1 = action1
@@ -21,6 +22,8 @@ def config_actions(action1, action2, action3):
 
 
 def configs():
-    # used to configure various parameters of the project such as communication, purpose,
-    # This is the dirty hardcoded entry point for the project with all the concrete settings
+    """
+    Used to configure various parameters of the project such as communication, purpose,
+    This is the dirty hardcoded entry point for the project with all the concrete settings
+    """
     configs_communication()
