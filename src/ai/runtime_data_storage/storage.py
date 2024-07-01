@@ -175,6 +175,12 @@ class Storage():
         """
         return [item["data"] for item in self.raw_env_data]
 
+    def get_raw_env_data(self):
+        return self.raw_env_data
+
+    def get_raw_connections_data(self):
+        return self.raw_connections_data
+
     def get_datapoint_by_name(self, name: str):
         """
         Returns the data point by its name

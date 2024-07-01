@@ -3,7 +3,7 @@ import torch.nn as nn
 import torch.optim as optim
 import numpy as np
 import math
-from src.modules.data_handlers.ai_models_handle import save_ai, load_latest_ai
+from src.modules.data_handlers.ai_models_handle import save_ai, load_latest_ai, load_manually_saved_ai
 from src.modules.data_handlers.parameters import *
 from .parameters import DISTANCE_THRESHOLD
 from src.ai.data_processing.ai_data_processing import preprocess_data
@@ -81,8 +81,8 @@ def adjacent_distance_handling(autoencoder: Autoencoder, adjacent_sample_size: i
         encoded_j = autoencoder.encoder(data_point2.unsqueeze(0))
 
         distance = torch.norm((encoded_i - encoded_j), p=2)
-        average_distance += distance.item()
 
+        average_distance += distance.item()
         adjacent_distance_loss += distance * scale_adjacent_distance_loss
 
     adjacent_distance_loss /= adjacent_sample_size
@@ -109,24 +109,14 @@ def non_adjacent_distance_handling(autoencoder: Autoencoder, non_adjacent_sample
         distance = torch.norm((encoded_i - encoded_j), p=2)
         expected_distance = pair["distance"] * distance_factor
 
-        non_adjacent_distance_loss += ((distance - expected_distance) ** 2) * scale_non_adjacent_distance_loss
+        non_adjacent_distance_loss += (((
+                                                    distance - expected_distance) / distance_factor) ** 2) * scale_non_adjacent_distance_loss
 
     non_adjacent_distance_loss /= non_adjacent_sample_size
     return non_adjacent_distance_loss
 
 
-from sklearn.preprocessing import StandardScaler
-
-
-def normalize_data_z_score2(data):
-    """
-    Normalizes the data using the StandardScaler, transforming to mean=0 and std=1
-    """
-    scaler = StandardScaler()
-    return scaler.fit_transform(data)
-
-
-def train_autoencoder_with_distance_constraint(autoencoder, epochs=1000):
+def train_autoencoder_with_distance_constraint(autoencoder: Autoencoder, epochs: int):
     """
     Trains the autoencoder with 2 additional losses apart from the reconstruction loss:
     - adjacent distance loss: keeps adjacent pairs close to each other
@@ -139,9 +129,9 @@ def train_autoencoder_with_distance_constraint(autoencoder, epochs=1000):
     optimizer = optim.Adam(autoencoder.parameters(), lr=0.01)
 
     num_epochs = epochs
-    scale_reconstruction_loss = 1
+    scale_reconstruction_loss = 5
     scale_adjacent_distance_loss = 0.3
-    scale_non_adjacent_distance_loss = 1
+    scale_non_adjacent_distance_loss = 0.04
 
     adjacent_sample_size = 52
     non_adjacent_sample_size = 224
@@ -151,7 +141,7 @@ def train_autoencoder_with_distance_constraint(autoencoder, epochs=1000):
     adjacent_average_loss = 0
     non_adjacent_average_loss = 0
 
-    epoch_print_rate = 100
+    epoch_print_rate = 1000
 
     train_data = array_to_tensor(np.array(storage.get_pure_sensor_data()))
 
@@ -164,25 +154,22 @@ def train_autoencoder_with_distance_constraint(autoencoder, epochs=1000):
 
         average_distance_adjacent = 0
 
-        enc, dec = autoencoder(train_data)
-        reconstruction_loss = criterion(dec, train_data) * scale_reconstruction_loss
+        # RECONSTRUCTION LOSS
+        reconstruction_loss = reconstruction_handling(autoencoder, train_data, criterion, scale_reconstruction_loss)
         reconstruction_loss.backward()
 
-        # RECONSTRUCTION LOSS
-        # reconstruction_loss = reconstruction_handling(autoencoder, train_data, criterion, scale_reconstruction_loss)
-        # reconstruction_loss.backward()
-
         # # ADJACENT DISTANCE LOSS
-        # adjacent_distance_loss, average_distance_adjacent = adjacent_distance_handling(autoencoder,
-        #                                                                                adjacent_sample_size,
-        #                                                                                scale_adjacent_distance_loss)
-        # adjacent_distance_loss.backward()
-        #
+        adjacent_distance_loss, average_distance_adjacent = adjacent_distance_handling(autoencoder,
+                                                                                       adjacent_sample_size,
+                                                                                       scale_adjacent_distance_loss)
+        adjacent_distance_loss.backward()
+
         # # NON-ADJACENT DISTANCE LOSS
-        # non_adjacent_distance_loss = non_adjacent_distance_handling(autoencoder, non_adjacent_sample_size,
-        #                                                             scale_non_adjacent_distance_loss,
-        #                                                             distance_factor=average_distance_adjacent)
-        # non_adjacent_distance_loss.backward()
+        non_adjacent_distance_loss = non_adjacent_distance_handling(autoencoder, non_adjacent_sample_size,
+                                                                    scale_non_adjacent_distance_loss,
+                                                                    distance_factor=min(average_distance_adjacent,
+                                                                                        average_distance_adjacent))
+        non_adjacent_distance_loss.backward()
 
         optimizer.step()
 
@@ -201,9 +188,10 @@ def train_autoencoder_with_distance_constraint(autoencoder, epochs=1000):
 
             # Print average loss for this epoch
             print(f"EPOCH:{epoch}/{num_epochs}")
-            print(
-                f"AVERAGE LOSS:{epoch_average_loss} | RECONSTRUCTION LOSS:{reconstruction_average_loss} | ADJACENT LOSS:{adjacent_average_loss} | NON-ADJACENT LOSS:{non_adjacent_average_loss}")
             print(f"average distance between adjacent: {average_distance_adjacent}")
+            print(
+                f"RECONSTRUCTION LOSS:{reconstruction_average_loss} | ADJACENT LOSS:{adjacent_average_loss} | NON-ADJACENT LOSS:{non_adjacent_average_loss}")
+            print(f"AVERAGE LOSS:{epoch_average_loss}")
             print("--------------------------------------------------")
 
     return autoencoder
@@ -211,7 +199,7 @@ def train_autoencoder_with_distance_constraint(autoencoder, epochs=1000):
 
 def run_ai():
     autoencoder = Autoencoder()
-    train_autoencoder_with_distance_constraint(autoencoder, epochs=200)
+    train_autoencoder_with_distance_constraint(autoencoder, epochs=25000)
     return autoencoder
 
 
@@ -225,7 +213,7 @@ def evaluate_adjacency_properties(autoencoder: Autoencoder, average_distance_adj
     """
     Evaluates how well the encoder finds adjacencies in the data
     """
-    distance_threshold = average_distance_adjacent * 5
+    distance_threshold = average_distance_adjacent * 1.25
 
     adjacent_data = storage.get_adjacency_data()
     non_adjacent_data = storage.get_non_adjacent_data()
@@ -250,7 +238,7 @@ def evaluate_adjacency_properties(autoencoder: Autoencoder, average_distance_adj
         j_encoded = autoencoder.encoder(storage.get_data_tensor_by_name(end).unsqueeze(0))
         distance = torch.norm((i_encoded - j_encoded), p=2).item()
 
-        if distance < DISTANCE_THRESHOLD:
+        if distance < distance_threshold:
             found_adjacent_pairs.append((start, end))
             if real_life_distance == 1:
                 true_positives.append((start, end))
@@ -287,7 +275,7 @@ def evaluate_adjacency_properties(autoencoder: Autoencoder, average_distance_adj
         j_encoded = autoencoder.encoder(storage.get_data_tensor_by_name(end).unsqueeze(0))
         distance = torch.norm((i_encoded - j_encoded), p=2).item()
 
-        if distance < DISTANCE_THRESHOLD and real_life_distance > 2:
+        if distance < distance_threshold and real_life_distance > 2:
             sinking_points += 1
 
     print("NEW METRICS --------------------------")
@@ -480,7 +468,8 @@ def find_connections(datapoint_name, connections_data):
     return all_cons
 
 
-def lee_direction_step(autoencoder, current_position_name, target_position_name, json_data, connection_data):
+def lee_direction_step_second_degree(autoencoder, current_position_name, target_position_name, json_data,
+                                     connection_data):
     # get embedding for current and target
     current_position_data = find_position_data(json_data, current_position_name)
     current_embedding = autoencoder.encoder(current_position_data.unsqueeze(0))
@@ -625,26 +614,25 @@ def run_loaded_ai():
     all_sensor_data, sensor_data = preprocess_data(CollectedDataType.Data8x8)
     # all_sensor_data, sensor_data = preprocess_data(CollectedDataType.Data15x15)
 
-    autoencoder = load_latest_ai(AIType.Autoencoder)
-    # autoencoder = load_manually_saved_ai("autoenc_8x8.pth")
+    # autoencoder = load_latest_ai(AIType.Autoencoder)
+    autoencoder = load_manually_saved_ai("autoenc_dynamic10k.pth")
+    # autoencoder = load_manually_saved_ai("autoenc8x8static25k.pth")
 
-    run_tests(autoencoder, all_sensor_data, sensor_data)
+    run_tests(autoencoder)
     # run_lee(autoencoder, all_sensor_data, sensor_data)
 
 
 def run_new_ai() -> None:
-    global storage
-    storage.load_raw_data(CollectedDataType.Data8x8)
-    storage.normalize_all_data()
-
     autoencoder = run_ai()
-    # save_ai("autoencod_vardist", AIType.Autoencoder, autoencoder)
+    save_ai("autoencod_ref", AIType.Autoencoder, autoencoder)
     run_tests(autoencoder)
 
 
 def run_autoencoder() -> None:
     global storage
     storage = Storage()
+    storage.load_raw_data(CollectedDataType.Data8x8)
+    storage.normalize_all_data()
 
     run_new_ai()
     # run_loaded_ai()
