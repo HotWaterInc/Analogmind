@@ -3,6 +3,7 @@ from modules.external_communication import start_server
 import threading
 from src.modules.visualizations import run_visualization
 from src.ai.models.autoencoder import *
+from src.utils import perror
 
 
 def start_server_thread():
@@ -19,7 +20,7 @@ if __name__ == "__main__":
 
     # start_server_thread()
 
-    run_autoencoder()
-    # run_visualization()
+    # run_autoencoder()
+    run_visualization()
 
     pass

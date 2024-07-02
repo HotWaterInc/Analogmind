@@ -3,6 +3,7 @@ import torch
 import json
 import time
 import os
+import sys
 
 
 def string_to_json(data):
@@ -43,3 +44,7 @@ def prefix_path_with_root(path):
 
 def array_to_tensor(data):
     return torch.tensor(data, dtype=torch.float32)
+
+
+def perror(*args, **kwargs):
+    print("ERROR: ", *args, file=sys.stderr, **kwargs)

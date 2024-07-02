@@ -1,7 +1,8 @@
 import math
-from src.modules.data_handlers.ai_data_handle import read_data_from_file, write_other_data_to_file
-from src.modules.data_handlers.parameters import *
+from src.modules.save_load_handlers.ai_data_handle import read_data_from_file, write_other_data_to_file
+from src.modules.save_load_handlers.parameters import *
 from src.ai.data_processing.ai_data_processing import process_adjacency_properties
+
 
 def generate_grid_connections() -> None:
     """
@@ -12,10 +13,13 @@ def generate_grid_connections() -> None:
     :return: None
     """
     json_data = read_data_from_file(CollectedDataType.Data8x8)
-    all_sensor_data = [[item[DATA_SENSORS_FIELD], item[DATA_PARAMS_FIELD]["i"], item[DATA_PARAMS_FIELD]["j"]] for item in json_data]
+    all_sensor_data = [[item[DATA_SENSORS_FIELD], item[DATA_PARAMS_FIELD]["i"], item[DATA_PARAMS_FIELD]["j"]] for item
+                       in json_data]
     process_adjacency_properties(all_sensor_data)
     indices_properties = []
-    needed_data = [[item[DATA_SENSORS_FIELD], item[DATA_PARAMS_FIELD]["i"], item[DATA_PARAMS_FIELD]["j"], item[DATA_NAME_FIELD]] for item in json_data]
+    needed_data = [
+        [item[DATA_SENSORS_FIELD], item[DATA_PARAMS_FIELD]["i"], item[DATA_PARAMS_FIELD]["j"], item[DATA_NAME_FIELD]]
+        for item in json_data]
 
     connections_array = []
 
@@ -39,7 +43,8 @@ def generate_grid_connections() -> None:
             direction_vector = (end_i - start_i, end_j - start_j)
             normalized_direction_vector = (direction_vector[0] / distance, direction_vector[1] / distance)
 
-            print(f"Start: {start_i}, {start_j} End: {end_i}, {end_j} Distance: {distance} Direction: {normalized_direction_vector}")
+            print(
+                f"Start: {start_i}, {start_j} End: {end_i}, {end_j} Distance: {distance} Direction: {normalized_direction_vector}")
             connections_array.append({
                 "start": start_name,
                 "end": end_name,
@@ -48,4 +53,3 @@ def generate_grid_connections() -> None:
             })
 
     write_other_data_to_file("data8x8_connections.json", connections_array)
-
