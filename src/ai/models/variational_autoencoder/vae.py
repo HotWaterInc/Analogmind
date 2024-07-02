@@ -5,6 +5,11 @@ import numpy as np
 from src.ai.data_processing.ai_data_processing import normalize_data_min_max
 from src.modules.save_load_handlers.ai_data_handle import read_data_from_file
 from src.modules.save_load_handlers.parameters import *
+from src.ai.models.base_model import BaseModel
+from src.ai.runtime_data_storage.storage import Storage
+from src.utils import array_to_tensor
+from src.ai.evaluation.evaluation import evaluate_reconstruction_error, evaluate_distances_between_pairs, \
+    evaluate_adjacency_properties
 
 
 class Encoder(nn.Module):
@@ -47,285 +52,130 @@ class Decoder(nn.Module):
         return x_hat
 
 
-class VariationalAutoencoder(nn.Module):
-    def __init__(self, Encoder, Decoder):
+def reparameterization(mean, var):
+    epsilon = torch.randn_like(var)
+    z = mean + var * epsilon  # reparameterization trick
+    return z
+
+
+class VariationalAutoencoder(BaseModel):
+    def __init__(self, encoder, decoder):
         super(VariationalAutoencoder, self).__init__()
-        self.Encoder = Encoder
-        self.Decoder = Decoder
+        self.encoder = encoder
+        self.decoder = decoder
 
-    def reparameterization(self, mean, var):
-        epsilon = torch.randn_like(var)
-        z = mean + var * epsilon  # reparameterization trick
-        return z
-
-    def forward(self, x):
-        mean, log_var = self.Encoder(x)
-        z = self.reparameterization(mean, torch.exp(0.5 * log_var))  # takes exponential function (log var -> var)
-        x_hat = self.Decoder(z)
-
+    def forward_training(self, x: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+        mean, log_var = self.encoder(x)
+        z = reparameterization(mean, torch.exp(0.5 * log_var))  # takes exponential function (log var -> var)
+        x_hat = self.decoder(z)
         return x_hat, mean, log_var
 
-    def inference(self, x):
-        mean, log_var = self.Encoder(x)
-        x_hat = self.Decoder(mean)
-        return x_hat, mean, log_var
+    def forward_inference(self, x: torch.Tensor) -> torch.Tensor:
+        mean, log_var = self.encoder(x)
+        z = reparameterization(mean, torch.exp(0.5 * log_var))
+        x_hat = self.decoder(z)
+        return x_hat
 
-    def encoder(self, x):
-        mean, log_var = self.Encoder(x)
+    def encoder_training(self, x: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
+        mean, log_var = self.encoder(x)
         return mean, log_var
 
+    def encoder_inference(self, x: torch.Tensor) -> torch.Tensor:
+        mean, log_var = self.encoder(x)
+        return mean
 
-class ClassicAutoencoder(nn.Module):
-    def __init__(self):
-        super(ClassicAutoencoder, self).__init__()
+    def decoder_training(self, x: torch.Tensor, mean: float, log_var: torch.Tensor) -> torch.Tensor:
+        z = reparameterization(mean, torch.exp(0.5 * log_var))
+        x_hat = self.decoder(z)
+        return x_hat
 
-        # Encoder
-        self.encoder1 = nn.Sequential(
-            nn.Linear(8, 16),
-            nn.ReLU(),
-        )
-
-        self.encoder2 = nn.Sequential(
-            nn.Linear(16, 32),
-            nn.LeakyReLU(),
-        )
-
-        self.encoder3 = nn.Sequential(
-            nn.Linear(32, 6),
-            nn.Tanh(),
-        )
-
-        # Decoder
-        self.decoder = nn.Sequential(
-            nn.Linear(6, 8),
-            nn.Sigmoid()
-        )
-
-    def encoder(self, x):
-        l1 = self.encoder1(x)
-        encoded = self.encoder2(l1)
-        deenc = self.encoder3(encoded)
-        return encoded
-
-    def forward(self, x):
-        l1 = self.encoder1(x)
-        encoded = self.encoder2(l1)
-        deenc = self.encoder3(encoded)
-        decoded = self.decoder(deenc)
-        return decoded, encoded, 0  # x hat, mean logvar
-
-    def inference(self, x):
-        l1 = self.encoder1(x)
-        encoded = self.encoder2(l1)
-        deenc = self.encoder3(encoded)
-        decoded = self.decoder(deenc)
-        return decoded, encoded, 0
+    def decoder_inference(self, x: torch.Tensor, mean: float, log_var: torch.Tensor) -> torch.Tensor:
+        return self.decoder_training(x, mean, log_var)
 
 
 def init_autoencoder_variational(input_dim, hidden_dim, latent_dim, output_dim):
     encoder = Encoder(input_dim, hidden_dim, latent_dim)
     decoder = Decoder(latent_dim, hidden_dim, output_dim)
-    autoencoder = VariationalAutoencoder(encoder, decoder)
-    return autoencoder
+    model = VariationalAutoencoder(encoder, decoder)
+    return model
 
 
-def init_autoencoder_classic():
-    autoencoder = ClassicAutoencoder()
-    return autoencoder
-
-
-def process_data(dataset_path='../data.json'):
-    json_data = get_json_data(dataset_path)
-    all_sensor_data = [[item['sensor_data'], item["i_index"], item["j_index"]] for item in json_data]
-    sensor_data = [item['sensor_data'] for item in json_data]
-    sensor_data = normalize_data_min_max(np.array(sensor_data))
-    sensor_data = torch.tensor(sensor_data, dtype=torch.float32)
-
-    return all_sensor_data, sensor_data
-
-
-def train_vae_without_constraint(autoencoder, train_data, all_sensor_data, criterion, epochs):
-    optimizer = Adam(autoencoder.parameters(), lr=0.001)
-
+def train_vae_without_constraint(vae: VariationalAutoencoder, epochs: int) -> VariationalAutoencoder:
+    optimizer = Adam(vae.parameters(), lr=0.01)
     num_epochs = epochs
 
     epoch_average_loss = 0
-    epoch_print_rate = 200
+    epoch_print_rate = 1000
+
+    KL_loss_scale = 0.01
+    reconstruction_loss_scale = 1
+
+    def criterion(x, x_hat, mean, log_var):
+        # prints fist numbers from each
+        reconstruction_loss = nn.functional.binary_cross_entropy(x_hat, x, reduction='sum') / x.size(0)
+        KLD = -0.5 * torch.sum(1 + log_var - mean.pow(2) - log_var.exp()) / x.size(0)
+        return reconstruction_loss * reconstruction_loss_scale + KLD * KL_loss_scale
+
+    train_data = array_to_tensor(np.array(storage.get_pure_sensor_data()))
+
+    reconstruction_average_loss = 0
 
     for epoch in range(num_epochs):
         epoch_loss = 0.0
-        total_reconstruction_loss = 0
+        reconstruction_loss = 0.0
 
         optimizer.zero_grad()
-        # Forward pass
-        x_hat, mean, log_var = autoencoder(train_data)
+
+        # RECONSTRUCTION LOSS
+        x_hat, mean, log_var = vae.forward_training(train_data)
         loss = criterion(train_data, x_hat, mean, log_var)
         loss.backward()
-        total_reconstruction_loss += loss.item()
+
+        reconstruction_loss += loss.item()
+        reconstruction_average_loss += loss.item()
+
         optimizer.step()
 
-        epoch_loss += total_reconstruction_loss
+        epoch_loss += reconstruction_loss
         epoch_average_loss += epoch_loss
 
         if epoch % epoch_print_rate == 0:
             epoch_average_loss /= epoch_print_rate
+            reconstruction_average_loss /= epoch_print_rate
 
-            # Print average loss for this epoch
             str_epoch = f'Epoch [{epoch + 1}/{num_epochs}]'
-            str_reconstruction_loss = f'Reconstruction Loss: {total_reconstruction_loss :.4f}'
+            str_reconstruction_loss = f'Reconstruction Loss: {reconstruction_loss :.4f}'
 
             print(f'{str_epoch} {str_reconstruction_loss}')
 
-    return autoencoder
+            epoch_average_loss = 0
+            reconstruction_average_loss = 0
+
+    return vae
 
 
-def evaluate_error(train_data, autoencoder: VariationalAutoencoder):
-    print("\nEvaluation on random samples from training data:")
-    nr_of_samples = 64
-    indices = np.random.choice(len(train_data), nr_of_samples, replace=False)
-    total_error = 0
-    with torch.no_grad():
-        for i, idx in enumerate(indices):
-            data = train_data[idx].unsqueeze(0)  # Add batch dimension
-            x_hat, mean, log_var = autoencoder.inference(data)
-            total_error += torch.sum(torch.abs(data - x_hat)).item()
+def run_tests(vae: VariationalAutoencoder):
+    global storage
 
-    print(
-        f'Total error on samples: {total_error:.4f} so for each sample the average error is {total_error / (nr_of_samples * 8):.4f}')
+    evaluate_reconstruction_error(vae, storage)
+    avg_distance_adj = evaluate_distances_between_pairs(vae, storage)
+    evaluate_adjacency_properties(vae, storage, avg_distance_adj)
 
 
-def check_distances_for_paired_indices(all_sensor_data, autoencoder: VariationalAutoencoder, sensor_data):
-    adjacent_pairs = []
-    non_adjacent_pairs = []
-
-    distance_adjacent = []
-    distance_non_adjacent = []
-    avg_distance = 0
-    for i in range(len(all_sensor_data)):
-        for j in range(i + 1, len(all_sensor_data)):
-            i_x, i_y = all_sensor_data[i][1], all_sensor_data[i][2]
-            j_x, j_y = all_sensor_data[j][1], all_sensor_data[j][2]
-
-            xh, i_encoded, _ = autoencoder.inference(sensor_data[i].unsqueeze(0))
-            xh, j_encoded, _ = autoencoder.inference(sensor_data[j].unsqueeze(0))
-
-            distance = torch.norm((i_encoded - j_encoded), p=2).item()
-
-            avg_distance += distance
-
-            if abs(i_x - j_x) + abs(i_y - j_y) <= 1:
-                adjacent_pairs.append((i, j))
-                distance_adjacent.append(distance)
-            else:
-                non_adjacent_pairs.append((i, j))
-                distance_non_adjacent.append(distance)
-
-    print(f"Average distance for adjacent pairs: {sum(distance_adjacent) / len(distance_adjacent):.4f}")
-    print(f"Average distance for non-adjacent pairs: {sum(distance_non_adjacent) / len(distance_non_adjacent):.4f}")
-    print(f"Average distance for all pairs: {avg_distance / (len(distance_adjacent) + len(distance_non_adjacent)):.4f}")
+def run_new_ai() -> None:
+    vae = init_autoencoder_variational(8, 16, 32, 8)
+    vae = train_vae_without_constraint(vae, epochs=25000)
+    run_tests(vae)
 
 
-def find_all_adjacent_pairs(all_sensor_data, autoencoder, sensor_data):
-    found_adjacent_pairs = []
-    false_positives = []
-    true_positives = []
+def run_variational_autoencoder():
+    global storage
+    storage = Storage()
+    storage.load_raw_data(CollectedDataType.Data8x8)
+    storage.normalize_all_data()
 
-    really_bad_false_positives = []
-
-    total_pairs = 0
-    true_adjacent_pairs = 0
-    true_non_adjacent_pairs = 0
-
-    avg_distance = 0
-    avg_distance_between_found_adjacent = 0
-
-    for i in range(len(all_sensor_data)):
-        for j in range(i + 1, len(all_sensor_data)):
-            i_x, i_y = all_sensor_data[i][1], all_sensor_data[i][2]
-            j_x, j_y = all_sensor_data[j][1], all_sensor_data[j][2]
-            total_pairs += 1
-
-            ixy = (i_x, i_y)
-            jxy = (j_x, j_y)
-
-            xh, i_encoded, _ = autoencoder.inference(sensor_data[i].unsqueeze(0))
-            xh, j_encoded, _ = autoencoder.inference(sensor_data[j].unsqueeze(0))
-            distance = torch.norm((i_encoded - j_encoded), p=2).item()
-
-            avg_distance += distance
-
-            if abs(i_x - j_x) + abs(i_y - j_y) == 1:
-                true_adjacent_pairs += 1
-                # print(f"({i_x}, {i_y}) - ({j_x}, {j_y}) DISTANCE: {distance:.4f}")
-            else:
-                true_non_adjacent_pairs += 1
-                # print(f"({i_x}, {i_y}) - ({j_x}, {j_y}) NON ADJC: {distance:.4f}")
-
-            if distance < 1.2:  # it is expected that adjacent distance is about sqrt(2) at least
-                avg_distance_between_found_adjacent += distance
-                found_adjacent_pairs.append((i, j))
-                # print(f"({i_x}, {i_y}) - ({j_x}, {j_y})")
-                if abs(i_x - j_x) + abs(i_y - j_y) > 2:
-                    really_bad_false_positives.append((i, j))
-                if abs(i_x - j_x) + abs(i_y - j_y) > 1:
-                    false_positives.append((i, j))
-                elif abs(i_x - j_x) + abs(i_y - j_y) == 1:
-                    true_positives.append((i, j))
-
-    print(f"Number of FOUND adjacent pairs: {len(found_adjacent_pairs)}")
-    print(f"Number of FOUND adjacent false positives: {len(false_positives)}")
-    print(f"Number of FOUND adjacent DISTANT false positives: {len(really_bad_false_positives)}")
-    print(f"Number of FOUND TRUE adjacent pairs: {len(true_positives)}")
-
-    print(
-        f"Total number of pairs: {total_pairs} made of {true_adjacent_pairs} adjacent and {true_non_adjacent_pairs} non-adjacent pairs.")
-
-    if len(found_adjacent_pairs) == 0:
-        return
-    print(f"Percentage of false positives: {len(false_positives) / len(found_adjacent_pairs) * 100:.2f}%")
-    print(
-        f"Percentage of DISTANT false positives: {len(really_bad_false_positives) / len(found_adjacent_pairs) * 100:.2f}%")
-    print(f"Percentage of true positives: {len(true_positives) / len(found_adjacent_pairs) * 100:.2f}%")
-
-    print(f"Percentage of adjacent paris found: {len(true_positives) / true_adjacent_pairs * 100:.2f}%")
-
-    print(f"Average distance between all pairs: {avg_distance / total_pairs:.4f}"
-          f" and between found adjacent pairs: {avg_distance_between_found_adjacent / len(found_adjacent_pairs):.4f}")
+    run_new_ai()
+    # run_loaded_ai()
 
 
-def run_ai(all_sensor_data, sensor_data):
-    autoencoder = init_autoencoder_variational(8, 32, 6, 8)
-
-    # autoencoder = init_autoencoder_classic()
-
-    def criterion_classic(x, x_hat, mean, log_var):
-        # L1 loss
-        return nn.functional.l1_loss(x_hat, x)
-
-    def criterion(x, x_hat, mean, log_var):
-        # prints fist numbers from each
-        reproduction_loss = nn.functional.binary_cross_entropy(x_hat, x, reduction='sum') / x.size(0)
-        KLD = -0.5 * torch.sum(1 + log_var - mean.pow(2) - log_var.exp()) / x.size(0)
-        return reproduction_loss + KLD * 0.001
-
-    autoencoder = train_vae_without_constraint(autoencoder, sensor_data, all_sensor_data, criterion, epochs=2500)
-
-    evaluate_error(sensor_data, autoencoder)
-    check_distances_for_paired_indices(all_sensor_data, autoencoder, sensor_data)
-    find_all_adjacent_pairs(all_sensor_data, autoencoder, sensor_data)
-
-
-def preprocess_data(data_type):
-    json_data = read_data_from_file(data_type)
-    all_sensor_data = [[item[DATA_SENSORS_FIELD], item[DATA_PARAMS_FIELD]["i"], item[DATA_PARAMS_FIELD]["j"]] for item
-                       in json_data]
-
-    sensor_data = [item[DATA_SENSORS_FIELD] for item in json_data]
-    sensor_data = normalize_data_min_max(np.array(sensor_data))
-    sensor_data = torch.tensor(sensor_data, dtype=torch.float32)
-    return all_sensor_data, sensor_data
-
-
-if __name__ == "__main__":
-    all_sensor_data, sensor_data = process_data("modules/data_handlers/data.json")
-    run_ai(all_sensor_data, sensor_data)
+storage: Storage = Storage()

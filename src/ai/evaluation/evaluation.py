@@ -19,7 +19,7 @@ def evaluate_reconstruction_error(model: BaseModel, storage: Storage) -> None:
     with torch.no_grad():
         for i, idx in enumerate(indices):
             data = train_data[idx].unsqueeze(0)  # Add batch dimension
-            reconstructed = model.forward_training(data)
+            reconstructed = model.forward_inference(data)
             total_error += torch.sum(torch.abs(data - reconstructed)).item()
 
     sensor_datapoints = storage.metadata["sensor_distance"]

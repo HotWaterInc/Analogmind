@@ -121,7 +121,7 @@ def non_adjacent_distance_handling(autoencoder: Autoencoder, non_adjacent_sample
     return non_adjacent_distance_loss
 
 
-def train_autoencoder_with_distance_constraint(autoencoder: Autoencoder, epochs: int):
+def train_autoencoder_with_distance_constraint(autoencoder: Autoencoder, epochs: int) -> Autoencoder:
     """
     Trains the autoencoder with 2 additional losses apart from the reconstruction loss:
     - adjacent distance loss: keeps adjacent pairs close to each other
@@ -146,7 +146,7 @@ def train_autoencoder_with_distance_constraint(autoencoder: Autoencoder, epochs:
     adjacent_average_loss = 0
     non_adjacent_average_loss = 0
 
-    epoch_print_rate = 1000
+    epoch_print_rate = 10
     DISTANCE_CONSTANT = 0.5
 
     train_data = array_to_tensor(np.array(storage.get_pure_sensor_data()))
@@ -197,12 +197,17 @@ def train_autoencoder_with_distance_constraint(autoencoder: Autoencoder, epochs:
             print(f"AVERAGE LOSS:{epoch_average_loss}")
             print("--------------------------------------------------")
 
+            epoch_average_loss = 0
+            reconstruction_average_loss = 0
+            adjacent_average_loss = 0
+            non_adjacent_average_loss = 0
+
     return autoencoder
 
 
 def run_ai():
     autoencoder = Autoencoder()
-    train_autoencoder_with_distance_constraint(autoencoder, epochs=10)
+    train_autoencoder_with_distance_constraint(autoencoder, epochs=100)
     return autoencoder
 
 
@@ -231,7 +236,6 @@ def run_new_ai() -> None:
 
 def run_autoencoder() -> None:
     global storage
-    storage = Storage()
     storage.load_raw_data(CollectedDataType.Data8x8)
     storage.normalize_all_data()
 
@@ -239,8 +243,5 @@ def run_autoencoder() -> None:
     # run_loaded_ai()
 
 
-storage: Storage = None
+storage: Storage = Storage()
 model = Autoencoder()
-
-if __name__ == '__main__':
-    run_autoencoder()

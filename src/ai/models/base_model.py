@@ -12,21 +12,21 @@ class BaseModel(nn.Module, ABC):
         pass
 
     @abstractmethod
-    def decoder_inference(self, x: torch.Tensor) -> torch.Tensor:
-        pass
-
-    @abstractmethod
-    def encoder_training(self, x: torch.Tensor) -> torch.Tensor:
-        pass
-
-    @abstractmethod
-    def decoder_training(self, x: torch.Tensor) -> torch.Tensor:
-        pass
-
-    @abstractmethod
-    def forward_training(self, x: torch.Tensor) -> torch.Tensor:
+    def decoder_inference(self, *args) -> torch.Tensor:
         pass
 
     @abstractmethod
     def forward_inference(self, x: torch.Tensor) -> torch.Tensor:
+        pass
+
+    @abstractmethod
+    def encoder_training(self, *args) -> any:
+        pass
+
+    @abstractmethod
+    def decoder_training(self, *args) -> any:
+        pass
+
+    @abstractmethod
+    def forward_training(self, *args) -> any:
         pass
