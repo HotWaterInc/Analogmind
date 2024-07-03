@@ -5,7 +5,10 @@ from action_controller import detach_action
 from action_controller import ActionController
 
 
-def configs_communication():
+def configs_communication() -> None:
+    """
+    Configures the communication interface (basically plugging in the websocket server into the abstract functions)
+    """
     # abstracts away the communication details
     communication = CommunicationInterface.get_instance()
 
@@ -21,7 +24,7 @@ def config_actions(action1, action2, action3):
     actions.action3 = action3
 
 
-def configs():
+def configs() -> None:
     """
     Used to configure various parameters of the project such as communication, purpose,
     This is the dirty hardcoded entry point for the project with all the concrete settings

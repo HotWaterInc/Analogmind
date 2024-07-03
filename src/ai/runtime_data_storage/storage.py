@@ -13,7 +13,7 @@ from src.modules.save_load_handlers.ai_data_handle import read_data_from_file, C
 import numpy as np
 import torch
 from src.ai.data_processing.ai_data_processing import normalize_data_min_max
-from src.utils import perror
+from src.utils import perror, array_to_tensor
 
 
 class RawEnvironmentData(TypedDict):
@@ -185,7 +185,7 @@ class Storage():
         """
         return [item["data"] for item in self.raw_env_data]
 
-    def get_raw_env_data(self) -> List[RawEnvironmentData]:
+    def get_raw_environment_data(self) -> List[RawEnvironmentData]:
         return self.raw_env_data
 
     def get_raw_connections_data(self) -> List[RawConnectionData]:

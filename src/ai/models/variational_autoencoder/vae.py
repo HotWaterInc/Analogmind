@@ -10,6 +10,7 @@ from src.ai.runtime_data_storage.storage import Storage
 from src.utils import array_to_tensor
 from src.ai.evaluation.evaluation import evaluate_reconstruction_error, evaluate_distances_between_pairs, \
     evaluate_adjacency_properties
+from src.modules.save_load_handlers.ai_models_handle import load_latest_ai, load_manually_saved_ai, save_ai
 
 
 class Encoder(nn.Module):
@@ -165,6 +166,14 @@ def run_tests(vae: VariationalAutoencoder):
 def run_new_ai() -> None:
     vae = init_autoencoder_variational(8, 16, 32, 8)
     vae = train_vae_without_constraint(vae, epochs=25000)
+    save_ai("vae", AIType.VariationalAutoencoder, vae)
+
+    run_tests(vae)
+
+
+def run_loaded_ai() -> None:
+    global storage
+    vae = load_latest_ai(AIType.VariationalAutoencoder)
     run_tests(vae)
 
 

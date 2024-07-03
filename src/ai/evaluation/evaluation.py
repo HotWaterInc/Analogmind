@@ -119,9 +119,11 @@ def evaluate_adjacency_properties(model: BaseModel, storage: Storage, average_di
             found_adjacent_pairs.append((start, end))
             if real_life_distance == 1:
                 true_positives.append((start, end))
-            elif real_life_distance > 1:
+
+            if real_life_distance > 1:
                 false_positives.append((start, end))
-            elif real_life_distance > 2:
+
+            if real_life_distance > 2:
                 really_bad_false_positives.append((start, end))
 
     print("PREVIOUS METRICS --------------------------")

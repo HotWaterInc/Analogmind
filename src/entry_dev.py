@@ -12,16 +12,14 @@ def start_server_thread():
     server_thread.start()
 
 
-def testfunc():
-    print("Test function called")
-
-
 if __name__ == "__main__":
+    """
+    This entry is used to develop and test while ai models are still training in the background.
+    """
     configs()
 
     # start_server_thread()
 
-    run_autoencoder()
     # run_visualization()
-    
+
     # run_variational_autoencoder()

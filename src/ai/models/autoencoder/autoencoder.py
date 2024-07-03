@@ -23,12 +23,12 @@ class Autoencoder(BaseModel):
         )
 
         self.encoder2 = nn.Sequential(
-            nn.Linear(16, 32),
+            nn.Linear(16, 6),
             nn.LeakyReLU(),
         )
 
         self.decoder1 = nn.Sequential(
-            nn.Linear(32, 16),
+            nn.Linear(6, 16),
             nn.Tanh(),
         )
 
@@ -146,7 +146,7 @@ def train_autoencoder_with_distance_constraint(autoencoder: Autoencoder, epochs:
     adjacent_average_loss = 0
     non_adjacent_average_loss = 0
 
-    epoch_print_rate = 10
+    epoch_print_rate = 1000
     DISTANCE_CONSTANT = 0.5
 
     train_data = array_to_tensor(np.array(storage.get_pure_sensor_data()))
@@ -207,7 +207,7 @@ def train_autoencoder_with_distance_constraint(autoencoder: Autoencoder, epochs:
 
 def run_ai():
     autoencoder = Autoencoder()
-    train_autoencoder_with_distance_constraint(autoencoder, epochs=100)
+    train_autoencoder_with_distance_constraint(autoencoder, epochs=30000)
     return autoencoder
 
 
@@ -220,9 +220,10 @@ def run_tests(autoencoder):
 
 
 def run_loaded_ai():
-    # autoencoder = load_latest_ai(AIType.Autoencoder)
     # autoencoder = load_manually_saved_ai("autoenc_dynamic10k.pth")
-    autoencoder = load_manually_saved_ai("autoencod_static_30k.pth")
+    # autoencoder = load_manually_saved_ai("autoencod_static_30k.pth")
+
+    autoencoder = load_latest_ai(AIType.Autoencoder)
 
     run_tests(autoencoder)
     # run_lee(autoencoder, all_sensor_data, sensor_data)

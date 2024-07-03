@@ -1,4 +1,5 @@
 from manim import *
+import torch
 import logging
 import manim
 from src.modules.save_load_handlers.ai_data_handle import read_data_from_file, read_other_data_from_file, \
@@ -8,9 +9,14 @@ from src.modules.save_load_handlers.ai_models_handle import load_latest_ai, load
 from src.ai.runtime_data_storage.storage import Storage, Coords
 from src.ai.evaluation.pathfinding_known import pathfinding_step
 from src.ai.models.base_model import BaseModel
+from src.ai.runtime_data_storage.storage import RawConnectionData, RawEnvironmentData
+from src.utils import array_to_tensor
+from src.ai.evaluation.evaluation import evaluate_adjacency_properties, evaluate_reconstruction_error, \
+    evaluate_distances_between_pairs
+from src.ai.evaluation.other_operations import get_model_distance_degree1
 
 RENDERER = manim.RendererType.OPENGL
-storage = None
+storage = Storage()
 
 
 class IntroScene(Scene):
@@ -19,7 +25,39 @@ class IntroScene(Scene):
         super().on_key_press(symbol, modifiers)
 
 
-def add_mobjects_connections(scene, connections_data, mapped_data, distance_scale):
+def add_mobjects_found_adjacencies(scene: Scene, model: BaseModel, datapoints: List[RawEnvironmentData],
+                                   mapped_data: Dict, distance_scale: float):
+    """
+    Adds lines between the points found as adjacent
+    (similar to add_mobjects_connections, but it's based on running the model instead of using the raw data)
+    """
+    global storage
+    length = len(datapoints)
+    average_distance_true_adjacent = get_model_distance_degree1(model, storage, verbose=False)
+
+    # check for each pair if adjacent (by network)
+    for start in range(length):
+        for end in range(start + 1, length):
+            start_data = array_to_tensor(np.array(datapoints[start]["data"]))
+            end_data = array_to_tensor(np.array(datapoints[end]["data"]))
+
+            start_embedding = model.encoder_inference(start_data.unsqueeze(0))
+            end_embedding = model.encoder_inference(end_data.unsqueeze(0))
+
+            distance_from_embeddings = torch.norm((start_embedding - end_embedding), p=2).item()
+
+            # gets coords + draws connections
+            if distance_from_embeddings < average_distance_true_adjacent * 1.25:
+                x_start, y_start = mapped_data[datapoints[start]["name"]]["x"], mapped_data[datapoints[start]["name"]][
+                    "y"]
+                x_end, y_end = mapped_data[datapoints[end]["name"]]["x"], mapped_data[datapoints[end]["name"]]["y"]
+                line = Line(start=x_start * distance_scale * RIGHT + y_start * distance_scale * UP,
+                            end=x_end * distance_scale * RIGHT + y_end * distance_scale * UP, color=WHITE)
+                scene.add(line)
+
+
+def add_mobjects_connections(scene: Scene, connections_data: List[RawConnectionData], mapped_data: Dict,
+                             distance_scale: float) -> None:
     """
     Adds lines between the points in the connections_data
     """
@@ -82,7 +120,7 @@ def build_scene():
     scene = IntroScene()
 
     global storage
-    storage = Storage()
+    # storage = Storage()
     storage.load_raw_data(CollectedDataType.Data8x8)
     storage.normalize_all_data()
 
@@ -93,16 +131,20 @@ def build_scene():
     # quality of life, centered coords at 0,0
     storage.recenter_datapoints_coordinates_map()
     datapoints_coordinates_map = storage.get_datapoints_coordinates_map()
+
+    raw_environment_data = storage.get_raw_environment_data()
     connections_data = storage.get_raw_connections_data()
 
     distance_scale = 1
     radius = 0.2
 
     add_mobjects_datapoints(scene, datapoints_coordinates_map, distance_scale, radius)
-    add_mobjects_vectors_pathfinding(scene, autoencoder, storage, datapoints_coordinates_map, distance_scale, "0_0", 1,
-                                     1)
+    # add_mobjects_vectors_pathfinding(scene, autoencoder, storage, datapoints_coordinates_map, distance_scale, "0_0", 1,
+    #                                  1)
 
     # add_mobjects_connections(scene, connections_data, datapoints_coordinates_map, distance_scale)
+    add_mobjects_found_adjacencies(scene, autoencoder, raw_environment_data, datapoints_coordinates_map,
+                                   distance_scale)
 
     return scene
 
