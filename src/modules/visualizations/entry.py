@@ -124,8 +124,8 @@ def build_scene():
     storage.load_raw_data(CollectedDataType.Data8x8)
     storage.normalize_all_data()
 
-    # autoencoder = load_manually_saved_ai("autoenc_8x8_old_training.pth")
-    autoencoder = load_latest_ai(AIType.Autoencoder)
+    autoencoder = load_manually_saved_ai("autoencod32_high_train.pth")
+    # autoencoder = load_latest_ai(AIType.Autoencoder)
 
     storage.build_datapoints_coordinates_map()
     # quality of life, centered coords at 0,0
@@ -139,12 +139,12 @@ def build_scene():
     radius = 0.2
 
     add_mobjects_datapoints(scene, datapoints_coordinates_map, distance_scale, radius)
-    # add_mobjects_vectors_pathfinding(scene, autoencoder, storage, datapoints_coordinates_map, distance_scale, "0_0", 1,
-    #                                  1)
+    add_mobjects_vectors_pathfinding(scene, autoencoder, storage, datapoints_coordinates_map, distance_scale, "0_0", 1,
+                                     1)
 
     # add_mobjects_connections(scene, connections_data, datapoints_coordinates_map, distance_scale)
-    add_mobjects_found_adjacencies(scene, autoencoder, raw_environment_data, datapoints_coordinates_map,
-                                   distance_scale)
+    # add_mobjects_found_adjacencies(scene, autoencoder, raw_environment_data, datapoints_coordinates_map,
+    #                                distance_scale)
 
     return scene
 

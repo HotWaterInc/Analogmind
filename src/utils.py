@@ -4,6 +4,7 @@ import json
 import time
 import os
 import sys
+from src.modules.external_communication.communication_interface import CommunicationInterface
 
 
 def string_to_json(data):
@@ -48,3 +49,7 @@ def array_to_tensor(data):
 
 def perror(*args, **kwargs):
     print("ERROR: ", *args, file=sys.stderr, **kwargs)
+
+
+def get_instance():
+    return CommunicationInterface.get_instance()

@@ -221,9 +221,9 @@ def run_tests(autoencoder):
 
 def run_loaded_ai():
     # autoencoder = load_manually_saved_ai("autoenc_dynamic10k.pth")
-    # autoencoder = load_manually_saved_ai("autoencod_static_30k.pth")
+    autoencoder = load_manually_saved_ai("autoencod32_high_train.pth")
 
-    autoencoder = load_latest_ai(AIType.Autoencoder)
+    # autoencoder = load_latest_ai(AIType.Autoencoder)
 
     run_tests(autoencoder)
     # run_lee(autoencoder, all_sensor_data, sensor_data)
@@ -240,8 +240,8 @@ def run_autoencoder() -> None:
     storage.load_raw_data(CollectedDataType.Data8x8)
     storage.normalize_all_data()
 
-    run_new_ai()
-    # run_loaded_ai()
+    # run_new_ai()
+    run_loaded_ai()
 
 
 storage: Storage = Storage()

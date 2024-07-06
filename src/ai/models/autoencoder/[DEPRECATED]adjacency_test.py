@@ -6,7 +6,6 @@ from src.utils import process_data, load_ai
 from autoencoder import Autoencoder
 
 
-
 def train_direction_ai(network, input_pairs, expected_direction, autoencoder):
     criterion = nn.L1Loss()
     optimizer = optim.Adam(network.parameters(), lr=0.02)
@@ -47,7 +46,6 @@ def train_direction_ai(network, input_pairs, expected_direction, autoencoder):
 
 
 def run_ai(all_sensor_data, sensor_data, autoencoder):
-
     direction_network = DirectionNetwork()
 
     input_pairs = []
@@ -91,7 +89,6 @@ def run_ai(all_sensor_data, sensor_data, autoencoder):
     return direction_network
 
 
-
 # def run_tests(autoencoder, all_sensor_data, sensor_data):
 #     evaluate_error(sensor_data, autoencoder)
 #     check_distances_for_paired_indices(all_sensor_data, autoencoder, sensor_data)
@@ -119,13 +116,11 @@ def evaluate_error(input_pairs, input_pairs_coords, expected_direction, directio
                 print(f'Input pairs coords: {input_pairs_coords[idx]}')
                 print(f'Expected Direction: {direction}')
                 print(f'Output Direction: {direction_output}')
-                print(f'Random Training Sample {i+1} - Difference: {direction_output.numpy() - direction.numpy()}')
+                print(f'Random Training Sample {i + 1} - Difference: {direction_output.numpy() - direction.numpy()}')
                 displayed_examples -= 1
 
-    print(f'Total error on samples: {total_error:.4f} so for each sample the average error is {total_error/(nr_of_samples):.4f}')
-
-
-
+    print(
+        f'Total error on samples: {total_error:.4f} so for each sample the average error is {total_error / (nr_of_samples):.4f}')
 
 
 # def run_loaded_ai():

@@ -3,6 +3,7 @@ import json
 from src.utils import get_project_root
 from .parameters import CollectedDataType, Paths, get_data_file_path
 
+
 def get_file_path(data_sample: CollectedDataType):
     if data_sample == CollectedDataType.Data8x8:
         return Paths.Data8x8.value
@@ -10,6 +11,7 @@ def get_file_path(data_sample: CollectedDataType):
         return Paths.Data15x15.value
     else:
         return None
+
 
 class ExternalDataHandler:
     __instance = None
@@ -36,7 +38,7 @@ class ExternalDataHandler:
     def append_data(self, data):
         self.data_array.append(data)
 
-    def write_data_array_to_file(self)->None:
+    def write_data_array_to_file(self) -> None:
         data = self.data_array
 
         root_path = get_project_root()

@@ -1,6 +1,5 @@
-from modules.external_communication import CommunicationInterface
-from modules.external_communication import start_websockets
-from modules.external_communication.websockets_server import send_data
+from src.modules.external_communication import start_websockets
+from src.modules.external_communication.websockets_server import send_data
 from action_controller import detach_action
 from action_controller import ActionController
 
@@ -11,6 +10,7 @@ def configs_communication() -> None:
     """
     # abstracts away the communication details
     communication = CommunicationInterface.get_instance()
+    print("IN CONFIG", communication)
 
     communication.start_server = start_websockets
     communication.send_data = send_data
