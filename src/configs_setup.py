@@ -1,5 +1,5 @@
 from src.modules.external_communication import start_websockets
-from src.modules.external_communication.websockets_server import send_data
+from src.modules.external_communication.websockets_server import send_data, CommunicationInterface
 from action_controller import detach_action
 from action_controller import ActionController
 
