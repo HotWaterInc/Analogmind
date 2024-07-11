@@ -3,6 +3,7 @@ import websockets
 import json
 from .communication_interface import receive_data
 from .communication_interface import set_server_started, CommunicationInterface
+from typing import Dict
 
 PORT = 8080
 websocket_global = None
@@ -11,22 +12,21 @@ websocket_global = None
 async def listen(websocket):
     global websocket_global
     websocket_global = websocket
-    print("IN LISTEN", CommunicationInterface.get_instance())
     set_server_started()
     async for message in websocket:
-        receive_data(message)
+        receive_data(json.loads(message))
 
 
-async def send_data_websockets(websocket, message):
+async def send_data_string_websockets(websocket, message):
     await websocket.send(message)
 
 
-def send_data(json_data):
+def send_data_websockets(json_data: Dict[str, any]):
     global websocket_global
     websocket = websocket_global
 
     print("Sending data to websockets: ", json_data)
-    asyncio.run(send_data_websockets(websocket, json.dumps(json_data)))
+    asyncio.run(send_data_string_websockets(websocket, json.dumps(json_data)))
 
 
 async def start_websockets_server():
