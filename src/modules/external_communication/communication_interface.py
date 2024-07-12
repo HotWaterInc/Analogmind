@@ -12,6 +12,8 @@ class CommunicationInterface:
 
     send_data_queue = []
 
+    server_started_callbacks = []
+
     @staticmethod
     def get_instance():
         if CommunicationInterface.__instance is None:
@@ -88,7 +90,6 @@ def send_data(json_data: JsonDataAction) -> None:
 
 def send_pending_data():
     communication = CommunicationInterface.get_instance()
-    print("in pending data", communication)
     for data in communication.send_data_queue:
         send_data(data)
 
@@ -104,8 +105,11 @@ def set_server_started():
 
     # Use a thread because this callback already runs in the thread that started the server ( since the callback is called by the server )
     # and we don't want to block the server, or use asyncio.run again in the callback since it does not work
-    thread = threading.Thread(target=send_pending_data)
-    thread.start()
+
+    # Update: Fixed the issue in the send_data function by using asyncio.create_task along with .run for the 2 cases
+    # where the main thread sends data and the server thread sends data
+    for callback in communication.server_started_callbacks:
+        callback()
 
 
 def start_server():

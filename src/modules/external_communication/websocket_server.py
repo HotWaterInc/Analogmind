@@ -26,12 +26,23 @@ def send_data_websockets(json_data: Dict[str, any]):
     websocket = websocket_global
 
     print("Sending data to websockets: ", json_data)
-    asyncio.run(send_data_string_websockets(websocket, json.dumps(json_data)))
+    message = json.dumps(json_data)
+
+    # data is sometimes sent by the main thread ( which needs to create a new asyncio event loop ) or by the thread
+    # which runs the server ( for example in send_pending_data, the server thread calls this callback which calls
+    # send again )
+
+    # We need to cover both cases
+    try:
+        loop = asyncio.get_running_loop()
+        loop.create_task(send_data_string_websockets(websocket, message))
+    except RuntimeError:  # No running event loop
+        asyncio.run(send_data_string_websockets(websocket, message))
 
 
 async def start_websockets_server():
     server = await websockets.serve(listen, "localhost", PORT)
-    print("Server started at ws://localhost:" + str(PORT))
+    print("Server started at ws://localhost:" + str(PORT) + ", waiting for connections")
     await server.wait_closed()
 
 

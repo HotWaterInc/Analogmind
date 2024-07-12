@@ -1,11 +1,13 @@
-from typing import Dict, TypedDict
+import time
+from typing import Dict, TypedDict, Generator
+from src.action_ai_controller import ActionAIController
 
 from src.action_robot_controller import detach_robot_sample, detach_robot_teleport_relative, \
     detach_robot_rotate_absolute, detach_robot_rotate_relative, detach_robot_teleport_absolute
 
 
 def grid_data_collection(width: float, height: float, grid_size: int, center_x: float, center_y: float,
-                         rotations: int) -> None:
+                         rotations: int) -> Generator[None, None, None]:
     """
     Collects data from the environment in a grid pattern with height and width as the boundaries.
     The height and width are split into grid_size x grid_size grid.
@@ -22,6 +24,7 @@ def grid_data_collection(width: float, height: float, grid_size: int, center_x: 
 
     # Calculate the rotation step
     rotation_step = 360 / rotations
+    actionAiController: ActionAIController = ActionAIController.get_instance()
 
     # Loop through the grid
     for i in range(grid_size):
@@ -30,12 +33,20 @@ def grid_data_collection(width: float, height: float, grid_size: int, center_x: 
             x = start_x + i * step_size
             y = start_y + j * step_size
 
+            print(f"Collecting data at x: {x}, y: {y}")
             detach_robot_teleport_absolute(x, y)
+            yield
+            print("Data collected, continuing")
             # Loop through the rotations
             for k in range(rotations):
                 # Calculate the angle
                 angle = k * rotation_step
 
                 # Send the data
-                detach_robot_rotate_absolute(angle)
-                detach_robot_sample()
+                # detach_robot_rotate_absolute(angle)
+                # if actionAiController.received_data:
+                #     actionAiController.received_data = False
+                #     detach_robot_sample()
+                # else:
+                #     actionAiController.callback = detach_robot_sample
+                #     break

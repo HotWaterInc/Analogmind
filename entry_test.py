@@ -13,21 +13,19 @@ from src.utils import get_instance
 from src.action_robot_controller import detach_robot_sample, detach_robot_teleport_relative, \
     detach_robot_rotate_absolute, detach_robot_rotate_relative
 
-import asyncio
+
+def my_function():
+    print("Starting function")
+    yield  # Suspend here
+    print("Function resumed")
+    yield
 
 
-async def function1():
-    print("Inside function1")
-    function2()
+# Create the generator
+gen = my_function()
 
+# Start the function, it will run until the first yield
+next(gen)
 
-def function2():
-    print("Inside function2")
-    asyncio.create_task(function3())
-
-
-async def function3():
-    print("Inside function3")
-
-
-asyncio.run(function1())
+# Continue the function later
+next(gen)

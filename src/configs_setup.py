@@ -1,7 +1,9 @@
 from src.modules.external_communication import start_websockets
 from src.modules.external_communication.websocket_server import send_data_websockets, start_websockets
-from src.modules.external_communication.communication_interface import CommunicationInterface
+from src.modules.external_communication.communication_interface import CommunicationInterface, send_pending_data
 from src.action_ai_controller import detach_action
+from src.action_ai_controller import ActionAIController
+from typing import Generator
 
 
 def configs_communication() -> None:
@@ -15,13 +17,23 @@ def configs_communication() -> None:
     communication.send_data = send_data_websockets
     communication.receive_data = detach_action
 
+    communication.server_started_callbacks.append(lambda: print("Connection established with robot"))
+    communication.server_started_callbacks.append(send_pending_data)
 
-def config_actions(action1, action2, action3):
-    pass
-    # actions = ActionController.get_instance()
-    # actions.action1 = action1
-    # actions.action2 = action2
-    # actions.action3 = action3
+
+def config_data_collection_pipeline(policy_generator) -> None:
+    """
+    Configures the feedback loop between the policy which sends actions to collect data and the retrieved data which
+    triggers the policy to send more actions
+
+    So: Policy sends action, policy stalls, robot sends back feedback, policy receives back and continues
+    """
+    actionai_controller: ActionAIController = ActionAIController.get_instance()
+    actionai_controller.callback = lambda: next(policy_generator)
+
+    communication: CommunicationInterface = CommunicationInterface.get_instance()
+    communication.server_started_callbacks.append(lambda: next(policy_generator))
+    communication.server_started_callbacks.append(lambda: print("next policy generator called"))
 
 
 def configs() -> None:
