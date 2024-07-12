@@ -7,12 +7,12 @@ from src.modules.save_load_handlers.parameters import *
 from src.ai.runtime_data_storage import Storage
 from typing import List, Dict, Union
 from src.utils import array_to_tensor
-from src.ai.models.base_model import BaseModel
+from src.ai.models.base_autoencoder_model import BaseAutoencoderModel
 from src.ai.evaluation.evaluation import evaluate_reconstruction_error, evaluate_distances_between_pairs, \
     evaluate_adjacency_properties
 
 
-class Autoencoder(BaseModel):
+class Autoencoder(BaseAutoencoderModel):
     def __init__(self):
         super(Autoencoder, self).__init__()
 
@@ -240,8 +240,8 @@ def run_autoencoder() -> None:
     storage.load_raw_data(CollectedDataType.Data8x8)
     storage.normalize_all_data()
 
-    # run_new_ai()
-    run_loaded_ai()
+    run_new_ai()
+    # run_loaded_ai()
 
 
 storage: Storage = Storage()

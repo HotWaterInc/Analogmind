@@ -30,10 +30,10 @@ def write_data_to_file(data_sample: CollectedDataType, data_arr):
         json.dump(data_arr, file, indent=4)
 
 
-def write_other_data_to_file(file_name: str, data_arr):
+def write_other_data_to_file(file_name: str, data: any) -> None:
     data_sample = CollectedDataType.Other
     local_path = get_data_file_path(data_sample)
     file_path = prefix_path_with_root(local_path + file_name)
 
     with open(file_path, 'w') as file:
-        json.dump(data_arr, file, indent=4)
+        json.dump(data, file, indent=4)

@@ -1,11 +1,11 @@
 import numpy as np
 import torch
-from src.ai.models.base_model import BaseModel
+from src.ai.models.base_autoencoder_model import BaseAutoencoderModel
 from src.ai.runtime_data_storage import Storage
 from src.utils import array_to_tensor
 
 
-def get_model_distance_degree1(model: BaseModel, storage: Storage, verbose: bool) -> float:
+def get_model_distance_degree1(model: BaseAutoencoderModel, storage: Storage, verbose: bool) -> float:
     """
     Get the average distance between connected pairs (degree 1)
     """

@@ -44,6 +44,13 @@ def save_ai(name: str, model_type: AIType, model) -> None:
     update_tracker(model_type, name)
 
 
+def save_ai_manually(name: str, model) -> None:
+    model_path = get_model_path(AIType.ManuallySaved)
+    local_model_path = model_path + name + ".pth"
+    absolute_model_path = prefix_path_with_root(local_model_path)
+    torch.save(model, absolute_model_path)
+
+
 def get_model_name_by_version(model_type: AIType, version: int):
     absolute_path = prefix_path_with_root(AI_MODELS_TRACKER_PATH)
     with open(absolute_path, 'r') as file:

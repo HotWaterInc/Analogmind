@@ -3,9 +3,9 @@ import torch
 import torch.nn as nn
 import numpy as np
 from src.ai.data_processing.ai_data_processing import normalize_data_min_max
-from src.modules.save_load_handlers.ai_data_handle import read_data_from_file
+from src.modules.save_load_handlers.data_handle import read_data_from_file
 from src.modules.save_load_handlers.parameters import *
-from src.ai.models.base_model import BaseModel
+from src.ai.models.base_autoencoder_model import BaseAutoencoderModel
 from src.ai.runtime_data_storage.storage import Storage
 from src.utils import array_to_tensor
 from src.ai.evaluation.evaluation import evaluate_reconstruction_error, evaluate_distances_between_pairs, \
@@ -59,7 +59,7 @@ def reparameterization(mean, var):
     return z
 
 
-class VariationalAutoencoder(BaseModel):
+class VariationalAutoencoder(BaseAutoencoderModel):
     def __init__(self, encoder, decoder):
         super(VariationalAutoencoder, self).__init__()
         self.encoder = encoder

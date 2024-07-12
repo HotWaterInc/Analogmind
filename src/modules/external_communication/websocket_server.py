@@ -8,6 +8,12 @@ from typing import Dict
 PORT = 8080
 websocket_global = None
 
+"""
+String to json and json to string conversion should be handled here
+( Or in the server implementation in general ) 
+Communication Interface works with json right now
+"""
+
 
 async def listen(websocket):
     global websocket_global
@@ -25,7 +31,6 @@ def send_data_websockets(json_data: Dict[str, any]):
     global websocket_global
     websocket = websocket_global
 
-    print("Sending data to websockets: ", json_data)
     message = json.dumps(json_data)
 
     # data is sometimes sent by the main thread ( which needs to create a new asyncio event loop ) or by the thread

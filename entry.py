@@ -6,16 +6,6 @@ from src.ai.models.autoencoder import *
 from src.ai.models.variational_autoencoder import *
 from src.utils import perror
 
-
-def start_server_thread():
-    server_thread = threading.Thread(target=start_server)
-    server_thread.start()
-
-
-def testfunc():
-    print("Test function called")
-
-
 if __name__ == "__main__":
     configs()
 

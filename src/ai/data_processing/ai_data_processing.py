@@ -5,7 +5,7 @@ import torch.optim as optim
 import numpy as np
 import math
 from src.modules.save_load_handlers.ai_models_handle import save_ai, load_latest_ai
-from src.modules.save_load_handlers.ai_data_handle import read_data_from_file, write_other_data_to_file
+from src.modules.save_load_handlers.data_handle import read_data_from_file, write_other_data_to_file
 from src.modules.save_load_handlers.parameters import *
 
 
@@ -15,6 +15,18 @@ def normalize_data_min_max(data):
     """
     scaler = MinMaxScaler()
     return scaler.fit_transform(data)
+
+
+def normalize_data_min_max_super(data):
+    """
+    Normalizes for rotation samples at each point ( grid cell, nr of rotations, 24 sensors )
+    eg: (64, 20, 24)
+    """
+    mean = data.mean(dim=(0, 1), keepdim=True)
+    std = data.std(dim=(0, 1), keepdim=True)
+
+    normalized_data = (data - mean) / std
+    return normalized_data
 
 
 def normalize_data_z_score(data):

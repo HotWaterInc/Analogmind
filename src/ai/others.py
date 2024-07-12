@@ -1,5 +1,5 @@
 import math
-from src.modules.save_load_handlers.ai_data_handle import read_data_from_file, write_other_data_to_file
+from src.modules.save_load_handlers.data_handle import read_data_from_file, write_other_data_to_file
 from src.modules.save_load_handlers.parameters import *
 from src.ai.data_processing.ai_data_processing import process_adjacency_properties
 

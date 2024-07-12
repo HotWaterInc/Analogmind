@@ -6,6 +6,7 @@ from src.configs_setup import configs, configs_communication, config_data_collec
 import threading
 from src.modules.visualizations import run_visualization
 from src.ai.models.autoencoder import *
+from src.ai.models.permutor import run_permutor
 from src.ai.models.variational_autoencoder import *
 from src.utils import perror
 from src.modules.external_communication.communication_interface import send_data, CommunicationInterface
@@ -20,29 +21,29 @@ def start_server_thread():
     server_thread.start()
 
 
-def placeholder():
-    yield
-    print("placeholder")
-    yield
-    print("placeholder")
-    yield
-
-
 def data_collection_pipeline():
     """
-    This entry is used to develop and test while ai models are still training in the background.
+    Pipeline for collecting data from the robots
+    Binds the server, and uses a generator like policy which sends data and awaits for response to call next(gen)
     """
     configs_communication()
 
-    generator = grid_data_collection(1, 1, 5, 0, 0, 1)
-    # generator = placeholder()
+    generator = grid_data_collection(2, 2, 8, 0, 0, 20)
 
     config_data_collection_pipeline(generator)
-    server_thread = threading.Thread(target=start_server)
+    server_thread = threading.Thread(target=start_server, name="ServerThread")
     server_thread.start()
 
     server_thread.join()
 
 
+def ai_training_pipeline():
+    """
+    Pipeline for training the AI models
+    """
+    run_permutor()
+    pass
+
+
 if __name__ == "__main__":
-    data_collection_pipeline()
+    ai_training_pipeline()

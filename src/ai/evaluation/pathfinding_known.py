@@ -1,6 +1,6 @@
 import numpy as np
 
-from src.ai.models.base_model import BaseModel
+from src.ai.models.base_autoencoder_model import BaseAutoencoderModel
 from src.ai.runtime_data_storage.storage import Storage, RawEnvironmentData
 from enum import Enum
 from typing import List, Dict, Tuple
@@ -8,7 +8,8 @@ import torch
 from src.utils import array_to_tensor
 
 
-def pathfinding_step(model: BaseModel, storage: Storage, current_position_name: str, target_position_name: str,
+def pathfinding_step(model: BaseAutoencoderModel, storage: Storage, current_position_name: str,
+                     target_position_name: str,
                      first_n_closest: int, max_search_distance: int) -> List[str]:
     """
     From the current position, finds the closest n positions to the target position (so the best n positions to go to)
@@ -47,7 +48,7 @@ def pathfinding_step(model: BaseModel, storage: Storage, current_position_name: 
     return [datapoint["name"] for datapoint in sorted_datapoints[:first_n_closest]]
 
 
-def run_pathfinding(model: BaseModel, storage: Storage, start_position: str, target_position: str,
+def run_pathfinding(model: BaseAutoencoderModel, storage: Storage, start_position: str, target_position: str,
                     max_search_distance: int, first_n_closest: int):
     pass
 

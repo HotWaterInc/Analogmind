@@ -1,11 +1,11 @@
 import numpy as np
 import torch
-from src.ai.models.base_model import BaseModel
+from src.ai.models.base_autoencoder_model import BaseAutoencoderModel
 from src.ai.runtime_data_storage import Storage
 from src.utils import array_to_tensor
 
 
-def evaluate_reconstruction_error(model: BaseModel, storage: Storage) -> None:
+def evaluate_reconstruction_error(model: BaseAutoencoderModel, storage: Storage) -> None:
     """
     Evaluates the reconstruction error on random samples from the training data
     """
@@ -27,7 +27,7 @@ def evaluate_reconstruction_error(model: BaseModel, storage: Storage) -> None:
         f'Total error on samples: {total_error:.4f} so for each sample the average error is {total_error / (nr_of_samples * sensor_datapoints):.4f}')
 
 
-def evaluate_distances_between_pairs(model: BaseModel, storage: Storage) -> float:
+def evaluate_distances_between_pairs(model: BaseAutoencoderModel, storage: Storage) -> float:
     """
     Gives the average distance between connected pairs ( degree 1 ) and non-connected pairs ( degree 2, 3, 4, etc. )
     """
@@ -49,8 +49,8 @@ def evaluate_distances_between_pairs(model: BaseModel, storage: Storage) -> floa
         start_embedding = model.encoder_inference(start_data.unsqueeze(0))
         end_embedding = model.encoder_inference(end_data.unsqueeze(0))
 
-        distance_from_embeddings = torch.norm((start_embedding - end_embedding), p=2).item()
-        average_deg1_distance += distance_from_embeddings
+        distance_between_embeddings = torch.norm((start_embedding - end_embedding), p=2).item()
+        average_deg1_distance += distance_between_embeddings
 
     for connection in non_adjacent_data:
         start_uid = connection["start"]
@@ -64,7 +64,7 @@ def evaluate_distances_between_pairs(model: BaseModel, storage: Storage) -> floa
         start_embedding = model.encoder_inference(start_data.unsqueeze(0))
         end_embedding = model.encoder_inference(end_data.unsqueeze(0))
 
-        distance_from_embeddings = torch.norm((start_embedding - end_embedding), p=2).item()
+        distance_between_embeddings = torch.norm((start_embedding - end_embedding), p=2).item()
 
         if f"{distance}" not in avg_distances:
             avg_distances[f"{distance}"] = {
@@ -72,7 +72,7 @@ def evaluate_distances_between_pairs(model: BaseModel, storage: Storage) -> floa
                 "count": 0
             }
 
-        avg_distances[f"{distance}"]["sum"] += distance_from_embeddings
+        avg_distances[f"{distance}"]["sum"] += distance_between_embeddings
         avg_distances[f"{distance}"]["count"] += 1
 
     average_deg1_distance /= len(adjacent_data)
@@ -86,7 +86,7 @@ def evaluate_distances_between_pairs(model: BaseModel, storage: Storage) -> floa
     return average_deg1_distance
 
 
-def evaluate_adjacency_properties(model: BaseModel, storage: Storage, average_distance_adjacent: float):
+def evaluate_adjacency_properties(model: BaseAutoencoderModel, storage: Storage, average_distance_adjacent: float):
     """
     Evaluates how well the encoder finds adjacency in the data
     """

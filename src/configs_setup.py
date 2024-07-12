@@ -32,8 +32,8 @@ def config_data_collection_pipeline(policy_generator) -> None:
     actionai_controller.callback = lambda: next(policy_generator)
 
     communication: CommunicationInterface = CommunicationInterface.get_instance()
+    communication.server_started_callbacks.append(lambda: print("server started callback, turning on policy generator"))
     communication.server_started_callbacks.append(lambda: next(policy_generator))
-    communication.server_started_callbacks.append(lambda: print("next policy generator called"))
 
 
 def configs() -> None:

@@ -2,13 +2,13 @@ from manim import *
 import torch
 import logging
 import manim
-from src.modules.save_load_handlers.ai_data_handle import read_data_from_file, read_other_data_from_file, \
+from src.modules.save_load_handlers.data_handle import read_data_from_file, read_other_data_from_file, \
     CollectedDataType
 from src.ai.models.autoencoder import Autoencoder
 from src.modules.save_load_handlers.ai_models_handle import load_latest_ai, load_manually_saved_ai, AIType
 from src.ai.runtime_data_storage.storage import Storage, Coords
 from src.ai.evaluation.pathfinding_known import pathfinding_step
-from src.ai.models.base_model import BaseModel
+from src.ai.models.base_autoencoder_model import BaseAutoencoderModel
 from src.ai.runtime_data_storage.storage import RawConnectionData, RawEnvironmentData
 from src.utils import array_to_tensor
 from src.ai.evaluation.evaluation import evaluate_adjacency_properties, evaluate_reconstruction_error, \
@@ -25,7 +25,7 @@ class IntroScene(Scene):
         super().on_key_press(symbol, modifiers)
 
 
-def add_mobjects_found_adjacencies(scene: Scene, model: BaseModel, datapoints: List[RawEnvironmentData],
+def add_mobjects_found_adjacencies(scene: Scene, model: BaseAutoencoderModel, datapoints: List[RawEnvironmentData],
                                    mapped_data: Dict, distance_scale: float):
     """
     Adds lines between the points found as adjacent
@@ -73,7 +73,7 @@ def add_mobjects_connections(scene: Scene, connections_data: List[RawConnectionD
         scene.add(line)
 
 
-def add_mobjects_vectors_pathfinding(scene: Scene, model: BaseModel, storage: Storage,
+def add_mobjects_vectors_pathfinding(scene: Scene, model: BaseAutoencoderModel, storage: Storage,
                                      datapoints_coordinate_map: Dict[str, Coords],
                                      distance_scale: float, target_name: str, first_n_closest: int,
                                      max_search_distance: int) -> None:

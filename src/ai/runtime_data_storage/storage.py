@@ -8,7 +8,7 @@ and the data that flows from the environment
 import enum
 from typing import List, Dict, Union
 from typing_extensions import TypedDict
-from src.modules.save_load_handlers.ai_data_handle import read_data_from_file, CollectedDataType, \
+from src.modules.save_load_handlers.data_handle import read_data_from_file, CollectedDataType, \
     read_other_data_from_file
 import numpy as np
 import torch
@@ -50,7 +50,7 @@ class AdjacencyDataSample(TypedDict):
     distance: int
 
 
-class Storage():
+class Storage:
     """
     Meant as an intermediary between the AI and data processing / handling at runtime
     Any data including the one that might come continously from the environment will flow through here
@@ -74,6 +74,19 @@ class Storage():
         """
         for item in self.raw_env_data:
             self.raw_env_data_map[item["name"]] = item
+
+    def load_raw_data_from_others(self, filename: str):
+        """
+        Loads raw data from the others folder
+        """
+        self.raw_env_data = read_other_data_from_file(filename)
+        self._convert_raw_data_to_map()
+
+    def load_raw_data_connections_from_others(self, filename: str):
+        """
+        Loads raw data from the others folder
+        """
+        self.raw_connections_data = read_other_data_from_file(filename)
 
     def load_raw_data(self, data_type: CollectedDataType):
         """
@@ -213,6 +226,23 @@ class Storage():
             self._tensor_datapoints_data[name] = torch.tensor(self.raw_env_data_map[name]["data"], dtype=torch.float32)
 
         return self._tensor_datapoints_data[name]
+
+    _cache_datapoint_data_tensor_index: Dict[str, int] = {}
+
+    def get_datapoint_data_tensor_index_by_name(self, name: str) -> int:
+        """
+        Returns the index of the datapoint in the raw env data array, by its name
+        """
+        if name not in self.raw_env_data_map:
+            return -1
+        # check for cache hit
+        if name in self._cache_datapoint_data_tensor_index:
+            return self._cache_datapoint_data_tensor_index[name]
+
+        index = self.raw_env_data.index(self.raw_env_data_map[name])
+        self._cache_datapoint_data_tensor_index[name] = index
+
+        return index
 
     def normalize_all_data(self):
         # normalizes all the data

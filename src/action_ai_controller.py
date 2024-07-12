@@ -1,4 +1,6 @@
 import time
+from typing import Dict
+from src.global_data_buffer import GlobalDataBuffer
 
 
 class ActionAIController:
@@ -8,7 +10,6 @@ class ActionAIController:
     """
     __instance = None
 
-    received_data: bool = False
     callback = None
 
     @staticmethod
@@ -24,11 +25,24 @@ class ActionAIController:
             ActionAIController.__instance = self
 
 
+def handle_json_propagation(json_data: Dict):
+    """
+    Handles "emiting" json data from the robot to the rest of the application
+    """
+    action_ai_controller: ActionAIController = ActionAIController.get_instance()
+
+    if json_data.get("data") is not None:
+        # This was a data response from a sample action
+        # TODO: Needs refactor, looks horrible
+        data_buffer: GlobalDataBuffer = GlobalDataBuffer.get_instance()
+        data_buffer.buffer = json_data
+        data_buffer.empty_buffer = False
+
+
 def detach_action(json_data):
     action_ai_controller = ActionAIController.get_instance()
-    action_ai_controller.received_data = True
+
+    handle_json_propagation(json_data)
+
     if action_ai_controller.callback is not None:
-        print("detaching action + waiting")
-        time.sleep(1)
-        print("actually detaching")
         action_ai_controller.callback()
