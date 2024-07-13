@@ -5,108 +5,14 @@ import torch.optim as optim
 import numpy as np
 from src.modules.save_load_handlers.ai_models_handle import save_ai, load_latest_ai, load_manually_saved_ai, \
     save_ai_manually
-from src.modules.save_load_handlers.parameters import *
 from src.ai.runtime_data_storage import Storage
 from src.ai.runtime_data_storage import StorageSuperset
 from typing import List, Dict, Union
 from src.utils import array_to_tensor
-from src.ai.models.base_autoencoder_model import BaseAutoencoderModel
-from src.ai.evaluation.evaluation import evaluate_reconstruction_error, evaluate_distances_between_pairs, \
-    evaluate_adjacency_properties
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
-
-
-class PermutorRawDNN(nn.Module):
-    def __init__(self):
-        super(PermutorRawDNN, self).__init__()
-
-        dim1 = 24
-        dim2 = 100
-        dim3 = 75
-        dim4 = 50
-        dim5 = 25
-        dim6 = 8
-        self.fc1 = nn.Linear(dim1, dim2)
-        self.actfc1 = nn.Tanh()
-        self.fc2 = nn.Linear(dim2, dim3)
-        self.actfc2 = nn.LeakyReLU()
-        self.fc3 = nn.Linear(dim3, dim4)
-        self.actfc3 = nn.LeakyReLU()
-        self.fc4 = nn.Linear(dim4, dim5)
-        self.actfc4 = nn.LeakyReLU()
-        self.fc5 = nn.Linear(dim5, dim6)
-        self.actfc5 = nn.Sigmoid()
-
-    def forward(self, x):
-        x = self.fc1(x)
-        x = self.actfc1(x)
-
-        x = self.fc2(x)
-        x = self.actfc2(x)
-
-        x = self.fc3(x)
-        x = self.actfc3(x)
-
-        x = self.fc4(x)
-        x = self.actfc4(x)
-
-        x = self.fc5(x)
-        x = self.actfc5(x)
-        return x
-
-
-class Permutor(nn.Module):
-    def __init__(self):
-        super(Permutor, self).__init__()
-
-        # 1D CNN layers for processing 1D inputs
-        self.conv1 = nn.Conv1d(in_channels=1, out_channels=16, kernel_size=7, padding=3)
-        self.activation1 = nn.LeakyReLU()
-
-        self.conv2 = nn.Conv1d(in_channels=16, out_channels=8, kernel_size=5, padding=2)
-        self.activation2 = nn.LeakyReLU()
-
-        self.conv3 = nn.Conv1d(in_channels=8, out_channels=8, kernel_size=3, padding=1)
-        self.activation3 = nn.LeakyReLU()
-
-        length = 24
-        output_channels = 8
-        dim1 = length * output_channels
-        dim2 = 100
-        dim3 = 50
-        dim4 = 8
-        self.fc1 = nn.Linear(dim1, dim2)
-        self.actfc1 = nn.Tanh()
-        self.fc2 = nn.Linear(dim2, dim3)
-        self.actfc2 = nn.LeakyReLU()
-        self.fc3 = nn.Linear(dim3, dim4)
-        self.actfc3 = nn.Sigmoid()
-
-    def forward(self, x):
-        x = self.conv1(x)
-        x = self.activation1(x)
-
-        x = self.conv2(x)
-        x = self.activation2(x)
-
-        x = self.conv3(x)
-        x = self.activation3(x)
-
-        x = x.view(x.size(0), -1)
-
-        x = self.fc1(x)
-        x = self.actfc1(x)
-
-        x = self.fc2(x)
-        x = self.actfc2(x)
-
-        x = self.fc3(x)
-        x = self.actfc3(x)
-
-        return x
 
 
 class ImprovedPermutor(nn.Module):
@@ -122,7 +28,7 @@ class ImprovedPermutor(nn.Module):
         self.fc = nn.Linear(self.fc_input_size, embedding_size)
 
         self.activation = nn.LeakyReLU()
-        self.sigmoid = nn.Sigmoid()
+        # self.sigmoid = nn.Sigmoid()
 
     def forward(self, x):
         # Ensure input is 3D: (batch_size, channels, sequence_length)
@@ -147,46 +53,103 @@ class ImprovedPermutor(nn.Module):
         return x
 
 
-def train_permutor2(permutor, train_data, epochs=2000, batch_size=32):
+def adjacent_permutor_loss(permutor, batch_names, criterion) -> torch.Tensor:
+    global storage
+    anchors = []
+    positives = []
+    negatives = []
+    for j in range(len(batch_names)):
+        anchor_name = batch_names[j]
+        deg1_name, deg2_name = storage.sample_triplet_anchor_positive_negative(anchor_name)
+
+        # Randomly select a rotation from a different datapoint
+        anchor_data = storage.get_datapoint_data_tensor_by_name(anchor_name)
+        positive_data = storage.get_datapoint_data_tensor_by_name(deg1_name)
+        negative_data = storage.get_datapoint_data_tensor_by_name(deg2_name)
+
+        anchor = random.choice(list(anchor_data))
+        positive = random.choice(list(positive_data))
+        negative = random.choice(list(negative_data))
+
+        anchors.append(anchor)
+        positives.append(positive)
+        negatives.append(negative)
+
+    anchors = torch.stack(anchors).unsqueeze(1)
+    positives = torch.stack(positives).unsqueeze(1)
+    negatives = torch.stack(negatives).unsqueeze(1)
+
+    anchor_out = permutor(anchors)
+    positive_out = permutor(positives)
+    negative_out = permutor(negatives)
+
+    loss = criterion(anchor_out, positive_out, negative_out)
+    return loss
+
+
+def datapoint_rotation_permutor_loss(permutor, batch_names, criterion) -> torch.Tensor:
+    anchors_arr = []
+    positives_arr = []
+    negatives_arr = []
+    for j in range(len(batch_names)):
+        datapoint_name = batch_names[j]
+        datapoint = storage.get_datapoint_data_tensor_by_name(datapoint_name)
+        # Randomly select two rotations of the same datapoint
+        anchor, positive = random.sample(list(datapoint), 2)
+        # gets one adjacent datapoint
+        adjacent_datapoint_names = storage.sample_adjacent_datapoint_at_degree_most(datapoint_name, 5, 4)
+        adjacent_datapoints = [storage.get_datapoint_data_tensor_by_name(adjacent_datapoint_name) for
+                               adjacent_datapoint_name in adjacent_datapoint_names]
+        # Randomly select a rotation from a different datapoint
+        negative = random.choice(
+            [random.choice(list(adjacent_datapoint)) for adjacent_datapoint in adjacent_datapoints])
+        anchors_arr.append(anchor)
+        positives_arr.append(positive)
+        negatives_arr.append(negative)
+
+    anchors = torch.stack(anchors_arr).unsqueeze(1)
+    positives = torch.stack(positives_arr).unsqueeze(1)
+    negatives = torch.stack(negatives_arr).unsqueeze(1)
+
+    anchor_out = permutor(anchors)
+    positive_out = permutor(positives)
+    negative_out = permutor(negatives)
+
+    loss = criterion(anchor_out, positive_out, negative_out)
+    return loss
+
+
+def train_permutor2(permutor, epochs=2000, batch_size=32):
+    global storage
+
     optimizer = optim.Adam(permutor.parameters(), lr=0.001)
-    criterion = nn.TripletMarginLoss(margin=1.0)
+    DISTANCE_THRESHOLD = 0.5
+
+    # d and r stand for datapoint and rotation
+    # used to differentiate rotations from each other
+    # pick d1r1, d1r2, d2r1 ( should have one distance between them )
+    criterion1 = nn.TripletMarginLoss(margin=DISTANCE_THRESHOLD)
+
+    # used to differentiate datapoints from each other
+    # pick d1r1, d2r1, d3r1 ( should have 2 distance between them)
+    criterion2 = nn.TripletMarginLoss(margin=DISTANCE_THRESHOLD * 2)
     epoch_print_rate = 1000
 
+    train_data_names = storage.get_sensor_data_names()
     for epoch in range(epochs):
         total_loss = 0
-        for i in range(0, len(train_data), batch_size):
-            batch = train_data[i:i + batch_size]
+        for i in range(0, len(train_data_names), batch_size):
+            batch_names = train_data_names[i:i + batch_size]
 
-            anchors = []
-            positives = []
-            negatives = []
-
-            for datapoint in batch:
-                # Randomly select two rotations of the same datapoint
-                anchor, positive = random.sample(list(datapoint), 2)
-
-                # Randomly select a rotation from a different datapoint
-                negative = random.choice(random.choice([dp for dp in train_data if dp is not datapoint]))
-
-                anchors.append(anchor)
-                positives.append(positive)
-                negatives.append(negative)
-
-            anchors = torch.stack(anchors).unsqueeze(1)
-            positives = torch.stack(positives).unsqueeze(1)
-            negatives = torch.stack(negatives).unsqueeze(1)
-
-            anchor_out = permutor(anchors)
-            positive_out = permutor(positives)
-            negative_out = permutor(negatives)
-
-            loss = criterion(anchor_out, positive_out, negative_out)
+            loss1 = datapoint_rotation_permutor_loss(permutor, batch_names, criterion1)
+            # loss2 = adjacent_permutor_loss(permutor, batch_names, criterion2) * 0.2
 
             optimizer.zero_grad()
-            loss.backward()
+            loss1.backward()
+            # loss2.backward()
             optimizer.step()
 
-            total_loss += loss.item()
+            total_loss += loss1.item()
 
         if epoch % epoch_print_rate == 0:
             print(f"Epoch {epoch}, Loss: {total_loss}")
@@ -194,7 +157,7 @@ def train_permutor2(permutor, train_data, epochs=2000, batch_size=32):
     return permutor
 
 
-def reconstruction_handling(autoencoder: Permutor, data: any, criterion: any,
+def reconstruction_handling(autoencoder: ImprovedPermutor, data: any, criterion: any,
                             scale_reconstruction_loss: int = 1) -> torch.Tensor:
     enc = autoencoder.encoder_training(data)
     dec = autoencoder.decoder_training(enc)
@@ -305,24 +268,18 @@ def train_permutor(permutor: any, epochs: int) -> any:
     return permutor
 
 
-def run_ai_init():
-    permutor = Permutor()
-    # permutor = PermutorRawDNN()
-    train_permutor(permutor, epochs=2000)
-
-
 def run_ai():
-    train_data = [torch.tensor(datapoint) for datapoint in storage.get_pure_sensor_data()]
     permutor = ImprovedPermutor()
-    trained_permutor = train_permutor2(permutor, train_data, epochs=3000)
-    return permutor
+    trained_permutor = train_permutor2(permutor, epochs=10000)
+    return trained_permutor
 
 
-def evaluate_permutor(permutor: Permutor, storage: Storage) -> None:
+def evaluate_permutor(permutor: ImprovedPermutor, storage: Storage) -> None:
     # evaluate difference between permutations ( should be close to 0 )
     train_data = array_to_tensor(np.array(storage.get_pure_sensor_data()))
     norm_sum = 0
     count = 0
+    permutation_distance_array = []
 
     datapoint_means = []
     datapoint_outputs_array = []
@@ -340,10 +297,16 @@ def evaluate_permutor(permutor: Permutor, storage: Storage) -> None:
                 count += 1
                 norm_sum += torch.norm(datapoint_outputs[i] - datapoint_outputs[j], p=2)
 
+        randi = random.randint(0, len(datapoint_outputs) - 1)
+        randj = random.randint(0, len(datapoint_outputs) - 1)
+
+        permutation_distance_array.append(torch.norm(datapoint_outputs[randi] - datapoint_outputs[randj], p=2).item())
+
         datapoint_mean = torch.mean(torch.stack(datapoint_outputs), dim=0)
         datapoint_means.append(datapoint_mean)
 
     print("Permutations distance: ", norm_sum / count)
+    # print("Permutations distance array: ", sorted(permutation_distance_array))
     # evaluate difference between adjacent points ( should be close to expected distance, much,much farther than the distance between permutations )
 
     sampled_connections = storage.get_all_adjacent_data()
@@ -366,18 +329,6 @@ def evaluate_permutor(permutor: Permutor, storage: Storage) -> None:
             }
 
         distance_between_embeddings = torch.norm(datapoint1 - datapoint2, p=2)
-        # if distance == 5:
-        #     print(f"Distance between {start_name} and {end_name}: {distance_between_embeddings:.4f}")
-        #     print(f"Expected distance: {distance:.4f}")
-        #     print(datapoint1)
-        #     print(datapoint2)
-        #
-        #     print("--------------------------------------------------"
-        #           )
-        #     print(datapoint_outputs_array[datapoint1_index])
-        #     print(datapoint_outputs_array[datapoint2_index])
-        #     return
-
         avg_distances[f"{distance}"]["sum"] += distance_between_embeddings
         avg_distances[f"{distance}"]["count"] += 1
 
@@ -393,24 +344,25 @@ def run_tests(autoencoder):
 
 def run_new_ai() -> None:
     permutor = run_ai()
-    save_ai_manually("permutor_other", permutor)
+    save_ai_manually("permutor_new", permutor)
     run_tests(permutor)
 
 
 def load_ai() -> None:
     global model
-    model = load_manually_saved_ai("permutor_other.pth")
+    model = load_manually_saved_ai("permutor_final1.pth")
     run_tests(model)
 
 
 def run_permutor() -> None:
     global storage
     storage.load_raw_data_from_others("data8x8_rotated20.json")
+    storage.load_raw_data_connections_from_others("data8x8_connections.json")
     storage.normalize_all_data_super()
 
-    run_new_ai()
-    # load_ai()
+    # run_new_ai()
+    load_ai()
 
 
 storage: StorageSuperset = StorageSuperset()
-model = Permutor()
+model = ImprovedPermutor()

@@ -121,7 +121,7 @@ class Storage:
 
     _connections_numpy_array: np.ndarray = None
 
-    def sample_adjacent_datapoints(self, sample_size: int) -> List[AdjacencyDataSample]:
+    def sample_adjacent_datapoints_connections(self, sample_size: int) -> List[AdjacencyDataSample]:
         """
         Samples a number the adjacent datapoints
 
@@ -136,33 +136,53 @@ class Storage:
 
         return sampled_adjacencies
 
+    def sample_adjacent_datapoint_at_degree(self, datapoint_name: str, sample_size: int, degree: int) -> List[str]:
+        """
+        Samples a number of adjacent datapoints at a certain degree relative to datapoint name
+        """
+
+        adjacent_datapoints: List[str] = self.get_datapoints_adjacent_at_degree_n(datapoint_name, degree)
+
+        sampled_adjacencies = np.random.choice(adjacent_datapoints, sample_size, replace=False)
+        return sampled_adjacencies
+
+    def sample_adjacent_datapoint_at_degree_most(self, datapoint_name: str, sample_size: int, degree: int) -> List[str]:
+        """
+        Samples a number of adjacent datapoints at a certain degree relative to datapoint name
+        """
+
+        adjacent_datapoints: List[str] = self.get_datapoint_adjacent_datapoints_at_most_n_deg(datapoint_name, degree)
+
+        sampled_adjacencies = np.random.choice(adjacent_datapoints, sample_size, replace=False)
+        return sampled_adjacencies
+
     _non_adjacent_numpy_array: np.ndarray = None
 
     def sample_triplet_anchor_positive_negative(self, anchor: str) -> Tuple[str, str]:
         """
         Samples an adjacent and non adjacent datapoints for a triplet loss
         """
-        adjacent_connections: List[RawConnectionData] = self.get_datapoint_adjacent_connections(anchor)
+        degree1_adjacent: List[RawConnectionData] = self.get_datapoint_adjacent_connections(anchor)
         # connections of degree 1
-        adjacent_connections: List[str] = [item["end"] for item in adjacent_connections]
+        degree1_adjacent: List[str] = [item["end"] for item in degree1_adjacent]
 
-        non_adjacent_connections: List[str] = self.get_datapoint_adjacent_datapoints_at_most_n_deg(anchor, 2)
+        degree1and2_adjacent: List[str] = self.get_datapoint_adjacent_datapoints_at_most_n_deg(anchor, 2)
         # connections of degree 2
-        non_adjacent_connections: List[str] = [item for item in non_adjacent_connections if
-                                               item not in adjacent_connections]
+        degree2_adjacent: List[str] = [item for item in degree1and2_adjacent if
+                                       item not in degree1_adjacent]
 
-        if len(adjacent_connections) == 0:
+        if len(degree1_adjacent) == 0:
             perror(f"Could not find adjacent connections for {anchor}")
             return None, None
 
-        if len(non_adjacent_connections) == 0:
+        if len(degree2_adjacent) == 0:
             perror(f"Could not find non adjacent connections for {anchor}")
             return None, None
 
-        adjacent: str = np.random.choice(adjacent_connections)
-        non_adjacent: str = np.random.choice(non_adjacent_connections)
+        deg1_adjacent: str = np.random.choice(degree1_adjacent)
+        deg2_adjacent: str = np.random.choice(degree2_adjacent)
 
-        return adjacent, non_adjacent
+        return deg1_adjacent, deg2_adjacent
 
     def build_non_adjacent_numpy_array_from_metadata(self):
         """
@@ -248,16 +268,17 @@ class Storage:
         """
         return self.raw_env_data[index]
 
-    _tensor_datapoints_data: Dict[str, torch.Tensor] = {}
+    _transformed_datapoints_data: Dict[str, torch.Tensor] = {}
 
     def get_datapoint_data_tensor_by_name(self, name: str) -> torch.Tensor:
         """
         Returns the data point by its name
         """
-        if name not in self._tensor_datapoints_data:
-            self._tensor_datapoints_data[name] = torch.tensor(self.raw_env_data_map[name]["data"], dtype=torch.float32)
+        if name not in self._transformed_datapoints_data:
+            self._transformed_datapoints_data[name] = torch.tensor(self.raw_env_data_map[name]["data"],
+                                                                   dtype=torch.float32)
 
-        return self._tensor_datapoints_data[name]
+        return self._transformed_datapoints_data[name]
 
     _cache_datapoint_data_tensor_index: Dict[str, int] = {}
 
@@ -359,6 +380,9 @@ class Storage:
         """
         Returns the connections of a datapoint that are at a certain distance degree from it
         """
+        if distance_degree == 0:
+            return [datapoint_name]
+
         found_data_points: List[str] = []
         found_data_points_map: Dict[str, bool] = {}
         new_data_points: List[str] = [datapoint_name]
@@ -376,6 +400,17 @@ class Storage:
 
             found_data_points.extend(new_data_points)
         return found_data_points
+
+    def get_datapoints_adjacent_at_degree_n(self, datapoint_name: str, degree: int) -> List[str]:
+        """
+        Returns the datapoints that are adjacent to a certain datapoint at a certain degree
+        """
+        adjacent_datapoints = self.get_datapoint_adjacent_datapoints_at_most_n_deg(datapoint_name, degree)
+        adjacent_datapoints = [item for item in adjacent_datapoints if
+                               item not in self.get_datapoint_adjacent_datapoints_at_most_n_deg(datapoint_name,
+                                                                                                degree - 1)]
+
+        return adjacent_datapoints
 
     _datapoints_coordinates_map: Dict[str, Coords] = {}
 

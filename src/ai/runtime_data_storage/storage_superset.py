@@ -24,8 +24,10 @@ class StorageSuperset(Storage):
         data = self.get_pure_sensor_data()
         normalized_data = normalize_data_min_max_super(torch.tensor(data))
         length = len(self.raw_env_data)
+        normalized_data = normalized_data.tolist()
 
         for i in range(length):
-            self.raw_env_data[i]["data"] = normalized_data[i]
+            data_normalized = normalized_data[i]
+            self.raw_env_data[i]["data"] = data_normalized
             name = self.raw_env_data[i]["name"]
-            self.raw_env_data_map[name]["data"] = normalized_data[i]
+            self.raw_env_data_map[name]["data"] = data_normalized

@@ -14,6 +14,8 @@ from src.utils import get_instance
 from src.action_robot_controller import detach_robot_sample, detach_robot_teleport_relative, \
     detach_robot_rotate_absolute, detach_robot_rotate_relative, detach_robot_teleport_absolute
 from src.modules.policies.data_collection import grid_data_collection
+from src.ai.models.permutor_autoenc_pipelined import run_permuted_autoencoder
+from src.ai.models.permutor_autoenc_pipelined2 import run_permuted_autoencoder2
 
 
 def start_server_thread():
@@ -37,22 +39,9 @@ def data_collection_pipeline():
     server_thread.join()
 
 
-def ai_training_pipeline():
-    """
-    Pipeline for training the AI models
-    """
-    run_permutor()
-    pass
-
-
-def ai_encoder_training_pipeline():
-    """
-    Pipeline for training the AI models
-    """
-    run_autoencoder()
-    pass
-
-
 if __name__ == "__main__":
-    # ai_training_pipeline()
-    ai_encoder_training_pipeline()
+    # run_permutor()
+    # run_autoencoder()
+    run_permuted_autoencoder2()
+    # run_permuted_autoencoder()
+    pass
