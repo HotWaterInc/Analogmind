@@ -314,7 +314,7 @@ def run_ai_init():
 def run_ai():
     train_data = [torch.tensor(datapoint) for datapoint in storage.get_pure_sensor_data()]
     permutor = ImprovedPermutor()
-    trained_permutor = train_permutor2(permutor, train_data, epochs=10000)
+    trained_permutor = train_permutor2(permutor, train_data, epochs=3000)
     return permutor
 
 

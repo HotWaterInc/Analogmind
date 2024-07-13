@@ -45,5 +45,14 @@ def ai_training_pipeline():
     pass
 
 
+def ai_encoder_training_pipeline():
+    """
+    Pipeline for training the AI models
+    """
+    run_autoencoder()
+    pass
+
+
 if __name__ == "__main__":
-    ai_training_pipeline()
+    # ai_training_pipeline()
+    ai_encoder_training_pipeline()

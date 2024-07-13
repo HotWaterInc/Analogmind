@@ -6,7 +6,7 @@ and the data that flows from the environment
 
 """
 import enum
-from typing import List, Dict, Union
+from typing import List, Dict, Union, Tuple
 from typing_extensions import TypedDict
 from src.modules.save_load_handlers.data_handle import read_data_from_file, CollectedDataType, \
     read_other_data_from_file
@@ -138,6 +138,32 @@ class Storage:
 
     _non_adjacent_numpy_array: np.ndarray = None
 
+    def sample_triplet_anchor_positive_negative(self, anchor: str) -> Tuple[str, str]:
+        """
+        Samples an adjacent and non adjacent datapoints for a triplet loss
+        """
+        adjacent_connections: List[RawConnectionData] = self.get_datapoint_adjacent_connections(anchor)
+        # connections of degree 1
+        adjacent_connections: List[str] = [item["end"] for item in adjacent_connections]
+
+        non_adjacent_connections: List[str] = self.get_datapoint_adjacent_datapoints_at_most_n_deg(anchor, 2)
+        # connections of degree 2
+        non_adjacent_connections: List[str] = [item for item in non_adjacent_connections if
+                                               item not in adjacent_connections]
+
+        if len(adjacent_connections) == 0:
+            perror(f"Could not find adjacent connections for {anchor}")
+            return None, None
+
+        if len(non_adjacent_connections) == 0:
+            perror(f"Could not find non adjacent connections for {anchor}")
+            return None, None
+
+        adjacent: str = np.random.choice(adjacent_connections)
+        non_adjacent: str = np.random.choice(non_adjacent_connections)
+
+        return adjacent, non_adjacent
+
     def build_non_adjacent_numpy_array_from_metadata(self):
         """
         Builds the numpy array for non-adjacent data
@@ -197,6 +223,12 @@ class Storage:
         Returns the sensor data from the environment, without any additional fields
         """
         return [item["data"] for item in self.raw_env_data]
+
+    def get_sensor_data_names(self):
+        """
+        Returns the sensor data names
+        """
+        return [item["name"] for item in self.raw_env_data]
 
     def get_raw_environment_data(self) -> List[RawEnvironmentData]:
         return self.raw_env_data

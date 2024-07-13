@@ -11,7 +11,7 @@ if __name__ == "__main__":
 
     # start_server_thread()
 
-    run_autoencoder()
-    # run_visualization()
+    # run_autoencoder()
+    run_visualization()
 
     # run_variational_autoencoder()

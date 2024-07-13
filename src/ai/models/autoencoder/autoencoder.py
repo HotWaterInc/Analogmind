@@ -205,9 +205,90 @@ def train_autoencoder_with_distance_constraint(autoencoder: Autoencoder, epochs:
     return autoencoder
 
 
+def train_autoencoder_3way_loss(autoencoder: Autoencoder, epochs: int) -> Autoencoder:
+    """
+    Training autoencoder with 3
+    """
+
+    # PARAMETERS
+    optimizer = optim.Adam(autoencoder.parameters(), lr=0.001)
+    criterion = nn.L1Loss()
+    STANDARD_DISTANCE = 0.5
+
+    # criterion triple at distance 1
+    criterion_triple1 = nn.TripletMarginLoss(margin=STANDARD_DISTANCE)
+
+    num_epochs = epochs
+    scale_reconstruction_loss = 1
+    scale_triplet_loss = 1
+
+    epoch_average_loss = 0
+    reconstruction_average_loss = 0
+    adjacent_average_loss = 0
+
+    epoch_print_rate = 250
+    train_data = array_to_tensor(np.array(storage.get_pure_sensor_data()))
+    train_data_names = storage.get_sensor_data_names()
+
+    for epoch in range(num_epochs):
+        epoch_loss = 0.0
+        optimizer.zero_grad()
+
+        # RECONSTRUCTION LOSS
+        reconstruction_loss = reconstruction_handling(autoencoder, train_data, criterion, scale_reconstruction_loss)
+        reconstruction_loss.backward()
+
+        length = len(train_data)
+
+        anchors = []
+        positives = []
+        negatives = []
+
+        for i in range(length):
+            anchor_name = train_data_names[i]
+            positive_name, negative_name = storage.sample_triplet_anchor_positive_negative(anchor_name)
+            # print(anchor_name, positive_name, negative_name)
+
+            anchor_data = storage.get_datapoint_data_tensor_by_name(anchor_name)
+            positive_data = storage.get_datapoint_data_tensor_by_name(positive_name)
+            negative_data = storage.get_datapoint_data_tensor_by_name(negative_name)
+
+            anchors.append(anchor_data)
+            positives.append(positive_data)
+            negatives.append(negative_data)
+
+        anchors = torch.stack(anchors).unsqueeze(1)
+        positives = torch.stack(positives).unsqueeze(1)
+        negatives = torch.stack(negatives).unsqueeze(1)
+
+        anchor_out = autoencoder.encoder_training(anchors)
+        positive_out = autoencoder.encoder_training(positives)
+        negative_out = autoencoder.encoder_training(negatives)
+
+        triple_loss = criterion_triple1(anchor_out, positive_out, negative_out)
+        triple_loss.backward()
+
+        optimizer.step()
+
+        epoch_loss += reconstruction_loss.item() + triple_loss.item()
+        epoch_average_loss += epoch_loss
+        if epoch % epoch_print_rate == 0 and epoch != 0:
+            epoch_average_loss /= epoch_print_rate
+
+            # Print average loss for this epoch
+            print(f"EPOCH:{epoch}/{num_epochs}")
+            print(f"AVERAGE LOSS:{epoch_average_loss}")
+            print("--------------------------------------------------")
+
+            epoch_average_loss = 0
+
+    return autoencoder
+
+
 def run_ai():
     autoencoder = Autoencoder()
-    train_autoencoder_with_distance_constraint(autoencoder, epochs=30000)
+    # train_autoencoder_with_distance_constraint(autoencoder, epochs=30000)
+    train_autoencoder_3way_loss(autoencoder, epochs=50000)
     return autoencoder
 
 
@@ -221,9 +302,8 @@ def run_tests(autoencoder):
 
 def run_loaded_ai():
     # autoencoder = load_manually_saved_ai("autoenc_dynamic10k.pth")
-    autoencoder = load_manually_saved_ai("autoencod32_high_train.pth")
-
-    # autoencoder = load_latest_ai(AIType.Autoencoder)
+    # autoencoder = load_manually_saved_ai("autoencod32_high_train.pth")
+    autoencoder = load_latest_ai(AIType.Autoencoder)
 
     run_tests(autoencoder)
     # run_lee(autoencoder, all_sensor_data, sensor_data)
@@ -240,8 +320,8 @@ def run_autoencoder() -> None:
     storage.load_raw_data(CollectedDataType.Data8x8)
     storage.normalize_all_data()
 
-    run_new_ai()
-    # run_loaded_ai()
+    # run_new_ai()
+    run_loaded_ai()
 
 
 storage: Storage = Storage()

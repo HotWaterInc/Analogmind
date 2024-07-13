@@ -124,8 +124,8 @@ def build_scene():
     storage.load_raw_data(CollectedDataType.Data8x8)
     storage.normalize_all_data()
 
-    autoencoder = load_manually_saved_ai("autoencod32_high_train.pth")
-    # autoencoder = load_latest_ai(AIType.Autoencoder)
+    # autoencoder = load_manually_saved_ai("autoencod32_high_train.pth")
+    autoencoder = load_latest_ai(AIType.Autoencoder)
 
     storage.build_datapoints_coordinates_map()
     # quality of life, centered coords at 0,0
