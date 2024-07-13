@@ -205,7 +205,7 @@ def train_autoencoder_with_distance_constraint(autoencoder: Autoencoder, epochs:
     return autoencoder
 
 
-def train_autoencoder_3way_loss(autoencoder: Autoencoder, epochs: int) -> Autoencoder:
+def train_autoencoder_triple_margin(autoencoder: Autoencoder, epochs: int) -> Autoencoder:
     """
     Training autoencoder with 3
     """
@@ -288,7 +288,7 @@ def train_autoencoder_3way_loss(autoencoder: Autoencoder, epochs: int) -> Autoen
 def run_ai():
     autoencoder = Autoencoder()
     # train_autoencoder_with_distance_constraint(autoencoder, epochs=30000)
-    train_autoencoder_3way_loss(autoencoder, epochs=50000)
+    train_autoencoder_triple_margin(autoencoder, epochs=50000)
     return autoencoder
 
 
