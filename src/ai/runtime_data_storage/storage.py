@@ -156,6 +156,12 @@ class Storage:
         sampled_adjacencies = np.random.choice(adjacent_datapoints, sample_size, replace=False)
         return sampled_adjacencies
 
+    def sample_n_random_datapoints(self, sample_size: int) -> List[str]:
+        """
+        Samples a number of random datapoints
+        """
+        return np.random.choice([item["name"] for item in self.raw_env_data], sample_size, replace=False)
+
     _non_adjacent_numpy_array: np.ndarray = None
 
     def sample_triplet_anchor_positive_negative(self, anchor: str) -> Tuple[str, str]:
@@ -200,7 +206,7 @@ class Storage:
 
         self._non_adjacent_numpy_array = np.array(array, dtype=AdjacencyDataSample)
 
-    def sample_non_adjacent_datapoints(self, sample_size: int) -> List[AdjacencyDataSample]:
+    def sample_datapoints_adjacencies(self, sample_size: int) -> List[AdjacencyDataSample]:
         """
         Samples a number of non-adjacent datapoints
 

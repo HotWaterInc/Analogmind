@@ -109,7 +109,7 @@ def non_adjacent_distance_handling(autoencoder: BaseAutoencoderModel, non_adjace
     """
     Keeps non-adjacent pairs far from each other
     """
-    sampled_pairs = storage.sample_non_adjacent_datapoints(non_adjacent_sample_size)
+    sampled_pairs = storage.sample_datapoints_adjacencies(non_adjacent_sample_size)
     non_adjacent_distance_loss = torch.tensor(0.0)
 
     batch_datapoint1 = []

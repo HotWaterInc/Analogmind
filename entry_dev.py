@@ -1,12 +1,10 @@
-import sys
-import time
-
 from src.modules.external_communication import start_server, CommunicationInterface
 from src.configs_setup import configs, configs_communication, config_data_collection_pipeline
 import threading
 from src.modules.visualizations import run_visualization
 from src.ai.models.autoencoder import *
 from src.ai.models.permutor import run_permutor
+from src.ai.models.permutor_deshift import run_permutor_deshift
 from src.ai.models.variational_autoencoder import *
 from src.utils import perror
 from src.modules.external_communication.communication_interface import send_data, CommunicationInterface
@@ -40,8 +38,10 @@ def data_collection_pipeline():
 
 
 if __name__ == "__main__":
+    run_permutor_deshift()
     # run_permutor()
+    # run_permuted_autoencoder2()
+
     # run_autoencoder()
-    run_permuted_autoencoder2()
     # run_permuted_autoencoder()
     pass

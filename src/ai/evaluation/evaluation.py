@@ -16,6 +16,7 @@ def evaluate_reconstruction_error_super(model: BaseAutoencoderModel, storage: St
     nr_of_samples = 64
     total_averaged_error = 0
     for iteration in range(10):
+        storage.build_permuted_data_random_rotations()
         train_data = array_to_tensor(np.array(storage.get_pure_permuted_raw_env_data()))
         indices = np.random.choice(len(train_data), nr_of_samples, replace=False)
         total_error = 0
@@ -120,7 +121,7 @@ def evaluate_adjacency_properties_super(model: BaseAutoencoderModel, storage: St
     """
     Evaluates how well the encoder finds adjacency in the data
     """
-    distance_threshold = average_distance_adjacent * 1.25
+    distance_threshold = average_distance_adjacent * 1.1
 
     adjacent_data = storage.get_adjacency_data()
     non_adjacent_data = storage.get_non_adjacent_data()
@@ -163,7 +164,7 @@ def evaluate_adjacency_properties_super(model: BaseAutoencoderModel, storage: St
                 if real_life_distance > 1:
                     false_positives.append((start, end))
 
-                if real_life_distance > 2:
+                if real_life_distance > 3:
                     really_bad_false_positives.append((start, end))
 
         # print("PREVIOUS METRICS --------------------------")

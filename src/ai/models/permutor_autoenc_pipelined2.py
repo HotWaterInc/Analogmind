@@ -30,12 +30,12 @@ class AutoencoderPostPermutor(BaseAutoencoderModel):
         )
 
         self.encoder2 = nn.Sequential(
-            nn.Linear(16, 12),
+            nn.Linear(16, 24),
             nn.LeakyReLU(),
         )
 
         self.decoder1 = nn.Sequential(
-            nn.Linear(12, 16),
+            nn.Linear(24, 16),
             nn.Tanh(),
         )
 
@@ -115,7 +115,7 @@ def non_adjacent_distance_handling(autoencoder: BaseAutoencoderModel, non_adjace
     """
     Keeps non-adjacent pairs far from each other
     """
-    sampled_pairs = storage.sample_non_adjacent_datapoints(non_adjacent_sample_size)
+    sampled_pairs = storage.sample_datapoints_adjacencies(non_adjacent_sample_size)
 
     batch_datapoint1 = []
     batch_datapoint2 = []
@@ -158,11 +158,11 @@ def train_autoencoder_with_distance_constraint(autoencoder: BaseAutoencoderModel
     optimizer = optim.Adam(autoencoder.parameters(), lr=0.01)
 
     num_epochs = epochs
-    scale_reconstruction_loss = 5
-    scale_adjacent_distance_loss = 0.3
-    scale_non_adjacent_distance_loss = 0.3
+    scale_reconstruction_loss = 1
+    scale_adjacent_distance_loss = 3
+    scale_non_adjacent_distance_loss = 0.75
 
-    adjacent_sample_size = 52
+    adjacent_sample_size = 100
     non_adjacent_sample_size = 224
 
     epoch_average_loss = 0
@@ -170,13 +170,16 @@ def train_autoencoder_with_distance_constraint(autoencoder: BaseAutoencoderModel
     adjacent_average_loss = 0
     non_adjacent_average_loss = 0
 
-    epoch_print_rate = 1000
+    epoch_print_rate = 5000
     DISTANCE_CONSTANT = 0.5
 
     train_data_names = storage.get_sensor_data_names()
     storage.build_permuted_data_raw()
     storage.build_permuted_data_random_rotations()
     train_data = array_to_tensor(np.array(storage.get_pure_permuted_raw_env_data()))
+
+    best_loss = 10000000
+    stagnation_streak = 0
 
     for epoch in range(num_epochs):
         if (epoch % 25 == 0):
@@ -219,8 +222,18 @@ def train_autoencoder_with_distance_constraint(autoencoder: BaseAutoencoderModel
             adjacent_average_loss /= epoch_print_rate
             non_adjacent_average_loss /= epoch_print_rate
 
+            if epoch_average_loss < best_loss:
+                best_loss = epoch_average_loss
+                stagnation_streak = 0
+
+            if epoch_average_loss >= best_loss:
+                stagnation_streak += 1
+
+            if stagnation_streak >= 10:
+                break
+
             # Print average loss for this epoch
-            print(f"EPOCH:{epoch}/{num_epochs}")
+            print(f"EPOCH:{epoch}/{num_epochs} - streak: {stagnation_streak}")
             # print(f"average distance between adjacent: {average_distance_adjacent}")
             print(
                 f"RECONSTRUCTION LOSS:{reconstruction_average_loss} | ADJACENT LOSS:{adjacent_average_loss} | NON-ADJACENT LOSS:{non_adjacent_average_loss}")
@@ -251,14 +264,16 @@ def run_tests(autoencoder):
 
 def run_loaded_ai():
     # autoencoder = load_manually_saved_ai("autoenc_dynamic10k.pth")
-    autoencoder = load_manually_saved_ai("autoencod32_high_train.pth")
+    autoencoder = load_manually_saved_ai("autoencod_perm100k.pth")
+    global storage
+    storage.build_permuted_data_raw()
 
     run_tests(autoencoder)
 
 
 def run_new_ai() -> None:
     autoencoder = run_ai()
-    save_ai_manually("autoencod_perm100k", autoencoder)
+    save_ai_manually("autoencod_permutated2", autoencoder)
     run_tests(autoencoder)
 
 
@@ -266,7 +281,7 @@ def run_permuted_autoencoder2() -> None:
     global storage
     global permutor
 
-    permutor = load_manually_saved_ai("permutor_final1.pth")
+    permutor = load_manually_saved_ai("permutor10k.pth")
     storage.load_raw_data_from_others("data8x8_rotated20.json")
     storage.load_raw_data_connections_from_others("data8x8_connections.json")
     storage.normalize_all_data_super()

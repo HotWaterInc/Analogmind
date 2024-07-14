@@ -1,3 +1,5 @@
+import random
+
 import torch
 
 from .storage import *
@@ -31,3 +33,9 @@ class StorageSuperset(Storage):
             self.raw_env_data[i]["data"] = data_normalized
             name = self.raw_env_data[i]["name"]
             self.raw_env_data_map[name]["data"] = data_normalized
+
+    def get_datapoint_data_random_rotation_tensor_by_name(self, name: str) -> torch.Tensor:
+        """
+        Returns a random rotation from a datapoint as
+        """
+        return torch.tensor(random.choice(self.raw_env_data_map[name]["data"]))

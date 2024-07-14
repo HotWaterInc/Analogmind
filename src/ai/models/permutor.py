@@ -13,6 +13,10 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
+import torch.cuda as cuda
+
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+print(f"Using device: {device}")
 
 
 class ImprovedPermutor(nn.Module):
@@ -53,6 +57,166 @@ class ImprovedPermutor(nn.Module):
         return x
 
 
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+
+
+class ImprovedPermutorAttention(nn.Module):
+    def __init__(self, input_size=24, embedding_size=64, num_heads=8):
+        super(ImprovedPermutorAttention, self).__init__()
+
+        # Encoder
+        self.conv1 = nn.Conv1d(1, 16, kernel_size=7, padding=3)
+        self.conv2 = nn.Conv1d(16, 32, kernel_size=5, padding=2)
+        self.conv3 = nn.Conv1d(32, 64, kernel_size=3, padding=1)
+
+        self.fc_input_size = 64 * (input_size + 6)
+        self.fc_encode = nn.Linear(self.fc_input_size, embedding_size)
+
+        # Encoder Attention
+        self.encoder_attention = nn.MultiheadAttention(embed_dim=embedding_size, num_heads=num_heads)
+
+        # Post-attention linear layers (encoder)
+        self.post_attention_fc1 = nn.Linear(embedding_size, embedding_size)
+        self.post_attention_fc2 = nn.Linear(embedding_size, embedding_size)
+
+        # Theta prediction
+        self.theta_fc = nn.Linear(embedding_size, 1)
+
+        # Decoder Attention
+        self.decoder_attention = nn.MultiheadAttention(embed_dim=embedding_size, num_heads=num_heads)
+
+        # Post-attention linear layers (decoder)
+        self.post_attention_dec_fc1 = nn.Linear(embedding_size, embedding_size)
+        self.post_attention_dec_fc2 = nn.Linear(embedding_size, embedding_size)
+
+        # Reconstruction network
+        self.fc_decode = nn.Linear(embedding_size, self.fc_input_size)
+        self.deconv3 = nn.ConvTranspose1d(64, 32, kernel_size=3, padding=1)
+        self.deconv2 = nn.ConvTranspose1d(32, 16, kernel_size=5, padding=2)
+        self.deconv1 = nn.ConvTranspose1d(16, 1, kernel_size=7, padding=3)
+
+        self.activation = nn.LeakyReLU()
+
+    def forward_training(self, x):
+        if x.dim() == 2:
+            x = x.unsqueeze(1)
+
+        # Encoding
+        x = torch.cat([x[:, :, -3:], x, x[:, :, :3]], dim=2)
+        x = self.activation(self.conv1(x))
+        x = self.activation(self.conv2(x))
+        x = self.activation(self.conv3(x))
+
+        x_flat = x.view(x.size(0), -1)
+        embedding = self.fc_encode(x_flat)
+
+        # Apply encoder self-attention
+        embedding = embedding.unsqueeze(0)  # Add sequence dimension
+        embedding, _ = self.encoder_attention(embedding, embedding, embedding)
+        embedding = embedding.squeeze(0)  # Remove sequence dimension
+
+        # Post-attention linear layers (encoder)
+        embedding = self.activation(self.post_attention_fc1(embedding))
+        embedding = self.activation(self.post_attention_fc2(embedding))
+
+        embedding = F.normalize(embedding, p=2, dim=1)
+
+        theta = torch.sigmoid(self.theta_fc(embedding))
+
+        return embedding, theta
+
+    def forward(self, x):
+        embedding, theta = self.forward_training(x)
+        return embedding
+
+    def reconstruct(self, embedding, theta):
+        # Apply decoder self-attention
+        x = embedding.unsqueeze(0)  # Add sequence dimension
+        x, _ = self.decoder_attention(x, x, x)
+        x = x.squeeze(0)  # Remove sequence dimension
+
+        # Post-attention linear layers (decoder)
+        x = self.activation(self.post_attention_dec_fc1(x))
+        x = self.activation(self.post_attention_dec_fc2(x))
+
+        # Decoding
+        x = self.fc_decode(x)
+        x = x.view(-1, 64, self.fc_input_size // 64)
+
+        x = self.activation(self.deconv3(x))
+        x = self.activation(self.deconv2(x))
+        x = self.deconv1(x)
+
+        # Remove padding
+        x = x[:, :, 3:-3]
+
+        return x.squeeze(1)
+
+
+class ImprovedPermutorAttentionV2(nn.Module):
+    def __init__(self, input_size=24, embedding_size=64, num_heads=8):
+        super(ImprovedPermutorAttentionV2, self).__init__()
+
+        self.initial_conv = nn.Conv1d(1, 16, kernel_size=7, padding=3)
+        self.fc_input_size = 16 * (input_size + 6)
+        self.initial_fc = nn.Linear(self.fc_input_size, embedding_size)
+
+        self.layers = nn.ModuleList()
+        for _ in range(4):
+            self.layers.append(nn.ModuleDict({
+                'attention': nn.MultiheadAttention(embed_dim=embedding_size, num_heads=num_heads),
+                'cnn': nn.Conv1d(1, 1, kernel_size=3, padding=1),
+                'linear': nn.Linear(embedding_size, embedding_size)
+            }))
+
+        self.final_fc = nn.Linear(embedding_size, embedding_size)
+        self.theta_fc = nn.Linear(embedding_size, 1)
+        self.activation = nn.LeakyReLU()
+
+    def forward_train(self, x):
+        if x.dim() == 2:
+            x = x.unsqueeze(1)
+
+        # Initial encoding
+        x = torch.cat([x[:, :, -3:], x, x[:, :, :3]], dim=2)
+        x = self.activation(self.initial_conv(x))
+
+        x_flat = x.view(x.size(0), -1)
+        x = self.initial_fc(x_flat)
+
+        # Multiple layers of attention, CNN, and linear transformation
+        for i, layer in enumerate(self.layers):
+            # Attention
+            x_att = x.unsqueeze(0)
+            x_att, _ = layer['attention'](x_att, x_att, x_att)
+            x_att = x_att.squeeze(0)
+
+            # CNN
+            x_cnn = x_att.unsqueeze(1)  # Add channel dimension
+            x_cnn = layer['cnn'](x_cnn)
+            x_cnn = x_cnn.squeeze(1)  # Remove channel dimension
+
+            # Linear
+            x_linear = layer['linear'](x_cnn)
+
+            # Combine and activate
+            x = self.activation(x_att + x_cnn + x_linear)
+
+        # Final processing
+        x = self.final_fc(x)
+        x = F.normalize(x, p=2, dim=1)
+
+        theta = torch.sigmoid(self.theta_fc(x))
+
+        return x, theta
+
+    def forward(self, x):
+        x, theta = self.forward_train(x)
+        return x
+
+
 def adjacent_permutor_loss(permutor, batch_names, criterion) -> torch.Tensor:
     global storage
     anchors = []
@@ -63,9 +227,9 @@ def adjacent_permutor_loss(permutor, batch_names, criterion) -> torch.Tensor:
         deg1_name, deg2_name = storage.sample_triplet_anchor_positive_negative(anchor_name)
 
         # Randomly select a rotation from a different datapoint
-        anchor_data = storage.get_datapoint_data_tensor_by_name(anchor_name)
-        positive_data = storage.get_datapoint_data_tensor_by_name(deg1_name)
-        negative_data = storage.get_datapoint_data_tensor_by_name(deg2_name)
+        anchor_data = storage.get_datapoint_data_tensor_by_name(anchor_name).to(device)
+        positive_data = storage.get_datapoint_data_tensor_by_name(deg1_name).to(device)
+        negative_data = storage.get_datapoint_data_tensor_by_name(deg2_name).to(device)
 
         anchor = random.choice(list(anchor_data))
         positive = random.choice(list(positive_data))
@@ -93,12 +257,12 @@ def datapoint_rotation_permutor_loss(permutor, batch_names, criterion) -> torch.
     negatives_arr = []
     for j in range(len(batch_names)):
         datapoint_name = batch_names[j]
-        datapoint = storage.get_datapoint_data_tensor_by_name(datapoint_name)
+        datapoint = storage.get_datapoint_data_tensor_by_name(datapoint_name).to(device)
         # Randomly select two rotations of the same datapoint
         anchor, positive = random.sample(list(datapoint), 2)
         # gets one adjacent datapoint
         adjacent_datapoint_names = storage.sample_adjacent_datapoint_at_degree_most(datapoint_name, 5, 4)
-        adjacent_datapoints = [storage.get_datapoint_data_tensor_by_name(adjacent_datapoint_name) for
+        adjacent_datapoints = [storage.get_datapoint_data_tensor_by_name(adjacent_datapoint_name).to(device) for
                                adjacent_datapoint_name in adjacent_datapoint_names]
         # Randomly select a rotation from a different datapoint
         negative = random.choice(
@@ -119,170 +283,181 @@ def datapoint_rotation_permutor_loss(permutor, batch_names, criterion) -> torch.
     return loss
 
 
-def train_permutor2(permutor, epochs=2000, batch_size=32):
+def rotations_distance_loss(permutor, batch_size) -> torch.Tensor:
+    global storage
+    datapoints_names: List[str] = storage.sample_n_random_datapoints(batch_size)
+    datapoints_data: List[torch.Tensor] = [storage.get_datapoint_data_tensor_by_name(datapoint_name).to(device) for
+                                           datapoint_name in datapoints_names]
+    datapoints_data = [datapoint_data.unsqueeze(1) for datapoint_data in datapoints_data]
+    accumulated_loss = torch.tensor(0.0, device=device)  # Create tensor directly on the device
+
+    for datapoint_data in datapoints_data:
+        datapoint_data = datapoint_data.to(device)  # Assign the result back to datapoint_data
+        outputs: torch.Tensor = permutor(datapoint_data)
+        pairwise_distances = torch.cdist(outputs, outputs, p=2)
+        accumulated_loss += torch.sum(pairwise_distances)
+
+    accumulated_loss /= batch_size
+    return accumulated_loss
+
+
+def datapoint_distance_loss(permutor, non_adjacent_sample_size: int, distance_factor: float) -> torch.Tensor:
+    sampled_pairs = storage.sample_datapoints_adjacencies(non_adjacent_sample_size)
+    batch_datapoint1 = []
+    batch_datapoint2 = []
+
+    for pair in sampled_pairs:
+        datapoint1 = storage.get_datapoint_data_random_rotation_tensor_by_name(pair["start"]).to(device)
+        datapoint2 = storage.get_datapoint_data_random_rotation_tensor_by_name(pair["end"]).to(device)
+        batch_datapoint1.append(datapoint1)
+        batch_datapoint2.append(datapoint2)
+
+    batch_datapoint1 = torch.stack(batch_datapoint1).unsqueeze(1)
+    batch_datapoint2 = torch.stack(batch_datapoint2).unsqueeze(1)
+    batch_datapoint1 = batch_datapoint1.to(device)
+    batch_datapoint2 = batch_datapoint2.to(device)
+
+    encoded_i = permutor(batch_datapoint1)
+    encoded_j = permutor(batch_datapoint2)
+
+    distance = torch.norm(encoded_i - encoded_j, p=2, dim=1)
+
+    expected_distance = [pair["distance"] * distance_factor for pair in sampled_pairs]
+    expected_distance = torch.tensor(expected_distance, device=device)  # Move to device
+
+    datapoint_distances_loss = (distance - expected_distance) / distance_factor
+    datapoint_distances_loss = torch.square(datapoint_distances_loss)
+    datapoint_distances_loss = torch.mean(datapoint_distances_loss)
+    return datapoint_distances_loss.to(device)  # Ensure the final result is on the device
+
+
+def train_permutor3(permutor, epochs):
     global storage
 
     optimizer = optim.Adam(permutor.parameters(), lr=0.001)
-    DISTANCE_THRESHOLD = 0.5
+    BATCH_SIZE = 64
 
-    # d and r stand for datapoint and rotation
-    # used to differentiate rotations from each other
-    # pick d1r1, d1r2, d2r1 ( should have one distance between them )
-    criterion1 = nn.TripletMarginLoss(margin=DISTANCE_THRESHOLD)
+    DISTANCE_THRESHOLD = 0.4
 
-    # used to differentiate datapoints from each other
-    # pick d1r1, d2r1, d3r1 ( should have 2 distance between them)
-    criterion2 = nn.TripletMarginLoss(margin=DISTANCE_THRESHOLD * 2)
+    scale_datapoint_loss = 1
+    scale_rotation_loss = 0.1
+
+    datapoints_adjacent_sample = 100
+
     epoch_print_rate = 1000
 
-    train_data_names = storage.get_sensor_data_names()
+    average_rotation_loss = 0
+    average_datapoint_loss = 0
+    average_epoch_loss = 0
+
     for epoch in range(epochs):
-        total_loss = 0
-        for i in range(0, len(train_data_names), batch_size):
-            batch_names = train_data_names[i:i + batch_size]
+        # LOSS SIMILAR ROTATIONS
+        # selects batch size of datapoints
 
-            loss1 = datapoint_rotation_permutor_loss(permutor, batch_names, criterion1)
-            # loss2 = adjacent_permutor_loss(permutor, batch_names, criterion2) * 0.2
+        rotation_loss = torch.tensor(0.0)
+        rotation_loss = rotations_distance_loss(permutor, BATCH_SIZE) * scale_rotation_loss
+        rotation_loss.backward()
+        # LOSS ADJACENT DATAPOINTS
 
-            optimizer.zero_grad()
-            loss1.backward()
-            # loss2.backward()
-            optimizer.step()
-
-            total_loss += loss1.item()
-
-        if epoch % epoch_print_rate == 0:
-            print(f"Epoch {epoch}, Loss: {total_loss}")
-
-    return permutor
-
-
-def reconstruction_handling(autoencoder: ImprovedPermutor, data: any, criterion: any,
-                            scale_reconstruction_loss: int = 1) -> torch.Tensor:
-    enc = autoencoder.encoder_training(data)
-    dec = autoencoder.decoder_training(enc)
-    return criterion(dec, data) * scale_reconstruction_loss
-
-
-def train_permutor(permutor: any, epochs: int) -> any:
-    # PARAMETERS
-    criterion = nn.L1Loss()
-    optimizer = optim.Adam(permutor.parameters(), lr=0.02)
-
-    num_epochs = epochs
-
-    scale_rotation_adjacency_loss = 10
-    # scale_rotation_adjacency_loss = 0
-
-    scale_datapoint_loss = 0.2
-    sampled_datapoints_count = 50
-    DATAPOINTS_DISTANCE_FACTOR = 0.1
-
-    epoch_average_loss = 0
-    rotation_average_loss = 0
-    datapoint_average_loss = 0
-
-    epoch_print_rate = 250
-    sample_rotations_pairs_count = 50
-
-    train_data = array_to_tensor(np.array(storage.get_pure_sensor_data()))
-
-    for epoch in range(num_epochs):
-        epoch_loss = 0.0
-        optimizer.zero_grad()
-
-        datapoint_means = []
-
-        rotation_adjacency_loss = torch.tensor(0.0)
         datapoint_loss = torch.tensor(0.0)
-        # get the mean of all representations
-        for datapoint in train_data:
-            datapoint_outputs = []
-
-            for rotation in datapoint:
-                output = permutor(rotation.unsqueeze(0).unsqueeze(0))
-                output = output.squeeze(0)
-                datapoint_outputs.append(output)
-
-            # SIMILARITY LOSS FOR SAME PERMUTATIONS
-            # sample 50 random pairs of datapoints, index i and index j
-
-            sampled_pairs = np.random.choice(len(datapoint_outputs), (sample_rotations_pairs_count, 2))
-            for pair in sampled_pairs:
-                index1 = pair[0]
-                index2 = pair[1]
-
-                encoding1 = datapoint_outputs[index1]
-                encoding2 = datapoint_outputs[index2]
-
-                rotation_adjacency_loss += torch.norm(encoding1 - encoding2, p=2)
-
-            rotation_adjacency_loss /= sample_rotations_pairs_count
-            rotation_adjacency_loss *= scale_rotation_adjacency_loss
-
-            datapoint_mean = torch.mean(torch.stack(datapoint_outputs), dim=0)
-            datapoint_means.append(datapoint_mean)
-
-        # ADJACENCY LOSS FOR DATAPOINTS
-        # samples datapoints and compares their means representations, and adjusts them to be further / closer to each other
-
-        sampled_connections = storage.sample_non_adjacent_datapoints(sampled_datapoints_count)
-        for pair in sampled_connections:
-            datapoint1_index = storage.get_datapoint_data_tensor_index_by_name(pair["start"])
-            datapoint2_index = storage.get_datapoint_data_tensor_index_by_name(pair["end"])
-            datapoint1 = datapoint_means[datapoint1_index]
-            datapoint2 = datapoint_means[datapoint2_index]
-
-            distance = torch.norm(datapoint1 - datapoint2, p=2)
-            expected_distance = pair["distance"] * DATAPOINTS_DISTANCE_FACTOR
-
-            datapoint_loss += ((distance - expected_distance) / DATAPOINTS_DISTANCE_FACTOR) ** 2
-
-        if sampled_datapoints_count != 0:
-            datapoint_loss /= sampled_datapoints_count
-        datapoint_loss *= scale_datapoint_loss
+        datapoint_loss = datapoint_distance_loss(permutor, datapoints_adjacent_sample,
+                                                 DISTANCE_THRESHOLD) * scale_datapoint_loss
+        datapoint_loss.backward()
 
         optimizer.step()
 
-        rotation_average_loss += rotation_adjacency_loss.item()
-        datapoint_average_loss += datapoint_loss.item()
-        epoch_loss += rotation_adjacency_loss + datapoint_loss
+        average_rotation_loss += rotation_loss.item()
+        average_datapoint_loss += datapoint_loss.item()
+        average_epoch_loss += rotation_loss.item() + datapoint_loss.item()
+        if epoch % epoch_print_rate == 0:
+            average_rotation_loss /= epoch_print_rate
+            average_datapoint_loss /= epoch_print_rate
+            average_epoch_loss /= epoch_print_rate
 
-        epoch_average_loss += epoch_loss
+            print(f"Epoch {epoch}")
+            print(f"ROTATION LOSS: {average_rotation_loss} DATASET LOSS: {average_datapoint_loss}")
+            print(f"AVERAGE LOSS: {average_epoch_loss}")
 
-        if epoch % epoch_print_rate == 0 and epoch != 0:
-            epoch_average_loss /= epoch_print_rate
-            rotation_average_loss /= epoch_print_rate
-            datapoint_average_loss /= epoch_print_rate
+            average_rotation_loss = 0
+            average_datapoint_loss = 0
+            average_epoch_loss = 0
+    return permutor
 
-            # Print average loss for this epoch
-            print(f"EPOCH:{epoch}/{num_epochs}")
-            print(f"ROTATION LOSS:{rotation_average_loss} DATASET LOSS:{datapoint_average_loss}")
-            print(f"AVERAGE LOSS:{epoch_average_loss}")
-            print("--------------------------------------------------")
 
-            epoch_average_loss = 0
-            rotation_average_loss = 0
-            datapoint_average_loss = 0
+def train_permutor_attention(permutor, epochs):
+    global storage
 
+    optimizer = optim.Adam(permutor.parameters(), lr=0.001)
+    BATCH_SIZE = 64
+
+    DISTANCE_THRESHOLD = 0.4
+
+    scale_datapoint_loss = 0.5
+    scale_rotation_loss = 0.02
+
+    datapoints_adjacent_sample = 100
+
+    epoch_print_rate = epochs / 20
+
+    average_rotation_loss = 0
+    average_datapoint_loss = 0
+    average_epoch_loss = 0
+
+    for epoch in range(epochs):
+        # LOSS SIMILAR ROTATIONS
+        # selects batch size of datapoints
+
+        rotation_loss = torch.tensor(0.0)
+        rotation_loss = rotations_distance_loss(permutor, BATCH_SIZE) * scale_rotation_loss
+        rotation_loss.backward()
+        # LOSS ADJACENT DATAPOINTS
+
+        datapoint_loss = torch.tensor(0.0)
+        datapoint_loss = datapoint_distance_loss(permutor, datapoints_adjacent_sample,
+                                                 DISTANCE_THRESHOLD) * scale_datapoint_loss
+        datapoint_loss.backward()
+
+        optimizer.step()
+
+        average_rotation_loss += rotation_loss.item()
+        average_datapoint_loss += datapoint_loss.item()
+        average_epoch_loss += rotation_loss.item() + datapoint_loss.item()
+        if epoch % epoch_print_rate == 0:
+            average_rotation_loss /= epoch_print_rate
+            average_datapoint_loss /= epoch_print_rate
+            average_epoch_loss /= epoch_print_rate
+
+            print(f"Epoch {epoch}")
+            print(f"ROTATION LOSS: {average_rotation_loss} DATASET LOSS: {average_datapoint_loss}")
+            print(f"AVERAGE LOSS: {average_epoch_loss}")
+
+            average_rotation_loss = 0
+            average_datapoint_loss = 0
+            average_epoch_loss = 0
     return permutor
 
 
 def run_ai():
-    permutor = ImprovedPermutor()
-    trained_permutor = train_permutor2(permutor, epochs=10000)
+    # permutor = ImprovedPermutor()
+    # trained_permutor = train_permutor3(permutor, epochs=10000)
+
+    permutor = ImprovedPermutorAttentionV2().to(device)
+    trained_permutor = train_permutor_attention(permutor, epochs=500)
     return trained_permutor
 
 
 def evaluate_permutor(permutor: ImprovedPermutor, storage: Storage) -> None:
+    # Move permutor to device if it's not already there
+    permutor = permutor.to(device)
+
     # evaluate difference between permutations ( should be close to 0 )
-    train_data = array_to_tensor(np.array(storage.get_pure_sensor_data()))
-    norm_sum = 0
+    train_data = array_to_tensor(np.array(storage.get_pure_sensor_data())).to(device)
+    norm_sum = torch.tensor(0.0, device=device)
     count = 0
     permutation_distance_array = []
-
     datapoint_means = []
     datapoint_outputs_array = []
+
     for datapoint in train_data:
         datapoint_outputs = []
         for rotation in datapoint:
@@ -299,32 +474,29 @@ def evaluate_permutor(permutor: ImprovedPermutor, storage: Storage) -> None:
 
         randi = random.randint(0, len(datapoint_outputs) - 1)
         randj = random.randint(0, len(datapoint_outputs) - 1)
-
         permutation_distance_array.append(torch.norm(datapoint_outputs[randi] - datapoint_outputs[randj], p=2).item())
 
         datapoint_mean = torch.mean(torch.stack(datapoint_outputs), dim=0)
         datapoint_means.append(datapoint_mean)
 
-    print("Permutations distance: ", norm_sum / count)
-    # print("Permutations distance array: ", sorted(permutation_distance_array))
-    # evaluate difference between adjacent points ( should be close to expected distance, much,much farther than the distance between permutations )
+    print("Permutations distance: ", (norm_sum / count).item())
 
+    # evaluate difference between adjacent points ( should be close to expected distance, much,much farther than the distance between permutations )
     sampled_connections = storage.get_all_adjacent_data()
     avg_distances = {}
+
     for pair in sampled_connections:
         start_name = pair["start"]
         end_name = pair["end"]
         distance = pair["distance"]
-
         datapoint1_index = storage.get_datapoint_data_tensor_index_by_name(start_name)
         datapoint2_index = storage.get_datapoint_data_tensor_index_by_name(end_name)
-
         datapoint1 = datapoint_means[datapoint1_index]
         datapoint2 = datapoint_means[datapoint2_index]
 
         if f"{distance}" not in avg_distances:
             avg_distances[f"{distance}"] = {
-                "sum": 0,
+                "sum": torch.tensor(0.0, device=device),
                 "count": 0
             }
 
@@ -334,7 +506,7 @@ def evaluate_permutor(permutor: ImprovedPermutor, storage: Storage) -> None:
 
     for distance in avg_distances:
         avg_distances[distance]["sum"] /= avg_distances[distance]["count"]
-        print(f"Average distance for distance {distance}: {avg_distances[distance]['sum']:.4f}")
+        print(f"Average distance for distance {distance}: {avg_distances[distance]['sum'].item():.4f}")
 
 
 def run_tests(autoencoder):
@@ -344,13 +516,13 @@ def run_tests(autoencoder):
 
 def run_new_ai() -> None:
     permutor = run_ai()
-    save_ai_manually("permutor_new", permutor)
+    save_ai_manually("permutor10k_lrn", permutor)
     run_tests(permutor)
 
 
 def load_ai() -> None:
     global model
-    model = load_manually_saved_ai("permutor_final1.pth")
+    model = load_manually_saved_ai("permutor10k.pth")
     run_tests(model)
 
 
@@ -360,9 +532,8 @@ def run_permutor() -> None:
     storage.load_raw_data_connections_from_others("data8x8_connections.json")
     storage.normalize_all_data_super()
 
-    # run_new_ai()
-    load_ai()
+    run_new_ai()
+    # load_ai()
 
 
 storage: StorageSuperset = StorageSuperset()
-model = ImprovedPermutor()
