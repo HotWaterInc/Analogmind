@@ -14,6 +14,8 @@ from src.action_robot_controller import detach_robot_sample, detach_robot_telepo
 from src.modules.policies.data_collection import grid_data_collection
 from src.ai.models.permutor_autoenc_pipelined import run_permuted_autoencoder
 from src.ai.models.permutor_autoenc_pipelined2 import run_permuted_autoencoder2
+from src.ai.models.direction_network_final import run_direction_network
+from src.modules.policies.navigation8x8_full import navigation8x8, test_angles_direction
 
 
 def start_server_thread():
@@ -37,12 +39,26 @@ def data_collection_pipeline():
     server_thread.join()
 
 
+def navigation8x8pipeline():
+    configs_communication()
+    generator = navigation8x8()
+
+    config_data_collection_pipeline(generator)
+    server_thread = threading.Thread(target=start_server, name="ServerThread")
+    server_thread.start()
+
+    server_thread.join()
+
+
 if __name__ == "__main__":
     # data_collection_pipeline()
+    # navigation8x8pipeline()
+    test_angles_direction()
 
     # run_permutor_deshift()
     # run_permutor()
-    run_permuted_autoencoder2()
+    # run_permuted_autoencoder2()
+    # run_direction_network()
 
     # run_autoencoder()
     # run_permuted_autoencoder()

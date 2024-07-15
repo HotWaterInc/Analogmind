@@ -58,8 +58,8 @@ def evaluate_distances_between_pairs_super(model: BaseAutoencoderModel, storage:
             end_uid = connection["end"]
             distance = connection["distance"]
 
-            start_data = storage.get_datapoint_data_tensor_by_name_super(start_uid)
-            end_data = storage.get_datapoint_data_tensor_by_name_super(end_uid)
+            start_data = storage.get_datapoint_data_tensor_by_name_permuted(start_uid)
+            end_data = storage.get_datapoint_data_tensor_by_name_permuted(end_uid)
 
             start_embedding = model.encoder_inference(start_data.unsqueeze(0))
             end_embedding = model.encoder_inference(end_data.unsqueeze(0))
@@ -152,8 +152,8 @@ def evaluate_adjacency_properties_super(model: BaseAutoencoderModel, storage: St
             end = connection["end"]
             real_life_distance = connection["distance"]
 
-            i_encoded = model.encoder_inference(storage.get_datapoint_data_tensor_by_name_super(start).unsqueeze(0))
-            j_encoded = model.encoder_inference(storage.get_datapoint_data_tensor_by_name_super(end).unsqueeze(0))
+            i_encoded = model.encoder_inference(storage.get_datapoint_data_tensor_by_name_permuted(start).unsqueeze(0))
+            j_encoded = model.encoder_inference(storage.get_datapoint_data_tensor_by_name_permuted(end).unsqueeze(0))
             distance = torch.norm((i_encoded - j_encoded), p=2).item()
 
             if distance < distance_threshold:

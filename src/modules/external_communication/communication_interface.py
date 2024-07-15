@@ -44,6 +44,16 @@ class RotateAbsoluteAction(TypedDict):
     angle: float
 
 
+class RotateAbsoluteContinuousAction(TypedDict):
+    action_type: str
+    angle: float
+
+
+class ForwardContinuousAction(TypedDict):
+    action_type: str
+    distance: float
+
+
 class RotateRelativeAction(TypedDict):
     action_type: str
     dangle: float
@@ -58,15 +68,19 @@ ActionTypeTeleportAbsolute = "teleport_absolute"
 ActionTypeTeleportRelative = "teleport_relative"
 ActionTypeRotateAbsolute = "rotate_absolute"
 ActionTypeRotateRelative = "rotate_relative"
+
+ActionTypeContRotateAbsolute = "cont_rotate_absolute"
+ActionTypeContForward = "cont_forward"
+
 ActionTypeSample = "sample"
 
 action_types: List[str] = [
     ActionTypeTeleportAbsolute, ActionTypeTeleportRelative, ActionTypeRotateAbsolute, ActionTypeRotateRelative,
-    ActionTypeSample
+    ActionTypeSample, ActionTypeContRotateAbsolute, ActionTypeContForward
 ]
 
 JsonDataAction = Union[
-    TeleportAbsoluteAction, TeleportRelativeAction, RotateAbsoluteAction, RotateRelativeAction, SampleAction]
+    TeleportAbsoluteAction, TeleportRelativeAction, RotateAbsoluteAction, RotateRelativeAction, SampleAction, RotateAbsoluteContinuousAction, ForwardContinuousAction]
 
 
 def send_data(json_data: JsonDataAction) -> None:

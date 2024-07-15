@@ -9,6 +9,43 @@ import torch
 from src.utils import array_to_tensor
 
 
+def pathfinding_step_super_ab(model: BaseAutoencoderModel, storage: StorageSuperset2, current_position_name: str,
+                              target_position_name: str,
+                              first_n_closest: int, max_search_distance: int) -> List[str]:
+    """
+
+    """
+    # get closest pos within max_search_distance
+    datapoints_within_distance: List[str] = storage.get_datapoint_adjacent_datapoints_at_most_n_deg(
+        current_position_name,
+        max_search_distance)
+
+    # !!! Assumes data is already preprocessed and normalized
+    datapoints_sensor_data: List[RawEnvironmentData] = [storage.get_datapoint_by_name(datapoint) for datapoint in
+                                                        datapoints_within_distance]
+
+    datapoints_embeddings: List[Dict] = [{
+        "embedding": model.encoder_inference(storage.get_datapoint_data_tensor_by_name_permuted(datapoint["name"])),
+        "name": datapoint["name"]
+    } for datapoint in datapoints_sensor_data]
+
+    # take the n closest embeddings to the target embedding
+    target_embedding = model.encoder_inference(storage.get_datapoint_data_tensor_by_name(target_position_name))
+    current_embedding = model.encoder_inference(storage.get_datapoint_data_tensor_by_name(current_position_name))
+
+    # tries to walk thought a continous latent space towards the target
+    ab_step = target_embedding - current_embedding
+    ab_step = ab_step / torch.norm(ab_step, p=2)
+
+    next_embedding = current_embedding + ab_step * 2
+    # finds closest datapoint to the next embedding
+    distances = [torch.norm((datapoint["embedding"] - next_embedding), p=2).item() for datapoint in
+                 datapoints_embeddings]
+    sorted_datapoints = [datapoints_embeddings[i] for i in np.argsort(distances)]
+
+    return [datapoint["name"] for datapoint in sorted_datapoints[:first_n_closest]]
+
+
 def pathfinding_step_super(model: BaseAutoencoderModel, storage: StorageSuperset2, current_position_name: str,
                            target_position_name: str,
                            first_n_closest: int, max_search_distance: int) -> List[str]:
@@ -35,7 +72,7 @@ def pathfinding_step_super(model: BaseAutoencoderModel, storage: StorageSuperset
                                                         datapoints_within_distance]
 
     datapoints_embeddings: List[Dict] = [{
-        "embedding": model.encoder_inference(storage.get_datapoint_data_tensor_by_name_super(datapoint["name"])),
+        "embedding": model.encoder_inference(storage.get_datapoint_data_tensor_by_name_permuted(datapoint["name"])),
         "name": datapoint["name"]
     } for datapoint in datapoints_sensor_data]
 

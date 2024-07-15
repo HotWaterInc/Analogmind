@@ -121,6 +121,14 @@ class Storage:
 
     _connections_numpy_array: np.ndarray = None
 
+    def sample_adjacent_datapoints_connections_raw_data(self, sample_size: int) -> List[RawConnectionData]:
+        """
+        Samples a number the adjacent datapoints
+
+        :param sample_size: the number of datapoints to sample
+        """
+        return np.random.choice(self.raw_connections_data, sample_size, replace=False)
+
     def sample_adjacent_datapoints_connections(self, sample_size: int) -> List[AdjacencyDataSample]:
         """
         Samples a number the adjacent datapoints
@@ -280,17 +288,13 @@ class Storage:
         """
         return self.raw_env_data[index]
 
-    _transformed_datapoints_data: Dict[str, torch.Tensor] = {}
-
     def get_datapoint_data_tensor_by_name(self, name: str) -> torch.Tensor:
         """
         Returns the data point by its name
         """
-        if name not in self._transformed_datapoints_data:
-            self._transformed_datapoints_data[name] = torch.tensor(self.raw_env_data_map[name]["data"],
-                                                                   dtype=torch.float32)
 
-        return self._transformed_datapoints_data[name]
+        # return self._transformed_datapoints_data[name]
+        return torch.tensor(self.raw_env_data_map[name]["data"], dtype=torch.float32)
 
     _cache_datapoint_data_tensor_index: Dict[str, int] = {}
 

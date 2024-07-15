@@ -1,9 +1,10 @@
 from enum import Enum
 from src.modules.external_communication.communication_interface import send_data
 from src.modules.external_communication.communication_interface import TeleportRelativeAction, TeleportAbsoluteAction, \
-    RotateAbsoluteAction, RotateRelativeAction, SampleAction
+    RotateAbsoluteAction, RotateRelativeAction, SampleAction, RotateAbsoluteContinuousAction, ForwardContinuousAction
 from src.modules.external_communication.communication_interface import action_types, ActionTypeTeleportAbsolute, \
-    ActionTypeTeleportRelative, ActionTypeRotateAbsolute, ActionTypeRotateRelative, ActionTypeSample
+    ActionTypeTeleportRelative, ActionTypeRotateAbsolute, ActionTypeRotateRelative, ActionTypeSample, \
+    ActionTypeContRotateAbsolute, ActionTypeContForward
 
 from typing import Dict, TypedDict
 
@@ -29,6 +30,22 @@ def detach_robot_teleport_absolute(x: float, y: float):
         "action_type": ActionTypeTeleportAbsolute,
         "x": x,
         "y": y
+    }
+    send_data(json_data)
+
+
+def detach_robot_rotate_continuous_absolute(angle: float):
+    json_data: RotateAbsoluteContinuousAction = {
+        "action_type": ActionTypeContRotateAbsolute,
+        "angle": angle
+    }
+    send_data(json_data)
+
+
+def detach_robot_forward_continuous(distance: float):
+    json_data: ForwardContinuousAction = {
+        "action_type": ActionTypeContForward,
+        "distance": distance
     }
     send_data(json_data)
 

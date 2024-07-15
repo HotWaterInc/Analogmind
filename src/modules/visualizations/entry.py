@@ -8,7 +8,7 @@ from src.ai.models.autoencoder import Autoencoder
 from src.modules.save_load_handlers.ai_models_handle import load_latest_ai, load_manually_saved_ai, AIType
 from src.ai.runtime_data_storage.storage import Storage, Coords
 from src.ai.runtime_data_storage.storage_superset2 import StorageSuperset2
-from src.ai.evaluation.pathfinding_known import pathfinding_step, pathfinding_step_super
+from src.ai.evaluation.pathfinding_known import pathfinding_step, pathfinding_step_super, pathfinding_step_super_ab
 from src.ai.models.base_autoencoder_model import BaseAutoencoderModel
 from src.ai.runtime_data_storage.storage import RawConnectionData, RawEnvironmentData
 from src.utils import array_to_tensor
@@ -89,6 +89,34 @@ def add_mobjects_vectors_pathfinding(scene: Scene, model: BaseAutoencoderModel, 
 
         closest_point = \
             pathfinding_step(model, storage, current_position, target_name, first_n_closest, max_search_distance)[0]
+
+        x_current = datapoints_coordinate_map[current_position]["x"]
+        y_current = datapoints_coordinate_map[current_position]["y"]
+
+        x_target = datapoints_coordinate_map[closest_point]["x"]
+        y_target = datapoints_coordinate_map[closest_point]["y"]
+
+        scene.add(Arrow(start=x_current * distance_scale * RIGHT + y_current * distance_scale * UP,
+                        end=x_target * distance_scale * RIGHT + y_target * distance_scale * UP, color=RED,
+                        stroke_width=2, max_tip_length_to_length_ratio=0.1))
+
+
+def add_mobjects_vectors_pathfinding_super_ab(scene: Scene, model: BaseAutoencoderModel, storage: Storage,
+                                              datapoints_coordinate_map: Dict[str, Coords],
+                                              distance_scale: float, target_name: str, first_n_closest: int,
+                                              max_search_distance: int) -> None:
+    """
+    Runs pathfinding algorithm step for each datapoint and adds arrow direction corresponding to the walking direction
+    """
+
+    for current_position in datapoints_coordinate_map:
+        if current_position == target_name:
+            continue
+
+        closest_point = \
+            pathfinding_step_super_ab(model, storage, current_position, target_name, first_n_closest,
+                                      max_search_distance)[
+                0]
 
         x_current = datapoints_coordinate_map[current_position]["x"]
         y_current = datapoints_coordinate_map[current_position]["y"]
@@ -192,8 +220,6 @@ def build_scene_autoencoded_permuted():
     storage_superset2.build_permuted_data_random_rotations()
 
     autoencoder = load_manually_saved_ai("autoencodPerm10k_working.pth")
-    # autoencoder = load_latest_ai(AIType.Autoencoder)
-
     storage_superset2.build_datapoints_coordinates_map()
     # quality of life, centered coords at 0,0
     storage_superset2.recenter_datapoints_coordinates_map()
@@ -203,10 +229,10 @@ def build_scene_autoencoded_permuted():
     radius = 0.2
 
     add_mobjects_datapoints(scene, datapoints_coordinates_map, distance_scale, radius)
-    add_mobjects_vectors_pathfinding_super(scene, autoencoder, storage_superset2, datapoints_coordinates_map,
-                                           distance_scale,
-                                           "0_0", 1,
-                                           1)
+    add_mobjects_vectors_pathfinding_super_ab(scene, autoencoder, storage_superset2, datapoints_coordinates_map,
+                                              distance_scale,
+                                              "0_0", 1,
+                                              1)
     return scene
 
 
@@ -232,6 +258,10 @@ def run_visualization():
     run_opengl_configs()
     scene = build_scene_autoencoded_permuted()
     run_opengl_scene(scene)
+
+
+def basic_viz():
+    pass
 
 
 def myfunc1():

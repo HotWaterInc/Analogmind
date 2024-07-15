@@ -142,14 +142,16 @@ class StorageSuperset2(StorageSuperset):
         """
         return [datapoint["data"] for datapoint in self.raw_env_data_permuted_choice]
 
-    _transformed_datapoints_data: Dict[str, torch.Tensor] = {}
-
-    def get_datapoint_data_tensor_by_name_super(self, name: str) -> torch.Tensor:
+    def get_datapoint_data_tensor_by_name_permuted(self, name: str) -> torch.Tensor:
         """
         Returns the data point by its name
         """
-        if name not in self._transformed_datapoints_data:
-            self._transformed_datapoints_data[name] = torch.tensor(self.raw_env_data_permuted_choice_map[name]["data"],
-                                                                   dtype=torch.float32)
+        return torch.tensor(self.raw_env_data_permuted_choice_map[name]["data"], dtype=torch.float32)
 
-        return self._transformed_datapoints_data[name]
+    # def get_datapoint_data_tensor_by_name_permuted_random_rotation(self, name: str) -> torch.Tensor:
+    #     """
+    #     Returns a random arr from the datapoint data field
+    #     """
+    #     data = self.raw_env_data_permuted_choice_map[name]["data"]
+    #     index = random.randint(0, len(data) - 1)
+    #     return torch.tensor(data[index], dtype=torch.float32)

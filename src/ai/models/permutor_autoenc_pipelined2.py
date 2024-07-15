@@ -102,8 +102,8 @@ def adjacent_distance_handling(autoencoder: BaseAutoencoderModel, adjacent_sampl
     batch_datapoint2 = []
     for pair in sampled_pairs:
         # keep adjacent close to each other
-        data_point1 = storage.get_datapoint_data_tensor_by_name_super(pair["start"])
-        data_point2 = storage.get_datapoint_data_tensor_by_name_super(pair["end"])
+        data_point1 = storage.get_datapoint_data_tensor_by_name_permuted(pair["start"])
+        data_point2 = storage.get_datapoint_data_tensor_by_name_permuted(pair["end"])
         batch_datapoint1.append(data_point1)
         batch_datapoint2.append(data_point2)
 
@@ -132,8 +132,8 @@ def non_adjacent_distance_handling(autoencoder: BaseAutoencoderModel, non_adjace
     batch_datapoint2 = []
 
     for pair in sampled_pairs:
-        datapoint1 = storage.get_datapoint_data_tensor_by_name_super(pair["start"])
-        datapoint2 = storage.get_datapoint_data_tensor_by_name_super(pair["end"])
+        datapoint1 = storage.get_datapoint_data_tensor_by_name_permuted(pair["start"])
+        datapoint2 = storage.get_datapoint_data_tensor_by_name_permuted(pair["end"])
 
         batch_datapoint1.append(datapoint1)
         batch_datapoint2.append(datapoint2)
