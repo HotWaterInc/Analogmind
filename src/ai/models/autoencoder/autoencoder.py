@@ -14,43 +14,57 @@ from src.ai.evaluation.evaluation import evaluate_reconstruction_error, evaluate
 
 
 class Autoencoder(BaseAutoencoderModel):
-    def __init__(self):
+    def __init__(self, dropout: float = 0.1):
         super(Autoencoder, self).__init__()
 
         # Encoder
         self.encoder1 = nn.Sequential(
-            nn.Linear(8, 16),
+            nn.Linear(8, 32),
             nn.LeakyReLU(),
+
         )
 
         self.encoder2 = nn.Sequential(
-            nn.Linear(16, 12),
+            nn.Linear(32, 32),
+            nn.LeakyReLU(),
+            nn.Dropout(dropout)
+        )
+
+        self.encoder_final = nn.Sequential(
+            nn.Linear(32, 12),
+            nn.Tanh(),
+        )
+
+        self.decoder_init = nn.Sequential(
+            nn.Linear(12, 32),
             nn.LeakyReLU(),
         )
 
         self.decoder1 = nn.Sequential(
-            nn.Linear(12, 16),
-            nn.Tanh(),
+            nn.Linear(32, 32),
+            nn.LeakyReLU(),
+            nn.Dropout(dropout)
         )
 
         self.decoder2 = nn.Sequential(
-            nn.Linear(16, 8),
-            nn.LeakyReLU()
+            nn.Linear(32, 8),
+            nn.Tanh(),
         )
 
     def encoder_training(self, x: torch.Tensor) -> torch.Tensor:
         l1 = self.encoder1(x)
-        encoded = self.encoder2(l1)
+        l1 = self.encoder2(l1)
+        encoded = self.encoder_final(l1)
         return encoded
 
     def encoder_inference(self, x: torch.Tensor) -> torch.Tensor:
         return self.encoder_training(x)
 
     def decoder_training(self, x: torch.Tensor) -> torch.Tensor:
-        l1 = self.decoder1(x)
+        l1 = self.decoder_init(x)
+        l1 = self.decoder1(l1)
         decoded = self.decoder2(l1)
         # assumes input data from permutor is already normalized between 0 and 1
-        # decoded = nn.functional.normalize(decoded, p=2, dim=1)
         return decoded
 
     def decoder_inference(self, x: torch.Tensor) -> torch.Tensor:
@@ -165,7 +179,7 @@ def train_autoencoder_with_distance_constraint(autoencoder: BaseAutoencoderModel
     adjacent_average_loss = 0
     non_adjacent_average_loss = 0
 
-    epoch_print_rate = 100
+    epoch_print_rate = 1000
     DISTANCE_CONSTANT = 0.5
 
     train_data = array_to_tensor(np.array(storage.get_pure_sensor_data()))
@@ -343,7 +357,7 @@ def train_autoencoder_triple_margin(autoencoder: BaseAutoencoderModel, epochs: i
 
 def run_ai():
     autoencoder = Autoencoder()
-    train_autoencoder_with_distance_constraint(autoencoder, epochs=2000)
+    train_autoencoder_with_distance_constraint(autoencoder, epochs=5000)
     # train_autoencoder_triple_margin(autoencoder, epochs=2000)
     return autoencoder
 
@@ -375,6 +389,7 @@ def run_autoencoder() -> None:
     global storage
     storage.load_raw_data(CollectedDataType.Data8x8)
     storage.normalize_all_data()
+    storage.tanh_all_data()
 
     run_new_ai()
     # run_loaded_ai()

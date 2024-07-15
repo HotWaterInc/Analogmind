@@ -181,16 +181,17 @@ def build_scene_autoencoded_permuted():
     scene = IntroScene()
 
     global storage_superset2
-    permutor = load_manually_saved_ai("permutor10k.pth")
+    permutor = load_manually_saved_ai("permutor_deshift_working.pth")
     storage_superset2.set_permutor(permutor)
     storage_superset2.load_raw_data_from_others("data8x8_rotated20.json")
     storage_superset2.load_raw_data_connections_from_others("data8x8_connections.json")
     storage_superset2.normalize_all_data_super()
+    storage_superset2.tanh_all_data()
 
-    storage_superset2.build_permuted_data_raw()
+    storage_superset2.build_permuted_data_raw_with_thetas()
     storage_superset2.build_permuted_data_random_rotations()
 
-    autoencoder = load_manually_saved_ai("autoencod_permutated1mil.pth")
+    autoencoder = load_manually_saved_ai("autoencodPerm10k_working.pth")
     # autoencoder = load_latest_ai(AIType.Autoencoder)
 
     storage_superset2.build_datapoints_coordinates_map()

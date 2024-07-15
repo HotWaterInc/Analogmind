@@ -156,6 +156,12 @@ class Storage:
         sampled_adjacencies = np.random.choice(adjacent_datapoints, sample_size, replace=False)
         return sampled_adjacencies
 
+    def get_all_datapoints(self) -> List[str]:
+        """
+        Samples a number of random datapoints
+        """
+        return [item["name"] for item in self.raw_env_data]
+
     def sample_n_random_datapoints(self, sample_size: int) -> List[str]:
         """
         Samples a number of random datapoints
@@ -302,6 +308,17 @@ class Storage:
         self._cache_datapoint_data_tensor_index[name] = index
 
         return index
+
+    def tanh_all_data(self):
+        # normalizes all the data
+        data = self.get_pure_sensor_data()
+        normalized_data = np.tanh(np.array(data))
+
+        length = len(self.raw_env_data)
+        for i in range(length):
+            self.raw_env_data[i]["data"] = normalized_data[i]
+            name = self.raw_env_data[i]["name"]
+            self.raw_env_data_map[name]["data"] = normalized_data[i]
 
     def normalize_all_data(self):
         # normalizes all the data

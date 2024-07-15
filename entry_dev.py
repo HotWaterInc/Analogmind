@@ -28,7 +28,7 @@ def data_collection_pipeline():
     """
     configs_communication()
 
-    generator = grid_data_collection(2, 2, 8, 0, 0, 20)
+    generator = grid_data_collection(2, 2, 8, 0, 0, 24)
 
     config_data_collection_pipeline(generator)
     server_thread = threading.Thread(target=start_server, name="ServerThread")
@@ -38,9 +38,11 @@ def data_collection_pipeline():
 
 
 if __name__ == "__main__":
-    run_permutor_deshift()
+    # data_collection_pipeline()
+
+    # run_permutor_deshift()
     # run_permutor()
-    # run_permuted_autoencoder2()
+    run_permuted_autoencoder2()
 
     # run_autoencoder()
     # run_permuted_autoencoder()

@@ -39,3 +39,11 @@ class StorageSuperset(Storage):
         Returns a random rotation from a datapoint as
         """
         return torch.tensor(random.choice(self.raw_env_data_map[name]["data"]))
+
+    def get_datapoint_data_random_rotation_tensor_by_name_and_index(self, name: str) -> any:
+        """
+        Returns a random rotation from a datapoint as AND the index at which it was chosen
+        """
+        data = self.raw_env_data_map[name]["data"]
+        index = random.randint(0, len(data) - 1)
+        return torch.tensor(data[index]), index

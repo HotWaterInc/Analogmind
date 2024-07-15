@@ -16,47 +16,58 @@ from src.ai.evaluation.evaluation import evaluate_reconstruction_error, evaluate
 from src.ai.evaluation.evaluation import evaluate_reconstruction_error, evaluate_distances_between_pairs, \
     evaluate_adjacency_properties, evaluate_reconstruction_error_super, evaluate_distances_between_pairs_super, \
     evaluate_adjacency_properties_super
-from src.ai.models.permutor import ImprovedPermutor
 
 
 class AutoencoderPostPermutor(BaseAutoencoderModel):
-    def __init__(self):
+    def __init__(self, drop_rate: float = 0.2):
         super(AutoencoderPostPermutor, self).__init__()
 
         # Encoder
         self.encoder1 = nn.Sequential(
-            nn.Linear(8, 16),
+            nn.Linear(24, 48),
             nn.LeakyReLU(),
         )
 
         self.encoder2 = nn.Sequential(
-            nn.Linear(16, 24),
+            nn.Linear(48, 48),
+            nn.Tanh(),
+            nn.Dropout(drop_rate),
+        )
+
+        self.encoder_final = nn.Sequential(
+            nn.Linear(48, 24),
             nn.LeakyReLU(),
         )
 
+        self.decoder_init = nn.Sequential(
+            nn.Linear(24, 48),
+            nn.LeakyReLU()
+        )
+
         self.decoder1 = nn.Sequential(
-            nn.Linear(24, 16),
-            nn.Tanh(),
+            nn.Linear(48, 48),
+            nn.LeakyReLU(),
+            nn.Dropout(drop_rate),
         )
 
         self.decoder2 = nn.Sequential(
-            nn.Linear(16, 8),
-            nn.LeakyReLU()
+            nn.Linear(48, 24),
+            nn.Tanh()
         )
 
     def encoder_training(self, x: torch.Tensor) -> torch.Tensor:
         l1 = self.encoder1(x)
-        encoded = self.encoder2(l1)
+        l2 = self.encoder2(l1)
+        encoded = self.encoder_final(l1)
         return encoded
 
     def encoder_inference(self, x: torch.Tensor) -> torch.Tensor:
         return self.encoder_training(x)
 
     def decoder_training(self, x: torch.Tensor) -> torch.Tensor:
-        l1 = self.decoder1(x)
+        l1 = self.decoder_init(x)
+        l2 = self.decoder1(l1)
         decoded = self.decoder2(l1)
-        # assumes input data from permutor is already normalized between 0 and 1
-        decoded = nn.functional.normalize(decoded, p=2, dim=1)
         return decoded
 
     def decoder_inference(self, x: torch.Tensor) -> torch.Tensor:
@@ -170,11 +181,10 @@ def train_autoencoder_with_distance_constraint(autoencoder: BaseAutoencoderModel
     adjacent_average_loss = 0
     non_adjacent_average_loss = 0
 
-    epoch_print_rate = 5000
+    epoch_print_rate = 1000
     DISTANCE_CONSTANT = 0.5
 
     train_data_names = storage.get_sensor_data_names()
-    storage.build_permuted_data_raw()
     storage.build_permuted_data_random_rotations()
     train_data = array_to_tensor(np.array(storage.get_pure_permuted_raw_env_data()))
 
@@ -249,8 +259,12 @@ def train_autoencoder_with_distance_constraint(autoencoder: BaseAutoencoderModel
 
 
 def run_ai():
+    global storage
+
     autoencoder = AutoencoderPostPermutor()
-    train_autoencoder_with_distance_constraint(autoencoder, epochs=100000)
+    storage.build_permuted_data_raw_with_thetas()
+
+    train_autoencoder_with_distance_constraint(autoencoder, epochs=10000)
     return autoencoder
 
 
@@ -264,16 +278,16 @@ def run_tests(autoencoder):
 
 def run_loaded_ai():
     # autoencoder = load_manually_saved_ai("autoenc_dynamic10k.pth")
-    autoencoder = load_manually_saved_ai("autoencod_perm100k.pth")
+    autoencoder = load_manually_saved_ai("autoencodPermOpt.pth")
     global storage
-    storage.build_permuted_data_raw()
+    storage.build_permuted_data_raw_with_thetas()
 
     run_tests(autoencoder)
 
 
 def run_new_ai() -> None:
     autoencoder = run_ai()
-    save_ai_manually("autoencod_permutated2", autoencoder)
+    save_ai_manually("autoencodPerm10k", autoencoder)
     run_tests(autoencoder)
 
 
@@ -281,10 +295,11 @@ def run_permuted_autoencoder2() -> None:
     global storage
     global permutor
 
-    permutor = load_manually_saved_ai("permutor10k.pth")
+    permutor = load_manually_saved_ai("permutor_deshift_working.pth")
     storage.load_raw_data_from_others("data8x8_rotated20.json")
     storage.load_raw_data_connections_from_others("data8x8_connections.json")
     storage.normalize_all_data_super()
+    storage.tanh_all_data()
     storage.set_permutor(permutor)
 
     run_new_ai()
@@ -292,4 +307,4 @@ def run_permuted_autoencoder2() -> None:
 
 
 storage: StorageSuperset2 = StorageSuperset2()
-permutor: ImprovedPermutor = None
+permutor = None

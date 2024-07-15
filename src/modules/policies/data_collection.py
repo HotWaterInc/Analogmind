@@ -86,5 +86,5 @@ def grid_data_collection(width: float, height: float, grid_size: int, center_x: 
             all_data.append(current_datapoint)
 
     print("POLICY HAS FINISHED, SAVING DATA")
-    write_other_data_to_file("data8x8_rotated20.json", all_data)
+    write_other_data_to_file(f"data8x8_rotated{rotations}.json", all_data)
     yield

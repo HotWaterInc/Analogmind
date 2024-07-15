@@ -11,7 +11,9 @@ from src.ai.models.base_autoencoder_model import BaseAutoencoderModel
 from src.ai.evaluation.evaluation import evaluate_reconstruction_error, evaluate_distances_between_pairs, \
     evaluate_adjacency_properties, evaluate_reconstruction_error_super, evaluate_distances_between_pairs_super, \
     evaluate_adjacency_properties_super
-from src.ai.models.permutor import ImprovedPermutor
+
+
+# from src.ai.models.permutor import ImprovedPermutor
 
 
 class AutoencoderPostPermutor(BaseAutoencoderModel):
@@ -203,4 +205,4 @@ def run_permuted_autoencoder() -> None:
 
 
 storage: StorageSuperset2 = StorageSuperset2()
-permutor: ImprovedPermutor = None
+permutor = None
