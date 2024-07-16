@@ -119,8 +119,6 @@ class Storage:
         """
         self.custom_data[key] = data
 
-    _connections_numpy_array: np.ndarray = None
-
     def sample_adjacent_datapoints_connections_raw_data(self, sample_size: int) -> List[RawConnectionData]:
         """
         Samples a number the adjacent datapoints
@@ -136,10 +134,7 @@ class Storage:
         :param sample_size: the number of datapoints to sample
         """
         # samples from connections since they are adjacent
-        if self._connections_numpy_array is None:
-            self._connections_numpy_array = np.array(self.raw_connections_data)
-
-        sampled_connections = np.random.choice(self._connections_numpy_array, sample_size, replace=False)
+        sampled_connections = np.random.choice(np.array(self.raw_connections_data), sample_size, replace=False)
         sampled_adjacencies = [self._generate_adjacency_data_sample(item) for item in sampled_connections]
 
         return sampled_adjacencies
@@ -296,20 +291,14 @@ class Storage:
         # return self._transformed_datapoints_data[name]
         return torch.tensor(self.raw_env_data_map[name]["data"], dtype=torch.float32)
 
-    _cache_datapoint_data_tensor_index: Dict[str, int] = {}
-
     def get_datapoint_data_tensor_index_by_name(self, name: str) -> int:
         """
         Returns the index of the datapoint in the raw env data array, by its name
         """
         if name not in self.raw_env_data_map:
             return -1
-        # check for cache hit
-        if name in self._cache_datapoint_data_tensor_index:
-            return self._cache_datapoint_data_tensor_index[name]
 
         index = self.raw_env_data.index(self.raw_env_data_map[name])
-        self._cache_datapoint_data_tensor_index[name] = index
 
         return index
 
@@ -343,22 +332,30 @@ class Storage:
         """
         found_connections = []
         connections_data = self.get_connections_data()
-        if datapoint_name in self._connection_cache:
-            return self._connection_cache[datapoint_name]
+        # if datapoint_name in self._connection_cache:
+        #     return self._connection_cache[datapoint_name]
 
         for connection in connections_data:
-            start = connection["start"]
-            end = connection["end"]
-            distance = connection["distance"]
-            direction = connection["direction"]
+            connection_copy = connection.copy()
+            start = connection_copy["start"]
+            end = connection_copy["end"]
+            distance = connection_copy["distance"]
+            direction = connection_copy["direction"].copy()
             if start == datapoint_name:
-                found_connections.append(connection)
+                found_connections.append(connection_copy)
             if end == datapoint_name:
+                # swap them
                 direction[0] = -direction[0]
                 direction[1] = -direction[1]
-                found_connections.append(connection)
 
-        self._connection_cache[datapoint_name] = found_connections
+                aux = connection_copy["start"]
+                connection_copy["start"] = connection_copy["end"]
+                connection_copy["end"] = aux
+                connection_copy["direction"] = direction
+
+                found_connections.append(connection_copy)
+
+        # self._connection_cache[datapoint_name] = found_connections
         return found_connections
 
     _connection_directed_cache: Dict[str, List[RawConnectionData]] = {}

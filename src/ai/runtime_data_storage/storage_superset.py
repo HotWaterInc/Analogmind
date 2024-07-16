@@ -21,6 +21,19 @@ class StorageSuperset(Storage):
         self.raw_connections_data = read_other_data_from_file(connections_filename)
         self._convert_raw_data_to_map()
 
+    _non_normalized_data = None
+
+    def freeze_non_normalized_data(self):
+        copy = self.raw_env_data.copy()
+        self._non_normalized_data = [x["data"][0] for x in copy]
+
+    def normalize_incoming_data(self, data):
+        # merge _non_nomralized_data with data
+        copy = self._non_normalized_data.copy()
+        copy.append(data)
+        normalized_data = normalize_data_min_max_super(torch.tensor(copy))
+        return normalized_data[-1].tolist()
+
     def normalize_all_data_super(self):
         # normalizes all the data
         data = self.get_pure_sensor_data()

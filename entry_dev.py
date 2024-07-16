@@ -15,6 +15,7 @@ from src.modules.policies.data_collection import grid_data_collection
 from src.ai.models.permutor_autoenc_pipelined import run_permuted_autoencoder
 from src.ai.models.permutor_autoenc_pipelined2 import run_permuted_autoencoder2
 from src.ai.models.direction_network_final import run_direction_network
+from src.ai.models.direction_network_final2 import run_direction_network2
 from src.modules.policies.navigation8x8_full import navigation8x8, test_angles_direction
 
 
@@ -53,12 +54,13 @@ def navigation8x8pipeline():
 if __name__ == "__main__":
     # data_collection_pipeline()
     # navigation8x8pipeline()
-    test_angles_direction()
+    # test_angles_direction()
 
     # run_permutor_deshift()
     # run_permutor()
-    # run_permuted_autoencoder2()
-    # run_direction_network()
+
+    run_permuted_autoencoder2()
+    # run_direction_network2()
 
     # run_autoencoder()
     # run_permuted_autoencoder()

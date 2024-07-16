@@ -6,6 +6,7 @@ from src.ai.models.autoencoder import *
 from src.ai.models.variational_autoencoder import *
 from src.utils import perror
 from src.modules.external_communication import start_server, CommunicationInterface
+from src.ai.models.permutor_autoenc_pipelined2 import run_permuted_autoencoder2
 from src.configs_setup import configs, configs_communication, config_data_collection_pipeline
 import threading
 from src.modules.visualizations import run_visualization
@@ -20,7 +21,11 @@ from src.action_robot_controller import detach_robot_sample, detach_robot_telepo
     detach_robot_rotate_absolute, detach_robot_rotate_relative, detach_robot_teleport_absolute
 from src.modules.policies.data_collection import grid_data_collection
 from src.ai.models.permutor_autoenc_pipelined import run_permuted_autoencoder
+from src.modules.policies.navigation8x8_full import navigation8x8
 from src.ai.models.permutor_autoenc_pipelined2 import run_permuted_autoencoder2
+
+from src.ai.models.direction_network_final import run_direction_network
+from src.ai.models.direction_network_final2 import run_direction_network2
 
 
 def start_server_thread():
@@ -44,8 +49,24 @@ def data_collection_pipeline():
     server_thread.join()
 
 
+def navigation8x8pipeline():
+    configs_communication()
+    generator = navigation8x8()
+
+    config_data_collection_pipeline(generator)
+    server_thread = threading.Thread(target=start_server, name="ServerThread")
+    server_thread.start()
+
+    server_thread.join()
+
+
 if __name__ == "__main__":
+    navigation8x8pipeline()
     # data_collection_pipeline()
-    run_visualization()
     # run_autoencoder()
     # run_permutor()
+
+    # run_visualization()
+    # run_permuted_autoencoder2()
+    # run_direction_network2()
+    pass

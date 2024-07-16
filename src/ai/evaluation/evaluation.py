@@ -45,8 +45,9 @@ def evaluate_distances_between_pairs_super(model: BaseAutoencoderModel, storage:
     average_avg_distances = {}
 
     # storage.build_permuted_data_raw()
+    ITERATIONS = 5
 
-    for iteration in range(5):
+    for iteration in range(ITERATIONS):
         # selects a rotation for each datapoint at each iteration
         storage.build_permuted_data_random_rotations()
         average_deg1_distance = 0
@@ -73,8 +74,8 @@ def evaluate_distances_between_pairs_super(model: BaseAutoencoderModel, storage:
             distance = connection["distance"]
             max_distance = max(max_distance, distance)
 
-            start_data = storage.get_datapoint_data_tensor_by_name(start_uid)
-            end_data = storage.get_datapoint_data_tensor_by_name(end_uid)
+            start_data = storage.get_datapoint_data_tensor_by_name_permuted(start_uid)
+            end_data = storage.get_datapoint_data_tensor_by_name_permuted(end_uid)
 
             start_embedding = model.encoder_inference(start_data.unsqueeze(0))
             end_embedding = model.encoder_inference(end_data.unsqueeze(0))
@@ -94,17 +95,16 @@ def evaluate_distances_between_pairs_super(model: BaseAutoencoderModel, storage:
         average_average_deg1_distance += average_deg1_distance
 
         for distance in range(2, max_distance + 1):
-            if f"{distance}" in avg_distances:
-                avg_distances[f"{distance}"]["sum"] /= avg_distances[f"{distance}"]["count"]
-                if f"{distance}" not in average_avg_distances:
-                    average_avg_distances[f"{distance}"] = {
-                        "sum": 0,
-                        "count": 0
-                    }
-                average_avg_distances[f"{distance}"]["sum"] += avg_distances[f"{distance}"]["sum"]
-                average_avg_distances[f"{distance}"]["count"] += 1
+            avg_distances[f"{distance}"]["sum"] /= avg_distances[f"{distance}"]["count"]
+            if f"{distance}" not in average_avg_distances:
+                average_avg_distances[f"{distance}"] = {
+                    "sum": 0,
+                    "count": 0
+                }
+            average_avg_distances[f"{distance}"]["sum"] += avg_distances[f"{distance}"]["sum"]
+            average_avg_distances[f"{distance}"]["count"] += 1
 
-    average_average_deg1_distance /= 5
+    average_average_deg1_distance /= ITERATIONS
     print(f"Average average distance between connected pairs: {average_average_deg1_distance:.4f}")
 
     for distance in range(2, max_distance + 1):

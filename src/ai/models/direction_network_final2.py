@@ -18,8 +18,93 @@ else:
     device = torch.device("cpu")
 
 
+class SimpleDirectionNetwork(nn.Module):
+    def __init__(self, input_size=24, hidden_size=128, output_size=4, dropoout_rate=0.3):
+        super(SimpleDirectionNetwork, self).__init__()
+        self.model = nn.Sequential(
+            nn.Linear(input_size, hidden_size),
+            nn.LeakyReLU(),
+            nn.Dropout(dropoout_rate),
+            nn.Linear(hidden_size, hidden_size),
+            nn.Tanh(),
+            nn.Dropout(dropoout_rate),
+            nn.Linear(input_size, hidden_size),
+            nn.LeakyReLU(),
+            nn.Dropout(dropoout_rate),
+            nn.Linear(input_size, hidden_size),
+            nn.LeakyReLU(),
+            nn.Dropout(dropoout_rate),
+            nn.Linear(hidden_size, output_size)
+        )
+
+    def forward(self, x, y):
+        diff = y - x
+        return self.model(diff)
+
+
+class DirectionNetworkSimplified(nn.Module):
+    def __init__(self, input_size=24, embedding_size=96, num_heads=8, dropout_rate=0.2, output_size=4):
+        super(DirectionNetworkSimplified, self).__init__()
+        self.input_size = input_size
+        self.embedding_size = embedding_size
+
+        # Initial embedding layer
+        self.input_embed = nn.Linear(input_size, embedding_size)
+        self.input_embed2 = nn.Linear(embedding_size, embedding_size)
+
+        self.layers = nn.ModuleList()
+        for _ in range(2):
+            self.layers.append(nn.ModuleDict({
+                'attention': nn.MultiheadAttention(embed_dim=embedding_size, num_heads=num_heads),
+                'fc1': nn.Linear(embedding_size, embedding_size),
+                'fc2': nn.Linear(embedding_size, embedding_size),
+                'tanh': nn.Tanh(),
+                'dropout': nn.Dropout(dropout_rate)
+            }))
+
+        # Final output layers
+        self.output_layer = nn.Linear(embedding_size, embedding_size)
+        self.output_layer2 = nn.Linear(embedding_size, output_size)
+        self.activation = nn.LeakyReLU()
+        self.tanh = nn.Tanh()
+
+    def forward(self, x, y):
+        # Combine input and thetas
+        diff = y - x
+
+        # Initial embedding
+        x = self.input_embed(diff)
+        x = self.activation(x)
+        x = self.input_embed2(x)
+        x = self.tanh(x)
+
+        # Process through attention and additional layers
+        for layer in self.layers:
+            residual = x
+
+            # Attention
+            x_att = x.unsqueeze(0)  # Add sequence dimension
+            x_att, _ = layer['attention'](x_att, x_att, x_att)
+            x_att = x_att.squeeze(0)  # Remove sequence dimension
+
+            # Fully connected layers with dropout
+            x = self.activation(layer['fc1'](x))
+            x = layer['dropout'](x)
+            x = self.tanh(layer['fc2'](x))  # Add tanh to one of the FNNs
+            x = layer['dropout'](x)
+
+            # Add residual connection
+            x = x + residual
+
+        # Final output
+        x = self.output_layer(x)
+        x = self.activation(x)
+        x = self.output_layer2(x)
+        return x
+
+
 class DirectionNetworkUp(nn.Module):
-    def __init__(self, input_size=24, embedding_size=96, num_heads=8, dropout_rate=0.2, output_size=36):
+    def __init__(self, input_size=24, embedding_size=96, num_heads=8, dropout_rate=0.2, output_size=4):
         super(DirectionNetworkUp, self).__init__()
         self.input_size = input_size
         self.embedding_size = embedding_size
@@ -105,8 +190,8 @@ def radians_to_degrees(radians):
 
 def embedding_policy(data):
     global autoencoder
-    start_embedding = data
-    # start_embedding = autoencoder.encoder_inference(data)
+    # start_embedding = data
+    start_embedding = autoencoder.encoder_inference(data)
     return start_embedding
 
 
@@ -128,6 +213,8 @@ def direction_loss(direction_network, sample_rate=64):
     target_thetas_batch = []
     targets = []
 
+    count = 0
+
     for datapoint in datapoints:
         connections_to_point: List[RawConnectionData] = storage.get_datapoint_adjacent_connections(datapoint)
         for j in range(len(connections_to_point)):
@@ -146,12 +233,29 @@ def direction_loss(direction_network, sample_rate=64):
             start_embedding = embedding_policy(start_data)
             end_embedding = embedding_policy(end_data)
 
+            # count += 1
+            # if count % 100 == 0:
+            #     print(start, end, direction)
+            #     # print(start_embedding, end_embedding)
+
             start_embeddings_batch.append(start_embedding)
             end_embeddings_batch.append(end_embedding)
 
-            degrees = direction_to_degrees(direction)
-            theta_percent = degrees / 360
-            target = int(theta_percent * 36)
+            direction_x = direction[0].item()
+            direction_y = direction[1].item()
+            target = None
+            if direction_x == 0 and direction_y == 1:
+                target = 0
+            elif direction_x == -1 and direction_y == 0:
+                target = 1
+            elif direction_x == 0 and direction_y == -1:
+                target = 2
+            elif direction_x == 1 and direction_y == 0:
+                target = 3
+
+            if target == None:
+                raise Exception("Something went wrong with the target")
+
             targets.append(target)
 
             # thetas = build_thetas(theta_percent, 36)
@@ -189,7 +293,7 @@ def direction_loss(direction_network, sample_rate=64):
 
 
 def train_direction_ai(direction_network, num_epochs):
-    optimizer = optim.Adam(direction_network.parameters(), lr=0.004)
+    optimizer = optim.Adam(direction_network.parameters(), lr=0.002)
 
     scale_direction_loss = 1
 
@@ -199,8 +303,8 @@ def train_direction_ai(direction_network, num_epochs):
     storage.build_permuted_data_random_rotations_rotation0()
 
     for epoch in range(num_epochs):
-        # if (epoch % 10 == 0):
-        #     storage.build_permuted_data_random_rotations()
+        if (epoch % 10 == 0):
+            storage.build_permuted_data_random_rotations()
 
         epoch_loss = 0.0
 
@@ -253,61 +357,51 @@ def run_tests_mini(direction_network):
     direction_network = direction_network.to(device)
     autoencoder = autoencoder.to(device)
 
-    storage.build_permuted_data_random_rotations()
     datapoints: List[str] = storage.get_all_datapoints()
-    output_diffl1 = 0.0
-    output_diffl2 = 0.0
-
-    start_embedding_batch = []
-    end_embedding_batch = []
-    expected_direction_batch = []
 
     win = 0
     lose = 0
+    ITERATIONS = 10
+    for iter in range(ITERATIONS):
+        storage.build_permuted_data_random_rotations()
+        for datapoint in datapoints:
+            connections_to_point: List[RawConnectionData] = storage.get_datapoint_adjacent_connections(datapoint)
 
-    for datapoint in datapoints:
-        connections_to_point: List[RawConnectionData] = storage.get_datapoint_adjacent_connections(datapoint)
+            for j in range(len(connections_to_point)):
+                start = connections_to_point[j]["start"]
+                end = connections_to_point[j]["end"]
+                direction = connections_to_point[j]["direction"]
 
-        for j in range(len(connections_to_point)):
-            start = connections_to_point[j]["start"]
-            end = connections_to_point[j]["end"]
-            direction = connections_to_point[j]["direction"]
+                direction = torch.tensor(direction, dtype=torch.float32, device=device)
+                l2_direction = torch.norm(direction, p=2, dim=0, keepdim=True)
+                direction = direction / l2_direction
 
-            direction = torch.tensor(direction, dtype=torch.float32, device=device)
-            l2_direction = torch.norm(direction, p=2, dim=0, keepdim=True)
-            direction = direction / l2_direction
+                start_data = storage.get_datapoint_data_tensor_by_name_permuted(start).to(device)
+                end_data = storage.get_datapoint_data_tensor_by_name_permuted(end).to(device)
 
-            start_data = storage.get_datapoint_data_tensor_by_name_permuted(start).to(device)
-            end_data = storage.get_datapoint_data_tensor_by_name_permuted(end).to(device)
+                start_embedding = embedding_policy(start_data).unsqueeze(0)
+                end_embedding = embedding_policy(end_data).unsqueeze(0)
 
-            start_embedding = embedding_policy(start_data).unsqueeze(0)
-            end_embedding = embedding_policy(end_data).unsqueeze(0)
+                pred_direction_thetas = direction_network(start_embedding, end_embedding).squeeze(0)
+                pred_direction_thetas = F.softmax(pred_direction_thetas, dim=0)
 
-            pred_direction_thetas = direction_network(start_embedding, end_embedding).squeeze(0)
-            pred_direction_thetas = F.softmax(pred_direction_thetas, dim=0)
+                angle_or = direction_to_degrees(direction)
 
-            angle_or = direction_to_degrees(direction)
-            angle_predicted = thetas_to_degree(pred_direction_thetas.cpu().detach().numpy())
-            angle_original = thetas_to_degree(build_thetas(direction_to_degrees(direction) / 360, 36))
+                max_pred = torch.argmax(pred_direction_thetas)
+                deg = None
+                if max_pred == 0:
+                    deg = 0
+                elif max_pred == 1:
+                    deg = 90
+                elif max_pred == 2:
+                    deg = 180
+                elif max_pred == 3:
+                    deg = 270
 
-            if math.fabs(angle_original - angle_predicted) < 10:
-                win += 1
-            else:
-                lose += 1
-
-            if start == "1_1" or start == "6_6":
-                print("pair ", start, end, angle_or)
-                print("true direction", direction)
-                print("expected direction", build_thetas_2(angle_predicted / 360, 36))
-                print("expected direction normalized",
-                      F.normalize(build_thetas_2(angle_predicted / 360, 36), dim=0, p=1))
-                print("pred direction", pred_direction_thetas)
-                print("angle original calculated", angle_original)
-                print(angle_predicted)
-
-            # start_embedding_batch.append(start_embedding)
-            # end_embedding_batch.append(end_embedding)
-            # expected_direction_batch.append(direction)
+                if deg == angle_or:
+                    win += 1
+                else:
+                    lose += 1
 
     print("Win", win)
     print("Lose", lose)
@@ -395,32 +489,33 @@ def run_tests(direction_network):
 
 
 def run_new_ai():
-    direction_network = DirectionNetworkUp().to(device)
+    direction_network = DirectionNetworkSimplified().to(device)
     train_direction_ai(direction_network, num_epochs=3000)
-    save_ai_manually("direction_networkup", direction_network)
+    save_ai_manually("direction", direction_network)
     run_tests_mini(direction_network)
-    run_tests(direction_network)
+    # run_tests(direction_network)
 
 
 def run_loaded_ai():
-    direction_network = load_manually_saved_ai("direction_network_working2.pth")
+    direction_network = load_manually_saved_ai("direction_networkup.pth")
 
     run_tests_mini(direction_network)
-    run_tests(direction_network)
+    # run_tests(direction_network)
 
 
-def run_direction_network():
+def run_direction_network2():
     global storage
     global permutor
     global autoencoder
 
     storage = StorageSuperset2()
     permutor = load_manually_saved_ai("permutor_deshift_working.pth")
-    autoencoder = load_manually_saved_ai("autoencodPerm25k_w.pth")
+    autoencoder = load_manually_saved_ai("autoencodPerm_linearizer_test.pth")
 
     storage.load_raw_data_from_others("data8x8_rotated20.json")
     storage.load_raw_data_connections_from_others("data8x8_connections.json")
     storage.normalize_all_data_super()
+
     storage.tanh_all_data()
     storage.set_permutor(permutor)
     storage.build_permuted_data_raw_with_thetas()

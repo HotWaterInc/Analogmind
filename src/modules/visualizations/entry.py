@@ -219,7 +219,7 @@ def build_scene_autoencoded_permuted():
     storage_superset2.build_permuted_data_raw_with_thetas()
     storage_superset2.build_permuted_data_random_rotations()
 
-    autoencoder = load_manually_saved_ai("autoencodPerm10k_working.pth")
+    autoencoder = load_manually_saved_ai("autoencodPerm10k_(7).pth")
     storage_superset2.build_datapoints_coordinates_map()
     # quality of life, centered coords at 0,0
     storage_superset2.recenter_datapoints_coordinates_map()

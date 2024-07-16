@@ -17,22 +17,48 @@ else:
     device = torch.device("cpu")
 
 
+def build_thetas_2(true_theta, thetas_length):
+    thetas = torch.zeros(thetas_length)
+    true_theta_index = true_theta * (thetas_length)
+
+    integer_index_left = int(true_theta_index)
+    integer_index_right = integer_index_left + 1
+
+    weight_left = 1 - (true_theta_index - integer_index_left)
+    weight_right = 1 - weight_left
+
+    FILL_DISTANCE = 1
+    for i in range(FILL_DISTANCE):
+        left_index = integer_index_left - i
+        right_index = integer_index_right + i
+
+        pdf_value = weight_left
+        thetas[left_index] = pdf_value
+
+        pdf_value = weight_right
+        thetas[right_index] = pdf_value
+
+    return thetas
+
+
 def build_thetas(true_theta, thetas_length):
     thetas = torch.zeros(thetas_length)
     true_theta_index = true_theta * (thetas_length - 1)
-    integer_index = int(true_theta_index)
+    integer_index_left = int(true_theta_index)
+    integer_index_right = integer_index_left + 1
 
-    FILL_DISTANCE = 4
+    FILL_DISTANCE = 10
+    SD = 3
     for i in range(FILL_DISTANCE):
-        left_index = integer_index - i
-        right_index = integer_index + i
+        left_index = integer_index_left - i
+        right_index = integer_index_right + i
 
-        pdf_value = norm.pdf(left_index, loc=true_theta_index, scale=1)
+        pdf_value = norm.pdf(left_index, loc=true_theta_index, scale=SD)
         if left_index < 0:
             left_index = len(thetas) + left_index
         thetas[left_index] = pdf_value
 
-        pdf_value = norm.pdf(right_index, loc=true_theta_index, scale=1)
+        pdf_value = norm.pdf(right_index, loc=true_theta_index, scale=SD)
         if right_index >= len(thetas):
             right_index = right_index - len(thetas)
         thetas[right_index] = pdf_value
@@ -80,7 +106,7 @@ class StorageSuperset2(StorageSuperset):
             permuted_data_raw = permuted_data.tolist()
             self.raw_env_data[index]["data"] = permuted_data_raw
 
-        # rebuilds map with new values
+            # rebuilds map with new values
         self._convert_raw_data_to_map()
 
     def build_permuted_data_raw(self) -> None:
@@ -100,6 +126,27 @@ class StorageSuperset2(StorageSuperset):
 
     raw_env_data_permuted_choice: List[Dict[str, any]] = []
     raw_env_data_permuted_choice_map: Dict[str, any] = {}
+
+    def build_permuted_data_random_rotations_rotation0(self) -> None:
+        """
+        Returns the data point by its name
+        """
+        self.raw_env_data_permuted_choice = []
+
+        for datapoint in self.raw_env_data:
+            datapoint_copy = datapoint.copy()
+
+            name = datapoint["name"]
+            data_raw: List[List[float]] = datapoint["data"]
+            length = len(data_raw)
+            random_index = 0
+
+            datapoint_copy["data"] = data_raw[random_index]
+            self.raw_env_data_permuted_choice.append(datapoint_copy)
+
+        for datapoint in self.raw_env_data_permuted_choice:
+            name: str = datapoint["name"]
+            self.raw_env_data_permuted_choice_map[name] = datapoint
 
     def build_permuted_data_random_rotations(self) -> None:
         """

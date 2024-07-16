@@ -38,9 +38,13 @@ class AutoencoderPostPermutor(BaseAutoencoderModel):
             nn.Linear(48, 24),
             nn.LeakyReLU(),
         )
+        self.encoder_final_leakeage = nn.Sequential(
+            nn.Linear(48, 8),
+            nn.Tanh(),
+        )
 
         self.decoder_init = nn.Sequential(
-            nn.Linear(24, 48),
+            nn.Linear(32, 48),
             nn.LeakyReLU()
         )
 
@@ -58,7 +62,8 @@ class AutoencoderPostPermutor(BaseAutoencoderModel):
     def encoder_training(self, x: torch.Tensor) -> torch.Tensor:
         l1 = self.encoder1(x)
         l2 = self.encoder2(l1)
-        encoded = self.encoder_final(l1)
+        encoded = self.encoder_final(l2)
+        leakeage = self.encoder_final_leakeage(l2)
         return encoded
 
     def encoder_inference(self, x: torch.Tensor) -> torch.Tensor:
@@ -67,15 +72,21 @@ class AutoencoderPostPermutor(BaseAutoencoderModel):
     def decoder_training(self, x: torch.Tensor) -> torch.Tensor:
         l1 = self.decoder_init(x)
         l2 = self.decoder1(l1)
-        decoded = self.decoder2(l1)
+        decoded = self.decoder2(l2)
         return decoded
 
     def decoder_inference(self, x: torch.Tensor) -> torch.Tensor:
         return self.decoder_training(x)
 
     def forward_training(self, x: torch.Tensor) -> torch.Tensor:
-        encoded = self.encoder_training(x)
-        decoded = self.decoder_training(encoded)
+        x = self.encoder1(x)
+        x = self.encoder2(x)
+        encoded = self.encoder_final(x)
+        leakeage = self.encoder_final_leakeage(x)
+
+        x = self.decoder_init(torch.cat([encoded, leakeage], dim=1))
+        x = self.decoder1(x)
+        decoded = self.decoder2(x)
         return decoded
 
     def forward_inference(self, x: torch.Tensor) -> torch.Tensor:
@@ -84,8 +95,7 @@ class AutoencoderPostPermutor(BaseAutoencoderModel):
 
 def reconstruction_handling(autoencoder: BaseAutoencoderModel, data: any, criterion: any,
                             scale_reconstruction_loss: int = 1) -> torch.Tensor:
-    enc = autoencoder.encoder_training(data)
-    dec = autoencoder.decoder_training(enc)
+    dec = autoencoder.forward_training(data)
     return criterion(dec, data) * scale_reconstruction_loss
 
 
@@ -121,11 +131,15 @@ def adjacent_distance_handling(autoencoder: BaseAutoencoderModel, adjacent_sampl
     return adjacent_distance_loss, average_distance
 
 
+count = 0
+
+
 def non_adjacent_distance_handling(autoencoder: BaseAutoencoderModel, non_adjacent_sample_size: int,
                                    scale_non_adjacent_distance_loss: float, distance_factor: float) -> torch.Tensor:
     """
     Keeps non-adjacent pairs far from each other
     """
+    global count
     sampled_pairs = storage.sample_datapoints_adjacencies(non_adjacent_sample_size)
 
     batch_datapoint1 = []
@@ -147,13 +161,27 @@ def non_adjacent_distance_handling(autoencoder: BaseAutoencoderModel, non_adjace
     distance = torch.norm(encoded_i - encoded_j, p=2, dim=1)
     expected_distance = [pair["distance"] * distance_factor for pair in sampled_pairs]
     expected_distance = torch.tensor(expected_distance)
+    count += 1
 
-    non_adjacent_distance_loss = (distance - expected_distance) / distance_factor
-    non_adjacent_distance_loss = torch.square(non_adjacent_distance_loss)
-    non_adjacent_distance_loss = non_adjacent_distance_loss * scale_non_adjacent_distance_loss
-    non_adjacent_distance_loss = torch.mean(non_adjacent_distance_loss)
-
+    criterion = nn.L1Loss()
+    non_adjacent_distance_loss = criterion(distance, expected_distance) * scale_non_adjacent_distance_loss
     return non_adjacent_distance_loss
+
+
+def permutation_adjustion_handling(autoencoder: BaseAutoencoderModel, samples: int,
+                                   scale_permutation_adjustion_loss: float) -> torch.Tensor:
+    """
+    Keeps the permutation of the data points close to each other
+    """
+    datapoint: List[str] = storage.sample_n_random_datapoints(samples)
+    datapoints_data = [storage.get_datapoint_data_tensor_by_name(name) for name in datapoint]
+    accumulated_loss = torch.tensor(0.0)
+    for datapoint_data in datapoints_data:
+        enc = autoencoder.encoder_training(datapoint_data)
+        loss = torch.cdist(enc, enc, p=2).mean()
+        accumulated_loss += loss
+
+    return accumulated_loss / samples * scale_permutation_adjustion_loss
 
 
 def train_autoencoder_with_distance_constraint(autoencoder: BaseAutoencoderModel, epochs: int) -> BaseAutoencoderModel:
@@ -166,23 +194,27 @@ def train_autoencoder_with_distance_constraint(autoencoder: BaseAutoencoderModel
 
     # PARAMETERS
     criterion = nn.L1Loss()
-    optimizer = optim.Adam(autoencoder.parameters(), lr=0.01)
+    optimizer = optim.Adam(autoencoder.parameters(), lr=0.0025)
 
     num_epochs = epochs
+
+    scale_permutation_adjustion_loss = 1
     scale_reconstruction_loss = 1
-    scale_adjacent_distance_loss = 3
-    scale_non_adjacent_distance_loss = 0.75
+    scale_adjacent_distance_loss = 0
+    scale_non_adjacent_distance_loss = 0.1
 
     adjacent_sample_size = 100
-    non_adjacent_sample_size = 224
+    non_adjacent_sample_size = 100
+    permutation_datapoints_samples = 64
 
     epoch_average_loss = 0
     reconstruction_average_loss = 0
     adjacent_average_loss = 0
     non_adjacent_average_loss = 0
+    permuted_data_average_loss = 0
 
-    epoch_print_rate = 1000
-    DISTANCE_CONSTANT = 0.5
+    epoch_print_rate = 250
+    DISTANCE_CONSTANT = 0.1
 
     train_data_names = storage.get_sensor_data_names()
     storage.build_permuted_data_random_rotations()
@@ -192,12 +224,18 @@ def train_autoencoder_with_distance_constraint(autoencoder: BaseAutoencoderModel
     stagnation_streak = 0
 
     for epoch in range(num_epochs):
-        if (epoch % 25 == 0):
+        if (epoch % 10 == 0):
             storage.build_permuted_data_random_rotations()
             train_data = array_to_tensor(np.array(storage.get_pure_permuted_raw_env_data()))
 
+        reconstruction_loss = torch.tensor(0.0)
         epoch_loss = 0.0
         optimizer.zero_grad()
+
+        # PERMUTATION ADJUSTION LOSS
+        permutation_adjustion_loss = permutation_adjustion_handling(autoencoder, permutation_datapoints_samples,
+                                                                    scale_permutation_adjustion_loss)
+        permutation_adjustion_loss.backward()
 
         # RECONSTRUCTION LOSS
         reconstruction_loss = reconstruction_handling(autoencoder, train_data, criterion, scale_reconstruction_loss)
@@ -205,10 +243,10 @@ def train_autoencoder_with_distance_constraint(autoencoder: BaseAutoencoderModel
 
         # ADJACENT DISTANCE LOSS
         adjacent_distance_loss = torch.tensor(0.0)
-        adjacent_distance_loss, average_distance_adjacent = adjacent_distance_handling(autoencoder,
-                                                                                       adjacent_sample_size,
-                                                                                       scale_adjacent_distance_loss)
-        adjacent_distance_loss.backward()
+        # adjacent_distance_loss, average_distance_adjacent = adjacent_distance_handling(autoencoder,
+        #                                                                                adjacent_sample_size,
+        #                                                                                scale_adjacent_distance_loss)
+        # adjacent_distance_loss.backward()
 
         # NON-ADJACENT DISTANCE LOSS
         non_adjacent_distance_loss = torch.tensor(0.0)
@@ -219,18 +257,21 @@ def train_autoencoder_with_distance_constraint(autoencoder: BaseAutoencoderModel
 
         optimizer.step()
 
-        epoch_loss += reconstruction_loss.item() + adjacent_distance_loss.item() + non_adjacent_distance_loss.item()
+        epoch_loss += reconstruction_loss.item() + adjacent_distance_loss.item() + non_adjacent_distance_loss.item() + permutation_adjustion_loss.item()
 
         epoch_average_loss += epoch_loss
+
         reconstruction_average_loss += reconstruction_loss.item()
         adjacent_average_loss += adjacent_distance_loss.item()
         non_adjacent_average_loss += non_adjacent_distance_loss.item()
+        permuted_data_average_loss += permutation_adjustion_loss.item()
 
         if epoch % epoch_print_rate == 0 and epoch != 0:
             epoch_average_loss /= epoch_print_rate
             reconstruction_average_loss /= epoch_print_rate
             adjacent_average_loss /= epoch_print_rate
             non_adjacent_average_loss /= epoch_print_rate
+            permuted_data_average_loss /= epoch_print_rate
 
             if epoch_average_loss < best_loss:
                 best_loss = epoch_average_loss
@@ -246,7 +287,7 @@ def train_autoencoder_with_distance_constraint(autoencoder: BaseAutoencoderModel
             print(f"EPOCH:{epoch}/{num_epochs} - streak: {stagnation_streak}")
             # print(f"average distance between adjacent: {average_distance_adjacent}")
             print(
-                f"RECONSTRUCTION LOSS:{reconstruction_average_loss} | ADJACENT LOSS:{adjacent_average_loss} | NON-ADJACENT LOSS:{non_adjacent_average_loss}")
+                f"RECONSTRUCTION LOSS:{reconstruction_average_loss} | ADJACENT LOSS:{adjacent_average_loss} | NON-ADJACENT LOSS:{non_adjacent_average_loss} | PERMUTATION LOSS:{permuted_data_average_loss}")
             print(f"AVERAGE LOSS:{epoch_average_loss}")
             print("--------------------------------------------------")
 
@@ -262,10 +303,28 @@ def run_ai():
     global storage
 
     autoencoder = AutoencoderPostPermutor()
-    storage.build_permuted_data_raw_with_thetas()
 
-    train_autoencoder_with_distance_constraint(autoencoder, epochs=10000)
+    train_autoencoder_with_distance_constraint(autoencoder, epochs=5000)
     return autoencoder
+
+
+def eval_perm_pre_and_post(autoencoder: BaseAutoencoderModel):
+    global storage
+
+    datapoint: List[str] = storage.sample_n_random_datapoints(64)
+    datapoints_data = [storage.get_datapoint_data_tensor_by_name(name) for name in datapoint]
+    accumulated_loss = torch.tensor(0.0)
+
+    distance_pre = 0
+    distance_post = 0
+    for datapoint_data in datapoints_data:
+        preenc = datapoint_data
+        postenc = autoencoder.encoder_training(datapoint_data)
+        distance_pre += torch.cdist(preenc, preenc, p=2).mean()
+        distance_post += torch.cdist(postenc, postenc, p=2).mean()
+
+    print(f"Pre-enc distance: {distance_pre / len(datapoints_data)}")
+    print(f"Post-enc distance: {distance_post / len(datapoints_data)}")
 
 
 def run_tests(autoencoder):
@@ -274,11 +333,12 @@ def run_tests(autoencoder):
     evaluate_reconstruction_error_super(autoencoder, storage)
     avg_distance_adj = evaluate_distances_between_pairs_super(autoencoder, storage)
     evaluate_adjacency_properties_super(autoencoder, storage, avg_distance_adj)
+    eval_perm_pre_and_post(autoencoder)
 
 
 def run_loaded_ai():
     # autoencoder = load_manually_saved_ai("autoenc_dynamic10k.pth")
-    autoencoder = load_manually_saved_ai("autoencodPermOpt.pth")
+    autoencoder = load_manually_saved_ai("autoencodPerm10k.pth")
     global storage
     storage.build_permuted_data_raw_with_thetas()
 
@@ -287,7 +347,7 @@ def run_loaded_ai():
 
 def run_new_ai() -> None:
     autoencoder = run_ai()
-    save_ai_manually("autoencodPerm10k", autoencoder)
+    save_ai_manually("autoencodPerm_linearizer", autoencoder)
     run_tests(autoencoder)
 
 
@@ -301,6 +361,7 @@ def run_permuted_autoencoder2() -> None:
     storage.normalize_all_data_super()
     storage.tanh_all_data()
     storage.set_permutor(permutor)
+    storage.build_permuted_data_raw_with_thetas()
 
     run_new_ai()
     # run_loaded_ai()
