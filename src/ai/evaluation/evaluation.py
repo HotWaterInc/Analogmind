@@ -37,16 +37,18 @@ def evaluate_reconstruction_error_super(model: BaseAutoencoderModel, storage: St
     print("\n")
     print("Evaluation on random samples from training data:")
 
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     nr_of_samples = 64
     total_averaged_error = 0
     model.eval()
+    model.to(device)
     ITERATIONS = 10
     if rotations0:
-        ITERATIONS = 5
+        ITERATIONS = 1
 
     for iteration in range(ITERATIONS):
         if rotations0:
-            storage.build_permuted_data_random_rotations_rotation0()
+            storage.build_permuted_data_random_rotations_rotation_N(0)
         else:
             storage.build_permuted_data_random_rotations()
 
@@ -55,7 +57,7 @@ def evaluate_reconstruction_error_super(model: BaseAutoencoderModel, storage: St
         total_error = 0
         with torch.no_grad():
             for i, idx in enumerate(indices):
-                data = train_data[idx].unsqueeze(0)  # Add batch dimension
+                data = train_data[idx].unsqueeze(0).to(device)  # Add batch dimension
                 reconstructed = model.forward_inference(data)
                 total_error += torch.sum(torch.abs(data - reconstructed)).item()
 
@@ -63,7 +65,7 @@ def evaluate_reconstruction_error_super(model: BaseAutoencoderModel, storage: St
 
         total_averaged_error += total_error / (nr_of_samples * datapoints_size)
 
-    print(f'Total average error over 10 iterations: {total_averaged_error / ITERATIONS:.4f}')
+    print(f'Total average error over  iterations: {total_averaged_error / ITERATIONS:.4f}')
 
 
 def evaluate_distances_between_pairs_super(model: BaseAutoencoderModel, storage: StorageSuperset2,

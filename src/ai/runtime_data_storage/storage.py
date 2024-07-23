@@ -283,6 +283,14 @@ class Storage:
         """
         return self.raw_env_data[index]
 
+    def get_datapoint_data_tensor_by_name_and_index(self, name: str, index: int) -> torch.Tensor:
+        """
+        Returns the data point by its name
+        """
+
+        # return self._transformed_datapoints_data[name]
+        return torch.tensor(self.raw_env_data_map[name]["data"][index], dtype=torch.float32)
+
     def get_datapoint_data_tensor_by_name(self, name: str) -> torch.Tensor:
         """
         Returns the data point by its name

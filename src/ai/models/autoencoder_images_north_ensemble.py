@@ -95,6 +95,13 @@ class AutoencoderImageNorthOnly(BaseAutoencoderModel):
         return self.embedding_size
 
 
+def embedding_handling_global_ensemble_net2(autoencoders, train_data_tensors) -> List[torch.Tensor]:
+    enc1 = autoencoders[0].encoder_training(train_data_tensors[0])
+    enc2 = autoencoders[1].encoder_training(train_data_tensors[1])
+    criterion = nn.MSELoss()
+    return [criterion(enc1, enc2), criterion(enc2, enc1)]
+
+
 def embedding_handling_global_ensemble(autoencoders, train_data_tensors) -> List[torch.Tensor]:
     encodings = []
     for i in range(len(autoencoders)):
@@ -103,17 +110,17 @@ def embedding_handling_global_ensemble(autoencoders, train_data_tensors) -> List
         enc = autoencoder.encoder_training(train_data)
         encodings.append(enc)
 
-    print("Global ensemble handling", encodings[0].shape, len(encodings))
-    encodings = torch.stack(encodings).to(device)
+    criterion = nn.MSELoss()
+
+    encodings = torch.stack(encodings)
     initial_encodings = encodings
 
-    print(encodings.shape)
     ENSEMBLE_SIZE = encodings.shape[0]
 
     encodings_mean = torch.mean(encodings, dim=0)
 
     losses = []
-    criterion = nn.MSELoss()
+
     for i in range(ENSEMBLE_SIZE):
         loss = criterion(encodings_mean, initial_encodings[i])
         losses.append(loss)
@@ -143,18 +150,18 @@ def adjacent_distance_handling(autoencoder: BaseAutoencoderModel, adjacent_sampl
     batch_datapoint2 = []
     for pair in sampled_pairs:
         # keep adjacent close to each other
-        data_point1 = storage.get_datapoint_data_tensor_by_name(pair["start"])[permutation_index]
-        data_point2 = storage.get_datapoint_data_tensor_by_name(pair["end"])[permutation_index]
+        data_point1 = storage.get_datapoint_data_tensor_by_name_and_index(pair["start"], permutation_index)
+        data_point2 = storage.get_datapoint_data_tensor_by_name_and_index(pair["end"], permutation_index)
         batch_datapoint1.append(data_point1)
         batch_datapoint2.append(data_point2)
 
-    batch_datapoint1 = torch.stack(batch_datapoint1)
-    batch_datapoint2 = torch.stack(batch_datapoint2)
+    batch_datapoint1 = torch.stack(batch_datapoint1).to(device)
+    batch_datapoint2 = torch.stack(batch_datapoint2).to(device)
 
     encoded_i = autoencoder.encoder_training(batch_datapoint1)
     encoded_j = autoencoder.encoder_training(batch_datapoint2)
 
-    distance = torch.sum(torch.norm((encoded_i - encoded_j), p=2))
+    distance = torch.sum(torch.norm((encoded_i - encoded_j), p=2)).to(torch.device("cpu"))
 
     average_distance += distance.item() / adjacent_sample_size
     adjacent_distance_loss += distance / adjacent_sample_size * scale_adjacent_distance_loss
@@ -174,14 +181,14 @@ def non_adjacent_distance_handling(autoencoder: BaseAutoencoderModel, non_adjace
     batch_datapoint2 = []
 
     for pair in sampled_pairs:
-        datapoint1 = storage.get_datapoint_data_tensor_by_name(pair["start"])[ensemble_index]
-        datapoint2 = storage.get_datapoint_data_tensor_by_name(pair["end"])[ensemble_index]
+        datapoint1 = storage.get_datapoint_data_tensor_by_name_and_index(pair["start"], ensemble_index)
+        datapoint2 = storage.get_datapoint_data_tensor_by_name_and_index(pair["end"], ensemble_index)
 
         batch_datapoint1.append(datapoint1)
         batch_datapoint2.append(datapoint2)
 
-    batch_datapoint1 = torch.stack(batch_datapoint1)
-    batch_datapoint2 = torch.stack(batch_datapoint2)
+    batch_datapoint1 = torch.stack(batch_datapoint1).to(device)
+    batch_datapoint2 = torch.stack(batch_datapoint2).to(device)
 
     encoded_i = autoencoder.encoder_training(batch_datapoint1)
     encoded_j = autoencoder.encoder_training(batch_datapoint2)
@@ -190,21 +197,23 @@ def non_adjacent_distance_handling(autoencoder: BaseAutoencoderModel, non_adjace
 
     distance = torch.norm(encoded_i - encoded_j, p=2, dim=1)
     expected_distance = [pair["distance"] * distance_per_neuron * embedding_size for pair in sampled_pairs]
-    expected_distance = torch.tensor(expected_distance)
+    expected_distance = torch.tensor(expected_distance).to(device)
 
     criterion = nn.MSELoss()
     non_adjacent_distance_loss = criterion(distance, expected_distance) * scale_non_adjacent_distance_loss
     return non_adjacent_distance_loss
 
 
-def train_autoencoder_ensemble(epochs: int) -> BaseAutoencoderModel:
-    ENSEMBLE_SIZE = 2
+def train_autoencoder_ensemble(epochs: int):
+    ENSEMBLE_SIZE = 24
     # generate 24 autoencoders
     autoencoders = [AutoencoderImageNorthOnly().to(device) for _ in range(ENSEMBLE_SIZE)]
     optimizers = [optim.Adam(autoencoder.parameters(), lr=0.0005) for autoencoder in autoencoders]
     train_data_tensors = []
     for i in range(ENSEMBLE_SIZE):
-        storage.build_permuted_data_random_rotations_rotation_N(i)
+        target = i
+
+        storage.build_permuted_data_random_rotations_rotation_N(target)
         train_data = array_to_tensor(np.array(storage.get_pure_permuted_raw_env_data())).to(device)
         train_data_tensors.append(train_data)
 
@@ -212,11 +221,13 @@ def train_autoencoder_ensemble(epochs: int) -> BaseAutoencoderModel:
     scale_reconstruction_loss = 1
     scale_adjacent_distance_loss = 0.5
     scale_non_adjacent_distance_loss = 0.25
+    scale_global_sync_loss = 1
 
     adjacent_sample_size = 100
     non_adjacent_sample_size = 400
 
     epoch_average_loss = np.zeros(ENSEMBLE_SIZE)
+
     reconstruction_average_loss = 0
     adjacent_average_loss = 0
     non_adjacent_average_loss = 0
@@ -231,10 +242,12 @@ def train_autoencoder_ensemble(epochs: int) -> BaseAutoencoderModel:
 
     for epoch in range(num_epochs):
         total_losses = [torch.tensor(0.0, device=device) for _ in range(ENSEMBLE_SIZE)]
+        # print(f"Epoch {epoch + 1}/{num_epochs}")
 
         epoch_loss = np.zeros(ENSEMBLE_SIZE)
         for i in range(ENSEMBLE_SIZE):
-            autoencoder = autoencoders[i]
+            # print(f"Ensemble {i + 1}/{ENSEMBLE_SIZE}")
+            autoencoder = autoencoders[i].to(device)
             optimizer = optimizers[i]
             train_data = train_data_tensors[i]
             optimizer.zero_grad()
@@ -243,18 +256,18 @@ def train_autoencoder_ensemble(epochs: int) -> BaseAutoencoderModel:
             reconstruction_loss.backward()
 
             adjacent_distance_loss = torch.tensor(0.0)
-            # adjacent_distance_loss, average_distance_adjacent = adjacent_distance_handling(autoencoder,
-            #                                                                                adjacent_sample_size,
-            #                                                                                scale_adjacent_distance_loss,
-            #                                                                                i)
-            # adjacent_distance_loss.backward()
+            adjacent_distance_loss, average_distance_adjacent = adjacent_distance_handling(autoencoder,
+                                                                                           adjacent_sample_size,
+                                                                                           scale_adjacent_distance_loss,
+                                                                                           i)
+            adjacent_distance_loss.backward()
 
             non_adjacent_distance_loss = torch.tensor(0.0)
-            # non_adjacent_distance_loss = non_adjacent_distance_handling(autoencoder, non_adjacent_sample_size,
-            #                                                             scale_non_adjacent_distance_loss,
-            #                                                             distance_per_neuron=DISTANCE_CONSTANT_PER_NEURON,
-            #                                                             ensemble_index=i)
-            # non_adjacent_distance_loss.backward()
+            non_adjacent_distance_loss = non_adjacent_distance_handling(autoencoder, non_adjacent_sample_size,
+                                                                        scale_non_adjacent_distance_loss,
+                                                                        distance_per_neuron=DISTANCE_CONSTANT_PER_NEURON,
+                                                                        ensemble_index=i)
+            non_adjacent_distance_loss.backward()
 
             epoch_loss[
                 i] += reconstruction_loss.item() + adjacent_distance_loss.item() + non_adjacent_distance_loss.item()
@@ -263,7 +276,7 @@ def train_autoencoder_ensemble(epochs: int) -> BaseAutoencoderModel:
         losses = embedding_handling_global_ensemble(autoencoders, train_data_tensors)
 
         for i in range(ENSEMBLE_SIZE):
-            losses[i] = losses[i] * 0.1
+            losses[i] *= scale_global_sync_loss
 
             epoch_loss[i] += losses[i].item()
             epoch_average_loss[i] += losses[i].item()
@@ -274,6 +287,8 @@ def train_autoencoder_ensemble(epochs: int) -> BaseAutoencoderModel:
                 retain = False
 
             losses[i].backward(retain_graph=retain)
+
+        for i in range(ENSEMBLE_SIZE):
             optimizers[i].step()
 
         pretty_display(epoch % epoch_print_rate)
@@ -281,7 +296,9 @@ def train_autoencoder_ensemble(epochs: int) -> BaseAutoencoderModel:
             epoch_average_loss /= epoch_print_rate
             avg_global_loss /= epoch_print_rate
 
-            print(f"AVERAGE LOSS:{epoch_average_loss} | Global sync loss {avg_global_loss / ENSEMBLE_SIZE}")
+            print("")
+            print(f"Losses total: {epoch_average_loss}")
+            print(f"AVERAGE LOSS:{epoch_average_loss.mean()} | Global sync loss {avg_global_loss / ENSEMBLE_SIZE}")
             print("--------------------------------------------------")
 
             epoch_average_loss = np.zeros(ENSEMBLE_SIZE)
@@ -290,14 +307,13 @@ def train_autoencoder_ensemble(epochs: int) -> BaseAutoencoderModel:
             pretty_display_reset()
             pretty_display_start(epoch)
 
-    return autoencoders[0]
+    return autoencoders
 
 
 def run_ai():
     global storage
-    autoencoder = AutoencoderImageNorthOnly()
-    train_autoencoder_ensemble(epochs=1000)
-    return autoencoder
+    autoencoders = train_autoencoder_ensemble(epochs=5000)
+    return autoencoders
 
 
 def run_tests(autoencoder):
@@ -318,9 +334,12 @@ def run_loaded_ai():
 
 
 def run_new_ai() -> None:
-    autoencoder = run_ai()
-    save_ai_manually("autoencod_imaged_north", autoencoder)
-    run_tests(autoencoder)
+    autoencoders = run_ai()
+
+    for idx, autoencoder in enumerate(autoencoders):
+        save_ai_manually(f"autoencod_image_ensemble{idx}", autoencoder)
+
+    run_tests(autoencoders[0])
 
 
 def run_autoencoder_ensemble_north() -> None:

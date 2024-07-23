@@ -216,10 +216,10 @@ def train_autoencoder_with_distance_constraint(autoencoder: BaseAutoencoderModel
 
         # ADJACENT DISTANCE LOSS
         adjacent_distance_loss = torch.tensor(0.0)
-        adjacent_distance_loss, average_distance_adjacent = adjacent_distance_handling(autoencoder,
-                                                                                       adjacent_sample_size,
-                                                                                       scale_adjacent_distance_loss)
-        adjacent_distance_loss.backward()
+        # adjacent_distance_loss, average_distance_adjacent = adjacent_distance_handling(autoencoder,
+        #                                                                                adjacent_sample_size,
+        #                                                                                scale_adjacent_distance_loss)
+        # adjacent_distance_loss.backward()
 
         # NON-ADJACENT DISTANCE LOSS
         non_adjacent_distance_loss = torch.tensor(0.0)
