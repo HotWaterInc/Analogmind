@@ -4,8 +4,7 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 import numpy as np
-from src.ai.runtime_data_storage.storage_superset2 import StorageSuperset2, RawConnectionData, build_thetas, \
-    build_thetas_2
+from src.ai.runtime_data_storage.storage_superset2 import StorageSuperset2, RawConnectionData
 from src.modules.save_load_handlers.ai_models_handle import load_manually_saved_ai, save_ai_manually
 from src.ai.models.base_autoencoder_model import BaseAutoencoderModel
 from src.utils import array_to_tensor
@@ -42,69 +41,8 @@ class SimpleDirectionNetwork(nn.Module):
         return self.model(diff)
 
 
-class DirectionNetworkSimplified(nn.Module):
-    def __init__(self, input_size=24, embedding_size=96, num_heads=8, dropout_rate=0.2, output_size=4):
-        super(DirectionNetworkSimplified, self).__init__()
-        self.input_size = input_size
-        self.embedding_size = embedding_size
-
-        # Initial embedding layer
-        self.input_embed = nn.Linear(input_size, embedding_size)
-        self.input_embed2 = nn.Linear(embedding_size, embedding_size)
-
-        self.layers = nn.ModuleList()
-        for _ in range(2):
-            self.layers.append(nn.ModuleDict({
-                'attention': nn.MultiheadAttention(embed_dim=embedding_size, num_heads=num_heads),
-                'fc1': nn.Linear(embedding_size, embedding_size),
-                'fc2': nn.Linear(embedding_size, embedding_size),
-                'tanh': nn.Tanh(),
-                'dropout': nn.Dropout(dropout_rate)
-            }))
-
-        # Final output layers
-        self.output_layer = nn.Linear(embedding_size, embedding_size)
-        self.output_layer2 = nn.Linear(embedding_size, output_size)
-        self.activation = nn.LeakyReLU()
-        self.tanh = nn.Tanh()
-
-    def forward(self, x, y):
-        # Combine input and thetas
-        diff = y - x
-
-        # Initial embedding
-        x = self.input_embed(diff)
-        x = self.activation(x)
-        x = self.input_embed2(x)
-        x = self.tanh(x)
-
-        # Process through attention and additional layers
-        for layer in self.layers:
-            residual = x
-
-            # Attention
-            x_att = x.unsqueeze(0)  # Add sequence dimension
-            x_att, _ = layer['attention'](x_att, x_att, x_att)
-            x_att = x_att.squeeze(0)  # Remove sequence dimension
-
-            # Fully connected layers with dropout
-            x = self.activation(layer['fc1'](x))
-            x = layer['dropout'](x)
-            x = self.tanh(layer['fc2'](x))  # Add tanh to one of the FNNs
-            x = layer['dropout'](x)
-
-            # Add residual connection
-            x = x + residual
-
-        # Final output
-        x = self.output_layer(x)
-        x = self.activation(x)
-        x = self.output_layer2(x)
-        return x
-
-
 class DirectionNetworkUp(nn.Module):
-    def __init__(self, input_size=24, embedding_size=96, num_heads=8, dropout_rate=0.2, output_size=4):
+    def __init__(self, input_size=24, embedding_size=512, num_heads=16, dropout_rate=0.2, output_size=4):
         super(DirectionNetworkUp, self).__init__()
         self.input_size = input_size
         self.embedding_size = embedding_size
@@ -114,7 +52,7 @@ class DirectionNetworkUp(nn.Module):
         self.input_embed2 = nn.Linear(embedding_size, embedding_size)
 
         self.layers = nn.ModuleList()
-        for _ in range(2):
+        for _ in range(4):
             self.layers.append(nn.ModuleDict({
                 'attention': nn.MultiheadAttention(embed_dim=embedding_size, num_heads=num_heads),
                 'fc1': nn.Linear(embedding_size, embedding_size),
@@ -190,8 +128,8 @@ def radians_to_degrees(radians):
 
 def embedding_policy(data):
     global autoencoder
-    # start_embedding = data
-    start_embedding = autoencoder.encoder_inference(data)
+    start_embedding = data
+    # start_embedding = autoencoder.encoder_inference(data)
     return start_embedding
 
 
@@ -298,7 +236,7 @@ def train_direction_ai(direction_network, num_epochs):
     scale_direction_loss = 1
 
     epoch_average_loss = 0
-    epoch_print_rate = 100
+    epoch_print_rate = 500
 
     storage.build_permuted_data_random_rotations_rotation0()
 
@@ -489,8 +427,8 @@ def run_tests(direction_network):
 
 
 def run_new_ai():
-    direction_network = DirectionNetworkSimplified().to(device)
-    train_direction_ai(direction_network, num_epochs=3000)
+    direction_network = DirectionNetworkUp().to(device)
+    train_direction_ai(direction_network, num_epochs=10000)
     save_ai_manually("direction", direction_network)
     run_tests_mini(direction_network)
     # run_tests(direction_network)
@@ -512,7 +450,7 @@ def run_direction_network2():
     permutor = load_manually_saved_ai("permutor_deshift_working.pth")
     autoencoder = load_manually_saved_ai("autoencodPerm_linearizer_test.pth")
 
-    storage.load_raw_data_from_others("data8x8_rotated20.json")
+    storage.load_raw_data_from_others("data8x8_rotated40.json")
     storage.load_raw_data_connections_from_others("data8x8_connections.json")
     storage.normalize_all_data_super()
 

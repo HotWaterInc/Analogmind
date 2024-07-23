@@ -1,17 +1,26 @@
 from enum import Enum
 from src.modules.external_communication.communication_interface import send_data
 from src.modules.external_communication.communication_interface import TeleportRelativeAction, TeleportAbsoluteAction, \
-    RotateAbsoluteAction, RotateRelativeAction, SampleAction, RotateAbsoluteContinuousAction, ForwardContinuousAction
+    RotateAbsoluteAction, RotateRelativeAction, SampleImageAction, OtherAction, RotateAbsoluteContinuousAction, \
+    ForwardContinuousAction, SampleDistanceAction
 from src.modules.external_communication.communication_interface import action_types, ActionTypeTeleportAbsolute, \
-    ActionTypeTeleportRelative, ActionTypeRotateAbsolute, ActionTypeRotateRelative, ActionTypeSample, \
-    ActionTypeContRotateAbsolute, ActionTypeContForward
+    ActionTypeTeleportRelative, ActionTypeRotateAbsolute, ActionTypeRotateRelative, ActionTypeSampleDistance, \
+    ActionTypeContRotateAbsolute, ActionTypeContForward, ActionTypeContW, ActionTypeContA, ActionTypeContS, \
+    ActionTypeContD, ActionTypeSampleImage
 
 from typing import Dict, TypedDict
 
 
-def detach_robot_sample():
-    json_data: SampleAction = {
-        "action_type": ActionTypeSample
+def detach_robot_sample_distance():
+    json_data: SampleDistanceAction = {
+        "action_type": ActionTypeSampleDistance
+    }
+    send_data(json_data)
+
+
+def detach_robot_sample_image():
+    json_data: SampleImageAction = {
+        "action_type": ActionTypeSampleImage
     }
     send_data(json_data)
 
@@ -62,5 +71,33 @@ def detach_robot_rotate_relative(dangle: float):
     json_data: RotateRelativeAction = {
         "action_type": ActionTypeRotateRelative,
         "dangle": dangle
+    }
+    send_data(json_data)
+
+
+def detach_robot_W():
+    json_data: OtherAction = {
+        "action_type": ActionTypeContW
+    }
+    send_data(json_data)
+
+
+def detach_robot_A():
+    json_data: OtherAction = {
+        "action_type": ActionTypeContA
+    }
+    send_data(json_data)
+
+
+def detach_robot_S():
+    json_data: OtherAction = {
+        "action_type": ActionTypeContS
+    }
+    send_data(json_data)
+
+
+def detach_robot_D():
+    json_data: OtherAction = {
+        "action_type": ActionTypeContD
     }
     send_data(json_data)

@@ -4,9 +4,33 @@ from src.ai.models.base_autoencoder_model import BaseAutoencoderModel
 from src.ai.runtime_data_storage import Storage
 from src.ai.runtime_data_storage.storage_superset2 import StorageSuperset2
 from src.utils import array_to_tensor
+from src.modules.time_profiler import start_profiler, profiler_checkpoint
 
 
-def evaluate_reconstruction_error_super(model: BaseAutoencoderModel, storage: StorageSuperset2) -> None:
+def evaluate_reconstruction_error_super_fist_rotation(model: BaseAutoencoderModel, storage: StorageSuperset2) -> None:
+    """
+    Evaluates the reconstruction error on random samples from the training data
+    """
+    print("\n")
+    print("Evaluation on random samples from training data:")
+
+    total_averaged_error = 0
+    model.eval()
+    ITERATIONS = 1
+
+    for iteration in range(ITERATIONS):
+        train_data = array_to_tensor(np.array(storage.get_pure_sensor_data())[0])
+        total_error = 0
+        reconstructed = model.forward_inference(train_data)
+        total_error += torch.sum(torch.norm(train_data - reconstructed, p=2, dim=1)).item()
+        datapoints_size = train_data.shape[1]
+        total_averaged_error += total_error / (datapoints_size)
+
+    print(f'Total average error over 10 iterations: {total_averaged_error / ITERATIONS:.4f}')
+
+
+def evaluate_reconstruction_error_super(model: BaseAutoencoderModel, storage: StorageSuperset2,
+                                        rotations0: bool = False) -> None:
     """
     Evaluates the reconstruction error on random samples from the training data
     """
@@ -15,8 +39,17 @@ def evaluate_reconstruction_error_super(model: BaseAutoencoderModel, storage: St
 
     nr_of_samples = 64
     total_averaged_error = 0
-    for iteration in range(10):
-        storage.build_permuted_data_random_rotations()
+    model.eval()
+    ITERATIONS = 10
+    if rotations0:
+        ITERATIONS = 5
+
+    for iteration in range(ITERATIONS):
+        if rotations0:
+            storage.build_permuted_data_random_rotations_rotation0()
+        else:
+            storage.build_permuted_data_random_rotations()
+
         train_data = array_to_tensor(np.array(storage.get_pure_permuted_raw_env_data()))
         indices = np.random.choice(len(train_data), nr_of_samples, replace=False)
         total_error = 0
@@ -26,33 +59,47 @@ def evaluate_reconstruction_error_super(model: BaseAutoencoderModel, storage: St
                 reconstructed = model.forward_inference(data)
                 total_error += torch.sum(torch.abs(data - reconstructed)).item()
 
-        sensor_datapoints = storage.metadata["sensor_distance"]
-        # print(
-        #     f'Iteration {iteration} average error per sample is {total_error / (nr_of_samples * sensor_datapoints):.4f}')
-        total_averaged_error += total_error / (nr_of_samples * sensor_datapoints)
+        datapoints_size = train_data.shape[1]
 
-    print(f'Total average error over 10 iterations: {total_averaged_error / 10:.4f}')
+        total_averaged_error += total_error / (nr_of_samples * datapoints_size)
+
+    print(f'Total average error over 10 iterations: {total_averaged_error / ITERATIONS:.4f}')
 
 
-def evaluate_distances_between_pairs_super(model: BaseAutoencoderModel, storage: StorageSuperset2) -> float:
+def evaluate_distances_between_pairs_super(model: BaseAutoencoderModel, storage: StorageSuperset2,
+                                           rotations0: bool = False) -> float:
     """
     Gives the average distance between connected pairs ( degree 1 ) and non-connected pairs ( degree 2, 3, 4, etc. )
     """
     adjacent_data = storage.get_adjacency_data()
     non_adjacent_data = storage.get_all_adjacent_data()
+    SAMPLED_NON_ADJCENT = 10000
+    non_adjacent_data = np.random.choice(np.array(non_adjacent_data), SAMPLED_NON_ADJCENT, replace=False)
 
     average_average_deg1_distance = 0
     average_avg_distances = {}
+    model.eval()
+
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     # storage.build_permuted_data_raw()
     ITERATIONS = 5
+    if rotations0:
+        ITERATIONS = 1
 
     for iteration in range(ITERATIONS):
         # selects a rotation for each datapoint at each iteration
-        storage.build_permuted_data_random_rotations()
+        if rotations0:
+            storage.build_permuted_data_random_rotations_rotation0()
+        else:
+            storage.build_permuted_data_random_rotations()
+
         average_deg1_distance = 0
         avg_distances = {}
         max_distance = 0
+
+        start_data_tensors = []
+        end_data_tensors = []
 
         for connection in adjacent_data:
             start_uid = connection["start"]
@@ -61,34 +108,52 @@ def evaluate_distances_between_pairs_super(model: BaseAutoencoderModel, storage:
 
             start_data = storage.get_datapoint_data_tensor_by_name_permuted(start_uid)
             end_data = storage.get_datapoint_data_tensor_by_name_permuted(end_uid)
+            start_data_tensors.append(start_data)
+            end_data_tensors.append(end_data)
 
-            start_embedding = model.encoder_inference(start_data.unsqueeze(0))
-            end_embedding = model.encoder_inference(end_data.unsqueeze(0))
+        start_data_tensors = torch.stack(start_data_tensors).to(device)
+        end_data_tensors = torch.stack(end_data_tensors).to(device)
+        model = model.to(device)
 
-            distance_between_embeddings = torch.norm((start_embedding - end_embedding), p=2).item()
-            average_deg1_distance += distance_between_embeddings
+        start_embedding = model.encoder_inference(start_data_tensors)
+        end_embedding = model.encoder_inference(end_data_tensors)
+        embedding_size = start_embedding.shape[1]
+        distance_between_embeddings = torch.sum(torch.norm((start_embedding - end_embedding),
+                                                           p=2, dim=1) / embedding_size).item()
+        average_deg1_distance += distance_between_embeddings
+
+        start_data_tensors = []
+        end_data_tensors = []
+        distances = []
 
         for connection in non_adjacent_data:
             start_uid = connection["start"]
             end_uid = connection["end"]
             distance = connection["distance"]
+            distances.append(distance)
             max_distance = max(max_distance, distance)
 
             start_data = storage.get_datapoint_data_tensor_by_name_permuted(start_uid)
             end_data = storage.get_datapoint_data_tensor_by_name_permuted(end_uid)
+            start_data_tensors.append(start_data)
+            end_data_tensors.append(end_data)
 
-            start_embedding = model.encoder_inference(start_data.unsqueeze(0))
-            end_embedding = model.encoder_inference(end_data.unsqueeze(0))
+        start_data_tensors = torch.stack(start_data_tensors).to(device)
+        end_data_tensors = torch.stack(end_data_tensors).to(device)
 
-            distance_between_embeddings = torch.norm((start_embedding - end_embedding), p=2).item()
+        start_embedding = model.encoder_inference(start_data_tensors)
+        end_embedding = model.encoder_inference(end_data_tensors)
 
+        embedding_size = start_embedding.shape[1]
+        distance_between_embeddings = torch.norm((start_embedding - end_embedding),
+                                                 p=2, dim=1) / embedding_size
+        for index, distance in enumerate(distances):
             if f"{distance}" not in avg_distances:
                 avg_distances[f"{distance}"] = {
                     "sum": 0,
                     "count": 0
                 }
-
-            avg_distances[f"{distance}"]["sum"] += distance_between_embeddings
+            avg_distances[f"{distance}"]["sum"] += distance_between_embeddings[index].item()
             avg_distances[f"{distance}"]["count"] += 1
 
         average_deg1_distance /= len(adjacent_data)
@@ -117,11 +182,12 @@ def evaluate_distances_between_pairs_super(model: BaseAutoencoderModel, storage:
 
 
 def evaluate_adjacency_properties_super(model: BaseAutoencoderModel, storage: StorageSuperset2,
-                                        average_distance_adjacent: float):
+                                        average_distance_adjacent: float, rotation0: bool = False):
     """
     Evaluates how well the encoder finds adjacency in the data
     """
-    distance_threshold = average_distance_adjacent * 1.25
+    embedding_size = model.get_embedding_size()
+    distance_threshold = average_distance_adjacent * embedding_size * 1.25
 
     adjacent_data = storage.get_adjacency_data()
     non_adjacent_data = storage.get_non_adjacent_data()
@@ -131,7 +197,7 @@ def evaluate_adjacency_properties_super(model: BaseAutoencoderModel, storage: St
     true_adjacent_pairs = len(adjacent_data)
     true_non_adjacent_pairs = len(non_adjacent_data)
 
-    # storage.build_permuted_data_raw()
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     average_false_positives = 0
     average_really_bad_false_positives = 0
@@ -139,32 +205,61 @@ def evaluate_adjacency_properties_super(model: BaseAutoencoderModel, storage: St
     average_true_adjacent_pairs = 0
 
     ITERATIONS = 3
+    if rotation0:
+        ITERATIONS = 1
+
     for iteration in range(ITERATIONS):
-        storage.build_permuted_data_random_rotations()
+        if rotation0:
+            storage.build_permuted_data_random_rotations_rotation0()
+        else:
+            storage.build_permuted_data_random_rotations()
 
         found_adjacent_pairs = []
         false_positives = []
         true_positives = []
         really_bad_false_positives = []
 
+        start_tensors = []
+        end_tensors = []
+        real_life_distances = []
+        start_uids = []
+        end_uids = []
+
         for connection in all_data:
             start = connection["start"]
             end = connection["end"]
             real_life_distance = connection["distance"]
 
-            i_encoded = model.encoder_inference(storage.get_datapoint_data_tensor_by_name_permuted(start).unsqueeze(0))
-            j_encoded = model.encoder_inference(storage.get_datapoint_data_tensor_by_name_permuted(end).unsqueeze(0))
-            distance = torch.norm((i_encoded - j_encoded), p=2).item()
+            start_tensors.append(storage.get_datapoint_data_tensor_by_name_permuted(start))
+            end_tensors.append(storage.get_datapoint_data_tensor_by_name_permuted(end))
+            real_life_distances.append(real_life_distance)
+            start_uids.append(start)
+            end_uids.append(end)
 
+        start_tensors = torch.stack(start_tensors).to(device)
+        end_tensors = torch.stack(end_tensors).to(device)
+        model = model.to(device)
+        model.eval()
+
+        i_encoded = model.encoder_inference(start_tensors)
+        j_encoded = model.encoder_inference(end_tensors)
+
+        distances = torch.norm((i_encoded - j_encoded), p=2, dim=1)
+        distances_items = distances.detach().cpu().numpy()
+
+        for index, distance in enumerate(distances_items):
+            real_life_distance = real_life_distances[index]
+            start = start_uids[index]
+            end = end_uids[index]
             if distance < distance_threshold:
                 found_adjacent_pairs.append((start, end))
-                if real_life_distance == 1:
+                if real_life_distance <= 1:
                     true_positives.append((start, end))
 
-                if real_life_distance > 1:
+                if real_life_distance >= 3:
                     false_positives.append((start, end))
 
-                if real_life_distance > 3:
+                if real_life_distance > 9:
                     really_bad_false_positives.append((start, end))
 
         # print("PREVIOUS METRICS --------------------------")
@@ -183,6 +278,10 @@ def evaluate_adjacency_properties_super(model: BaseAutoencoderModel, storage: St
         # print(f"Percentage of true positives: {len(true_positives) / len(found_adjacent_pairs) * 100:.2f}%")
         # print(f"Percentage of adjacent pairs from total found: {len(true_positives) / true_adjacent_pairs * 100:.2f}%")
         # print("--------------------------------------------------")
+
+        if len(found_adjacent_pairs) == 0:
+            print("No adjacent pairs found in this iteration")
+            return
 
         average_false_positives += len(false_positives) / len(found_adjacent_pairs) * 100
         average_really_bad_false_positives += len(really_bad_false_positives) / len(found_adjacent_pairs) * 100
@@ -304,6 +403,8 @@ def evaluate_adjacency_properties(model: BaseAutoencoderModel, storage: Storage,
     Evaluates how well the encoder finds adjacency in the data
     """
     distance_threshold = average_distance_adjacent * 1.25
+    # get cuda device
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     adjacent_data = storage.get_adjacency_data()
     non_adjacent_data = storage.get_non_adjacent_data()
@@ -319,14 +420,40 @@ def evaluate_adjacency_properties(model: BaseAutoencoderModel, storage: Storage,
     true_adjacent_pairs = len(adjacent_data)
     true_non_adjacent_pairs = len(non_adjacent_data)
 
-    for connection in all_data:
-        start = connection["start"]
-        end = connection["end"]
-        real_life_distance = connection["distance"]
+    # ALL_DATA_SAMPLES = 5000
+    # sampled_all_data = np.random.choice(np.array(all_data), 5000, replace=False)
 
-        i_encoded = model.encoder_inference(storage.get_datapoint_data_tensor_by_name(start).unsqueeze(0))
-        j_encoded = model.encoder_inference(storage.get_datapoint_data_tensor_by_name(end).unsqueeze(0))
-        distance = torch.norm((i_encoded - j_encoded), p=2).item()
+    start_tensors = []
+    end_tensors = []
+    real_life_distances = []
+    start_uids = []
+    end_uids = []
+
+    for connection in all_data:
+        start_uid = connection["start"]
+        end_uid = connection["end"]
+        distance = connection["distance"]
+
+        start_tensors.append(storage.get_datapoint_data_tensor_by_name(start_uid))
+        end_tensors.append(storage.get_datapoint_data_tensor_by_name(end_uid))
+        real_life_distances.append(distance)
+        start_uids.append(start_uid)
+        end_uids.append(end_uid)
+
+    start_tensors = torch.stack(start_tensors).to(device)
+    end_tensors = torch.stack(end_tensors).to(device)
+    real_life_distances = torch.tensor(real_life_distances).to(device)
+    model = model.to(device)
+    model.eval()
+
+    i_encodings = model.encoder_inference(start_tensors)
+    j_encodings = model.encoder_inference(end_tensors)
+    distances = torch.norm((i_encodings - j_encodings), p=2, dim=1).detach().numpy()
+
+    for index, distance in enumerate(distances):
+        real_life_distance = real_life_distances[index]
+        start = start_uids[index]
+        end = end_uids[index]
 
         if distance < distance_threshold:
             found_adjacent_pairs.append((start, end))

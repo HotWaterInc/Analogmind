@@ -59,7 +59,17 @@ class RotateRelativeAction(TypedDict):
     dangle: float
 
 
-class SampleAction(TypedDict):
+class SampleDistanceAction(TypedDict):
+    action_type: str
+    pass
+
+
+class SampleImageAction(TypedDict):
+    action_type: str
+    pass
+
+
+class OtherAction(TypedDict):
     action_type: str
     pass
 
@@ -72,15 +82,21 @@ ActionTypeRotateRelative = "rotate_relative"
 ActionTypeContRotateAbsolute = "cont_rotate_absolute"
 ActionTypeContForward = "cont_forward"
 
-ActionTypeSample = "sample"
+ActionTypeSampleDistance = "sample_distance"
+ActionTypeSampleImage = "sample_image"
+
+ActionTypeContW = "w"
+ActionTypeContA = "a"
+ActionTypeContS = "s"
+ActionTypeContD = "d"
 
 action_types: List[str] = [
     ActionTypeTeleportAbsolute, ActionTypeTeleportRelative, ActionTypeRotateAbsolute, ActionTypeRotateRelative,
-    ActionTypeSample, ActionTypeContRotateAbsolute, ActionTypeContForward
+    ActionTypeSampleDistance, ActionTypeContRotateAbsolute, ActionTypeContForward
 ]
 
 JsonDataAction = Union[
-    TeleportAbsoluteAction, TeleportRelativeAction, RotateAbsoluteAction, RotateRelativeAction, SampleAction, RotateAbsoluteContinuousAction, ForwardContinuousAction]
+    TeleportAbsoluteAction, TeleportRelativeAction, RotateAbsoluteAction, RotateRelativeAction, SampleImageAction, RotateAbsoluteContinuousAction, ForwardContinuousAction]
 
 
 def send_data(json_data: JsonDataAction) -> None:
@@ -88,10 +104,10 @@ def send_data(json_data: JsonDataAction) -> None:
     Global send data function, use this one as a wrapper to CommunicationInterface.get_instance().send_data
     """
     # abstract send_data function easy to use
-    if json_data.get("action_type") is None:
-        raise Exception("action_type is required in json_data")
-    if json_data["action_type"] not in action_types:
-        raise Exception(f"action_type {json_data['action_type']} is not a valid action type")
+    # if json_data.get("action_type") is None:
+    #     raise Exception("action_type is required in json_data")
+    # if json_data["action_type"] not in action_types:
+    #     raise Exception(f"action_type {json_data['action_type']} is not a valid action type")
 
     communication: CommunicationInterface = CommunicationInterface.get_instance()
 

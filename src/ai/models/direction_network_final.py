@@ -4,8 +4,7 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 import numpy as np
-from src.ai.runtime_data_storage.storage_superset2 import StorageSuperset2, RawConnectionData, build_thetas, \
-    build_thetas_2
+from src.ai.runtime_data_storage.storage_superset2 import StorageSuperset2, RawConnectionData
 from src.modules.save_load_handlers.ai_models_handle import load_manually_saved_ai, save_ai_manually
 from src.ai.models.base_autoencoder_model import BaseAutoencoderModel
 from src.utils import array_to_tensor

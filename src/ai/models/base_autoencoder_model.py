@@ -30,3 +30,7 @@ class BaseAutoencoderModel(nn.Module, ABC):
     @abstractmethod
     def forward_training(self, *args) -> any:
         pass
+
+    @abstractmethod
+    def get_embedding_size(self) -> int:
+        pass

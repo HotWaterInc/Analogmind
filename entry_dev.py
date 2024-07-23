@@ -9,14 +9,19 @@ from src.ai.models.variational_autoencoder import *
 from src.utils import perror
 from src.modules.external_communication.communication_interface import send_data, CommunicationInterface
 from src.utils import get_instance
-from src.action_robot_controller import detach_robot_sample, detach_robot_teleport_relative, \
+from src.action_robot_controller import detach_robot_teleport_relative, \
     detach_robot_rotate_absolute, detach_robot_rotate_relative, detach_robot_teleport_absolute
 from src.modules.policies.data_collection import grid_data_collection
 from src.ai.models.permutor_autoenc_pipelined import run_permuted_autoencoder
 from src.ai.models.permutor_autoenc_pipelined2 import run_permuted_autoencoder2
 from src.ai.models.direction_network_final import run_direction_network
 from src.ai.models.direction_network_final2 import run_direction_network2
-from src.modules.policies.navigation8x8_full import navigation8x8, test_angles_direction
+from src.modules.policies.navigation8x8_v1_distance import navigation8x8
+
+from src.ai.models.autoencoder_images_north import run_autoencoder_images_north
+from src.ai.models.autoencoder_images_full_forced import run_autoencoder_images_full
+from src.ai.models.autoencoder_images_stacked_thetas import run_autoencoder_images_stacked_thetas
+from src.ai.models.autoencoder_images_north_ensemble import run_autoencoder_ensemble_north
 
 
 def start_server_thread():
@@ -59,9 +64,13 @@ if __name__ == "__main__":
     # run_permutor_deshift()
     # run_permutor()
 
-    run_permuted_autoencoder2()
+    # run_permuted_autoencoder2()
     # run_direction_network2()
 
-    # run_autoencoder()
-    # run_permuted_autoencoder()
+    # run_autoencoder_images_full()
+    # run_autoencoder_images_stacked_thetas()
+
+    # run_autoencoder_images_north()
+    run_autoencoder_ensemble_north()
+
     pass

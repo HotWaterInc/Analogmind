@@ -41,14 +41,14 @@ def build_thetas_2(true_theta, thetas_length):
     return thetas
 
 
-def build_thetas(true_theta, thetas_length):
+def angle_to_thetas(true_theta, thetas_length):
     thetas = torch.zeros(thetas_length)
-    true_theta_index = true_theta * (thetas_length - 1)
+    true_theta_index = true_theta * (thetas_length)
     integer_index_left = int(true_theta_index)
     integer_index_right = integer_index_left + 1
 
-    FILL_DISTANCE = 10
-    SD = 3
+    FILL_DISTANCE = 5
+    SD = 1.5
     for i in range(FILL_DISTANCE):
         left_index = integer_index_left - i
         right_index = integer_index_right + i
@@ -56,6 +56,7 @@ def build_thetas(true_theta, thetas_length):
         pdf_value = norm.pdf(left_index, loc=true_theta_index, scale=SD)
         if left_index < 0:
             left_index = len(thetas) + left_index
+
         thetas[left_index] = pdf_value
 
         pdf_value = norm.pdf(right_index, loc=true_theta_index, scale=SD)
@@ -68,6 +69,43 @@ def build_thetas(true_theta, thetas_length):
     peak_value = 1 / (sd * math.sqrt(2 * math.pi))
     thetas /= peak_value
     return thetas
+
+
+def deg_to_rad(degrees):
+    return degrees * math.pi / 180
+
+
+def thetas_to_angle(thetas):
+    # theta is cos x + i sin x
+    lng = len(thetas)
+    step = 360 / lng
+    real_arr = []
+    imag_arr = []
+    for i in range(lng):
+        degree = i * step
+        radians = deg_to_rad(degree)
+        # print(degree, radians)
+
+        real = math.cos(radians)
+        imag = math.sin(radians)
+
+        real_arr.append(real)
+        imag_arr.append(imag)
+
+    real_sum = 0
+    imag_sum = 0
+    for i in range(lng):
+        real_sum += real_arr[i] * thetas[i]
+        imag_sum += imag_arr[i] * thetas[i]
+        # print(f"Real: {real_arr[i]}, Imag: {imag_arr[i]}, Theta: {thetas[i]}")
+
+    real_sum /= lng
+    imag_sum /= lng
+
+    angle = math.atan2(imag_sum, real_sum)
+    if angle < 0:
+        angle += 2 * math.pi
+    return angle
 
 
 class StorageSuperset2(StorageSuperset):
@@ -127,11 +165,39 @@ class StorageSuperset2(StorageSuperset):
     raw_env_data_permuted_choice: List[Dict[str, any]] = []
     raw_env_data_permuted_choice_map: Dict[str, any] = {}
 
+    def build_permuted_data_random_rotations_rotation_N(self, N: int) -> None:
+        """
+        Returns the data point by its name
+        """
+        self.raw_env_data_permuted_choice = []
+        self._permutation_metadata = {}
+        self._permutation_metadata_array = []
+
+        random_pick = N
+        for datapoint in self.raw_env_data:
+            datapoint_copy = datapoint.copy()
+
+            name = datapoint["name"]
+            data_raw: List[List[float]] = datapoint["data"]
+            length = len(data_raw)
+            random_index = random_pick
+
+            datapoint_copy["data"] = data_raw[random_index]
+            self.raw_env_data_permuted_choice.append(datapoint_copy)
+            self._permutation_metadata[name] = random_index
+            self._permutation_metadata_array.append(random_index)
+
+        for datapoint in self.raw_env_data_permuted_choice:
+            name: str = datapoint["name"]
+            self.raw_env_data_permuted_choice_map[name] = datapoint
+
     def build_permuted_data_random_rotations_rotation0(self) -> None:
         """
         Returns the data point by its name
         """
         self.raw_env_data_permuted_choice = []
+        self._permutation_metadata = {}
+        self._permutation_metadata_array = []
 
         for datapoint in self.raw_env_data:
             datapoint_copy = datapoint.copy()
@@ -143,6 +209,8 @@ class StorageSuperset2(StorageSuperset):
 
             datapoint_copy["data"] = data_raw[random_index]
             self.raw_env_data_permuted_choice.append(datapoint_copy)
+            self._permutation_metadata[name] = random_index
+            self._permutation_metadata_array.append(random_index)
 
         for datapoint in self.raw_env_data_permuted_choice:
             name: str = datapoint["name"]
@@ -153,17 +221,22 @@ class StorageSuperset2(StorageSuperset):
         Returns the data point by its name
         """
         self.raw_env_data_permuted_choice = []
+        self._permutation_metadata = {}
+        self._permutation_metadata_array = []
 
         for datapoint in self.raw_env_data:
             datapoint_copy = datapoint.copy()
 
             name = datapoint["name"]
+
             data_raw: List[List[float]] = datapoint["data"]
             length = len(data_raw)
             random_index = random.randint(0, length - 1)
 
             datapoint_copy["data"] = data_raw[random_index]
             self.raw_env_data_permuted_choice.append(datapoint_copy)
+            self._permutation_metadata[name] = random_index
+            self._permutation_metadata_array.append(random_index)
 
         for datapoint in self.raw_env_data_permuted_choice:
             name: str = datapoint["name"]
@@ -188,6 +261,15 @@ class StorageSuperset2(StorageSuperset):
         Returns the data point by its name
         """
         return [datapoint["data"] for datapoint in self.raw_env_data_permuted_choice]
+
+    _permutation_metadata: Dict[str, any] = {}
+    _permutation_metadata_array: List[int] = []
+
+    def get_pure_permuted_raw_env_metadata_array_rotation(self):
+        return self._permutation_metadata_array
+
+    def get_number_of_permutations(self):
+        return len(self.raw_env_data[0]["data"])
 
     def get_datapoint_data_tensor_by_name_permuted(self, name: str) -> torch.Tensor:
         """

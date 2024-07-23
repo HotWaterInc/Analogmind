@@ -5,8 +5,9 @@ from src.action_ai_controller import ActionAIController
 from src.global_data_buffer import GlobalDataBuffer, empty_global_data_buffer
 from src.modules.save_load_handlers.data_handle import write_other_data_to_file
 
-from src.action_robot_controller import detach_robot_sample, detach_robot_teleport_relative, \
-    detach_robot_rotate_absolute, detach_robot_rotate_relative, detach_robot_teleport_absolute
+from src.action_robot_controller import detach_robot_sample_distance, detach_robot_teleport_relative, \
+    detach_robot_rotate_absolute, detach_robot_rotate_relative, detach_robot_teleport_absolute, \
+    detach_robot_sample_image
 import threading
 
 
@@ -15,8 +16,11 @@ def check_thread():
     print(f"Function is running on thread: {current_thread.name} (ID: {current_thread.ident})")
 
 
+sample_types = ["distance", "image"]
+
+
 def grid_data_collection(width: float, height: float, grid_size: int, center_x: float, center_y: float,
-                         rotations: int) -> Generator[None, None, None]:
+                         rotations: int, type: str) -> Generator[None, None, None]:
     """
     Collects data from the environment in a grid pattern with height and width as the boundaries.
     The height and width are split into grid_size x grid_size grid.
@@ -25,6 +29,8 @@ def grid_data_collection(width: float, height: float, grid_size: int, center_x: 
 
     Works by having a yield after every action send, which will be triggered by the response from the robot
     """
+    if type not in sample_types:
+        raise Exception(f"Invalid sample type {type}")
 
     # we do -1 because the grid size also includes starting ending points
     # if we divide by grid_size, in the loop below you will only traverse up to grid_size-1 which does not include the last point
@@ -65,7 +71,10 @@ def grid_data_collection(width: float, height: float, grid_size: int, center_x: 
                 detach_robot_rotate_absolute(angle)
                 yield
 
-                detach_robot_sample()
+                if type == "image":
+                    detach_robot_sample_image()
+                elif type == "distance":
+                    detach_robot_sample_distance()
                 yield
                 # here data buffer should be filled
 
@@ -76,6 +85,7 @@ def grid_data_collection(width: float, height: float, grid_size: int, center_x: 
 
             current_datapoint["name"] = current_name
             current_datapoint["data"] = data_arr
+            print(data_arr)
             current_datapoint["params"] = {
                 "x": x,
                 "y": y,
@@ -86,5 +96,7 @@ def grid_data_collection(width: float, height: float, grid_size: int, center_x: 
             all_data.append(current_datapoint)
 
     print("POLICY HAS FINISHED, SAVING DATA")
-    write_other_data_to_file(f"data8x8_rotated{rotations}.json", all_data)
+
+    random_hash = str(time.time())
+    write_other_data_to_file(f"data{grid_size}x{grid_size}_rotated{rotations}_{random_hash}.json", all_data)
     yield
