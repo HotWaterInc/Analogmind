@@ -6,7 +6,7 @@ from src.modules.external_communication.communication_interface import TeleportR
 from src.modules.external_communication.communication_interface import action_types, ActionTypeTeleportAbsolute, \
     ActionTypeTeleportRelative, ActionTypeRotateAbsolute, ActionTypeRotateRelative, ActionTypeSampleDistance, \
     ActionTypeContRotateAbsolute, ActionTypeContForward, ActionTypeContW, ActionTypeContA, ActionTypeContS, \
-    ActionTypeContD, ActionTypeSampleImage
+    ActionTypeContD, ActionTypeSampleImage, ActionTypeSampleImageInference
 
 from typing import Dict, TypedDict
 
@@ -14,6 +14,13 @@ from typing import Dict, TypedDict
 def detach_robot_sample_distance():
     json_data: SampleDistanceAction = {
         "action_type": ActionTypeSampleDistance
+    }
+    send_data(json_data)
+
+
+def detach_robot_sample_image_inference():
+    json_data: SampleImageAction = {
+        "action_type": ActionTypeSampleImageInference
     }
     send_data(json_data)
 

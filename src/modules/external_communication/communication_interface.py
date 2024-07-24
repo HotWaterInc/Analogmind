@@ -84,6 +84,7 @@ ActionTypeContForward = "cont_forward"
 
 ActionTypeSampleDistance = "sample_distance"
 ActionTypeSampleImage = "sample_image"
+ActionTypeSampleImageInference = "sample_image_inference"
 
 ActionTypeContW = "w"
 ActionTypeContA = "a"
@@ -92,7 +93,7 @@ ActionTypeContD = "d"
 
 action_types: List[str] = [
     ActionTypeTeleportAbsolute, ActionTypeTeleportRelative, ActionTypeRotateAbsolute, ActionTypeRotateRelative,
-    ActionTypeSampleDistance, ActionTypeContRotateAbsolute, ActionTypeContForward
+    ActionTypeSampleDistance, ActionTypeContRotateAbsolute, ActionTypeContForward, ActionTypeSampleImageInference
 ]
 
 JsonDataAction = Union[

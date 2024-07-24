@@ -22,10 +22,10 @@ import torch
 import torch.nn as nn
 
 
-class AutoencoderImageNorthOnly(BaseAutoencoderModel):
+class AutoencoderImageFullForced(BaseAutoencoderModel):
     def __init__(self, drop_rate: float = 0.2):
-        super(AutoencoderImageNorthOnly, self).__init__()
-        self.embedding_size = 128
+        super(AutoencoderImageFullForced, self).__init__()
+        self.embedding_size = 24
 
         # Encoder layers
         self.encoder_layers = nn.ModuleList([
@@ -206,18 +206,18 @@ def permutation_adjustion_handling(autoencoder: BaseAutoencoderModel, samples: i
 def train_autoencoder_with_distance_constraint(autoencoder: BaseAutoencoderModel, epochs: int,
                                                pretty_print: bool = False) -> BaseAutoencoderModel:
     # PARAMETERS
-    optimizer = optim.Adam(autoencoder.parameters(), lr=0.0005)
+    optimizer = optim.Adam(autoencoder.parameters(), lr=0.0005, amsgrad=True)
 
     num_epochs = epochs
 
-    scale_reconstruction_loss = 0
+    scale_reconstruction_loss = 1
     scale_adjacent_distance_loss = 0.1
-    scale_non_adjacent_distance_loss = 0.5
-    scale_permutation_adjustion_loss = 1
+    scale_non_adjacent_distance_loss = 0.25
+    scale_permutation_adjustion_loss = 0.5
 
-    adjacent_sample_size = 15 * 15
-    non_adjacent_sample_size = 4000
-    permutation_sample_size = 15 * 15
+    adjacent_sample_size = 5 * 5
+    non_adjacent_sample_size = 100
+    permutation_sample_size = 5 * 5
 
     epoch_average_loss = 0
     reconstruction_average_loss = 0
@@ -225,8 +225,8 @@ def train_autoencoder_with_distance_constraint(autoencoder: BaseAutoencoderModel
     non_adjacent_average_loss = 0
     permutation_average_loss = 0
 
-    epoch_print_rate = 250
-    DISTANCE_CONSTANT_PER_NEURON = 0.1
+    epoch_print_rate = 1000
+    DISTANCE_CONSTANT_PER_NEURON = 0.02
 
     train_data = array_to_tensor(np.array(storage.get_pure_permuted_raw_env_data()))
 
@@ -241,6 +241,7 @@ def train_autoencoder_with_distance_constraint(autoencoder: BaseAutoencoderModel
 
     for epoch in range(num_epochs):
         if (epoch % SHUFFLE_RATE == 0):
+            # storage.build_permuted_data_random_rotations_rotation_N(0)
             storage.build_permuted_data_random_rotations()
             train_data = array_to_tensor(np.array(storage.get_pure_permuted_raw_env_data()))
 
@@ -327,8 +328,8 @@ def train_autoencoder_with_distance_constraint(autoencoder: BaseAutoencoderModel
 
 def run_ai():
     global storage
-    autoencoder = AutoencoderImageNorthOnly()
-    train_autoencoder_with_distance_constraint(autoencoder, epochs=3000, pretty_print=True)
+    autoencoder = AutoencoderImageFullForced()
+    train_autoencoder_with_distance_constraint(autoencoder, epochs=25000, pretty_print=True)
     return autoencoder
 
 
@@ -357,16 +358,16 @@ def run_new_ai() -> None:
 
 def run_autoencoder_images_full() -> None:
     global storage
-    global permutor
 
-    storage.load_raw_data_from_others("data15x15_rotated24_image_embeddings.json")
-    storage.load_raw_data_connections_from_others("data15x15_connections.json")
+    dataset_grid = 5
+
+    storage.load_raw_data_from_others(f"data{dataset_grid}x{dataset_grid}_rotated24_image_embeddings.json")
+    storage.load_raw_data_connections_from_others(f"data{dataset_grid}x{dataset_grid}_connections.json")
     # selects first rotation
     storage.build_permuted_data_random_rotations()
 
-    # run_new_ai()
-    run_loaded_ai()
+    run_new_ai()
+    # run_loaded_ai()
 
 
 storage: StorageSuperset2 = StorageSuperset2()
-permutor = None

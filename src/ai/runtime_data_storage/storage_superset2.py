@@ -165,6 +165,26 @@ class StorageSuperset2(StorageSuperset):
     raw_env_data_permuted_choice: List[Dict[str, any]] = []
     raw_env_data_permuted_choice_map: Dict[str, any] = {}
 
+    _index_cache: Dict[str, int] = {}
+
+    def get_datapoint_name_by_index(self, index: int) -> str:
+        """
+        Returns the data point by its name
+        """
+        return self.raw_env_data[index]["name"]
+
+    def get_datapoint_index_by_name(self, name: str) -> int:
+        """
+        Returns the data point by its name
+        """
+        if name in self._index_cache:
+            return self._index_cache[name]
+
+        for index, datapoint in enumerate(self.raw_env_data):
+            if datapoint["name"] == name:
+                self._index_cache[name] = index
+                return index
+
     def build_permuted_data_random_rotations_rotation_N(self, N: int) -> None:
         """
         Returns the data point by its name
@@ -206,6 +226,33 @@ class StorageSuperset2(StorageSuperset):
             data_raw: List[List[float]] = datapoint["data"]
             length = len(data_raw)
             random_index = 0
+
+            datapoint_copy["data"] = data_raw[random_index]
+            self.raw_env_data_permuted_choice.append(datapoint_copy)
+            self._permutation_metadata[name] = random_index
+            self._permutation_metadata_array.append(random_index)
+
+        for datapoint in self.raw_env_data_permuted_choice:
+            name: str = datapoint["name"]
+            self.raw_env_data_permuted_choice_map[name] = datapoint
+
+    def build_permuted_data_random_rotations_custom(self, arr_custom) -> None:
+        """
+        Returns the data point by its name
+        """
+        self.raw_env_data_permuted_choice = []
+        self._permutation_metadata = {}
+        self._permutation_metadata_array = []
+
+        for datapoint in self.raw_env_data:
+            datapoint_copy = datapoint.copy()
+
+            name = datapoint["name"]
+
+            data_raw: List[List[float]] = datapoint["data"]
+            length = len(arr_custom)
+            random_index = random.randint(0, length - 1)
+            random_index = arr_custom[random_index]
 
             datapoint_copy["data"] = data_raw[random_index]
             self.raw_env_data_permuted_choice.append(datapoint_copy)

@@ -15,7 +15,9 @@ from src.ai.evaluation.evaluation import evaluate_reconstruction_error, evaluate
     evaluate_adjacency_properties
 from src.ai.evaluation.evaluation import evaluate_reconstruction_error, evaluate_distances_between_pairs, \
     evaluate_adjacency_properties, evaluate_reconstruction_error_super, evaluate_distances_between_pairs_super, \
-    evaluate_adjacency_properties_super
+    evaluate_adjacency_properties_super, evaluate_reconstruction_error_super_ensemble, \
+    evaluate_distances_between_pairs_super_ensemble, evaluate_adjacency_properties_ensemble_coordination, \
+    evaluate_ensemble_difference_between_rotations_and_pos
 from src.modules.pretty_display import pretty_display_reset, pretty_display_start, pretty_display, set_pretty_display
 
 import torch
@@ -110,7 +112,8 @@ def embedding_handling_global_ensemble(autoencoders, train_data_tensors) -> List
         enc = autoencoder.encoder_training(train_data)
         encodings.append(enc)
 
-    criterion = nn.MSELoss()
+    criterion1 = nn.MSELoss()
+    criterion2 = nn.L1Loss()
 
     encodings = torch.stack(encodings)
     initial_encodings = encodings
@@ -122,7 +125,7 @@ def embedding_handling_global_ensemble(autoencoders, train_data_tensors) -> List
     losses = []
 
     for i in range(ENSEMBLE_SIZE):
-        loss = criterion(encodings_mean, initial_encodings[i])
+        loss = criterion1(encodings_mean, initial_encodings[i]) + criterion2(encodings_mean, initial_encodings[i])
         losses.append(loss)
 
     return losses
@@ -205,13 +208,13 @@ def non_adjacent_distance_handling(autoencoder: BaseAutoencoderModel, non_adjace
 
 
 def train_autoencoder_ensemble(epochs: int):
-    ENSEMBLE_SIZE = 24
+    ENSEMBLE_SIZE = 4
     # generate 24 autoencoders
     autoencoders = [AutoencoderImageNorthOnly().to(device) for _ in range(ENSEMBLE_SIZE)]
-    optimizers = [optim.Adam(autoencoder.parameters(), lr=0.0005) for autoencoder in autoencoders]
+    optimizers = [optim.Adam(autoencoder.parameters(), lr=0.001) for autoencoder in autoencoders]
     train_data_tensors = []
     for i in range(ENSEMBLE_SIZE):
-        target = i
+        target = i * 6
 
         storage.build_permuted_data_random_rotations_rotation_N(target)
         train_data = array_to_tensor(np.array(storage.get_pure_permuted_raw_env_data())).to(device)
@@ -221,10 +224,10 @@ def train_autoencoder_ensemble(epochs: int):
     scale_reconstruction_loss = 1
     scale_adjacent_distance_loss = 0.5
     scale_non_adjacent_distance_loss = 0.25
-    scale_global_sync_loss = 1
+    scale_global_sync_loss = 4
 
     adjacent_sample_size = 100
-    non_adjacent_sample_size = 400
+    non_adjacent_sample_size = 2000
 
     epoch_average_loss = np.zeros(ENSEMBLE_SIZE)
 
@@ -232,7 +235,7 @@ def train_autoencoder_ensemble(epochs: int):
     adjacent_average_loss = 0
     non_adjacent_average_loss = 0
 
-    epoch_print_rate = 100
+    epoch_print_rate = 250
     DISTANCE_CONSTANT_PER_NEURON = 0.01
 
     set_pretty_display(epoch_print_rate, "Epoch batch")
@@ -278,8 +281,8 @@ def train_autoencoder_ensemble(epochs: int):
         for i in range(ENSEMBLE_SIZE):
             losses[i] *= scale_global_sync_loss
 
-            epoch_loss[i] += losses[i].item()
-            epoch_average_loss[i] += losses[i].item()
+            # epoch_loss[i] += losses[i].item()
+            # epoch_average_loss[i] += losses[i].item()
             avg_global_loss += losses[i].item()
 
             retain = True
@@ -295,6 +298,10 @@ def train_autoencoder_ensemble(epochs: int):
         if epoch % epoch_print_rate == 0 and epoch != 0:
             epoch_average_loss /= epoch_print_rate
             avg_global_loss /= epoch_print_rate
+
+            if avg_global_loss / ENSEMBLE_SIZE < 0.25 and scale_global_sync_loss < 1000:
+                scale_global_sync_loss *= 10
+                print("Global sync loss SCALED UP")
 
             print("")
             print(f"Losses total: {epoch_average_loss}")
@@ -316,6 +323,17 @@ def run_ai():
     return autoencoders
 
 
+def run_tests_ensemble(models):
+    evaluate_reconstruction_error_super_ensemble(models, storage, scale_ens=6)
+    print("")
+    dist = evaluate_distances_between_pairs_super_ensemble(models, storage, verbose=False, scale_ens=6)
+    print("")
+    # evaluate_adjacency_properties_ensemble_coordination(models, storage, dist)
+
+    evaluate_ensemble_difference_between_rotations_and_pos(models, storage, scale_en=6)
+    # pass
+
+
 def run_tests(autoencoder):
     global storage
 
@@ -326,20 +344,22 @@ def run_tests(autoencoder):
 
 def run_loaded_ai():
     # autoencoder = load_manually_saved_ai("autoenc_dynamic10k.pth")
-    autoencoder = load_manually_saved_ai("autoencodPerm10k.pth")
-    global storage
-    storage.build_permuted_data_raw_with_thetas()
+    models = []
+    for i in range(4):
+        autoencoder = load_manually_saved_ai(f"autoencod_image_ensemble_{i * 6}_v2.pth")
+        models.append(autoencoder)
 
-    run_tests(autoencoder)
+    global storage
+    run_tests_ensemble(models)
 
 
 def run_new_ai() -> None:
     autoencoders = run_ai()
 
     for idx, autoencoder in enumerate(autoencoders):
-        save_ai_manually(f"autoencod_image_ensemble{idx}", autoencoder)
+        save_ai_manually(f"autoencod_image_ensemble_{idx * 6}_v3", autoencoder)
 
-    run_tests(autoencoders[0])
+    run_tests_ensemble(autoencoders)
 
 
 def run_autoencoder_ensemble_north() -> None:
@@ -349,10 +369,9 @@ def run_autoencoder_ensemble_north() -> None:
     storage.load_raw_data_from_others("data15x15_rotated24_image_embeddings.json")
     storage.load_raw_data_connections_from_others("data15x15_connections.json")
     # selects first rotation
-    storage.build_permuted_data_random_rotations_rotation0()
 
-    run_new_ai()
-    # run_loaded_ai()
+    # run_new_ai()
+    run_loaded_ai()
 
 
 storage: StorageSuperset2 = StorageSuperset2()

@@ -38,7 +38,7 @@ def build_resnet18_embeddings(image_path):
         transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
     ])
 
-    json_data_ids = read_other_data_from_file("data15x15_rotated24_image_id.json")
+    json_data_ids = read_other_data_from_file("data5x5_rotated24_image_id.json")
     max_id = json_data_ids[-1]["data"][-1][0]
     print(f"Max id: {max_id}")
 
@@ -64,9 +64,9 @@ def build_resnet18_embeddings(image_path):
         if i % batch_size == 0:
             print(f"Batch {i // batch_size} processed")
 
-    write_other_data_to_file("data15x15_rotated24_image_embeddings.json", json_data_ids)
+    write_other_data_to_file("data5x5_rotated24_image_embeddings.json", json_data_ids)
 
 
 if __name__ == "__main__":
-    base_path = './data/dataset15x15'
+    base_path = './data/dataset5x5'
     embedding = build_resnet18_embeddings(base_path)

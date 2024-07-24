@@ -16,12 +16,17 @@ from src.ai.models.permutor_autoenc_pipelined import run_permuted_autoencoder
 from src.ai.models.permutor_autoenc_pipelined2 import run_permuted_autoencoder2
 from src.ai.models.direction_network_final import run_direction_network
 from src.ai.models.direction_network_final2 import run_direction_network2
+
+from src.ai.models.direction_network_ensemble import run_direction_network_ensemble
+
 from src.modules.policies.navigation8x8_v1_distance import navigation8x8
 
 from src.ai.models.autoencoder_images_north import run_autoencoder_images_north
 from src.ai.models.autoencoder_images_full_forced import run_autoencoder_images_full
 from src.ai.models.autoencoder_images_stacked_thetas import run_autoencoder_images_stacked_thetas
 from src.ai.models.autoencoder_images_north_ensemble import run_autoencoder_ensemble_north
+
+from src.ai.models.direction_network_images_final import run_direction_network_images_final
 
 
 def start_server_thread():
@@ -36,7 +41,7 @@ def data_collection_pipeline():
     """
     configs_communication()
 
-    generator = grid_data_collection(2, 2, 8, 0, 0, 24)
+    generator = grid_data_collection(3, 3, 5, 0, 0.5, 24, type="image")
 
     config_data_collection_pipeline(generator)
     server_thread = threading.Thread(target=start_server, name="ServerThread")
@@ -71,6 +76,11 @@ if __name__ == "__main__":
     # run_autoencoder_images_stacked_thetas()
 
     # run_autoencoder_images_north()
-    run_autoencoder_ensemble_north()
+
+    # run_autoencoder_ensemble_north()
+    # run_direction_network_ensemble()
+
+    run_autoencoder_images_full()
+    # run_direction_network_images_final()
 
     pass

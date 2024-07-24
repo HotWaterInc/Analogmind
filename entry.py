@@ -76,7 +76,7 @@ def directed_data_collection_pipeline():
 if __name__ == "__main__":
     # directed_data_collection_pipeline()
     # navigation8x8pipeline()
-    data_collection_pipeline()
+    # data_collection_pipeline()
 
     # run_autoencoder()
     # run_permutor()

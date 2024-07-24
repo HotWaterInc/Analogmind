@@ -19,6 +19,26 @@ def check_thread():
 sample_types = ["distance", "image"]
 
 
+def get_position(width, height, grid_size, i, j, center_x, center_y):
+    step_size_x = width / max((grid_size - 1), 1)
+    step_size_y = height / max((grid_size - 1), 1)
+
+    start_x = -width / 2
+    start_y = -height / 2
+
+    x = start_x + i * step_size_x
+    y = start_y + j * step_size_y
+
+    x += center_x
+    y += center_y
+
+    return x, y
+
+
+def get_angle(rotations, k):
+    return k * 2 * math.pi / rotations
+
+
 def grid_data_collection(width: float, height: float, grid_size: int, center_x: float, center_y: float,
                          rotations: int, type: str) -> Generator[None, None, None]:
     """
