@@ -31,9 +31,7 @@ def handle_json_propagation(json_data: Dict):
     """
     action_ai_controller: ActionAIController = ActionAIController.get_instance()
 
-    print("reached handle_json_propagation")
     if json_data.get("data") is not None:
-        print("Putting data into buffer")
         # This was a data response from a sample action
         # TODO: Needs refactor, looks horrible
         data_buffer: GlobalDataBuffer = GlobalDataBuffer.get_instance()

@@ -58,7 +58,8 @@ from src.ai.models.autoencoder_images_stacked_thetas import run_autoencoder_imag
 from src.ai.models.autoencoder_images_north_ensemble import run_autoencoder_ensemble_north
 
 from src.ai.models.direction_network_images_final import run_direction_network_images_final
-from src.modules.policies.navigation_image_rawdirect import navigation_image_rawdirect, test_images_accuracy
+from src.modules.policies.navigation_image_rawdirect import navigation_image_rawdirect
+from src.modules.policies.testing_image_data import test_images_accuracy, process_webots_image_to_embedding
 
 
 def build_resnet18_embeddings():
@@ -98,7 +99,7 @@ def build_resnet18_embeddings():
 
 def navigation_direction_raw_image():
     configs_communication()
-    generator = test_images_accuracy()
+    generator = navigation_image_rawdirect()
 
     config_data_collection_pipeline(generator)
     server_thread = threading.Thread(target=start_server, name="ServerThread")
@@ -109,4 +110,5 @@ def navigation_direction_raw_image():
 
 if __name__ == "__main__":
     navigation_direction_raw_image()
+    # build_resnet18_embeddings_CORRECT()
     pass

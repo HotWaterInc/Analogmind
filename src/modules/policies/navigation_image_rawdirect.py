@@ -30,79 +30,13 @@ from src.ai.evaluation.evaluation import evaluate_reconstruction_error, evaluate
     evaluate_adjacency_properties_super
 
 from src.modules.policies.data_collection import get_position, get_angle
+from src.modules.policies.testing_image_data import test_images_accuracy, process_webots_image_to_embedding, \
+    squeeze_out_resnet_output
+from src.modules.policies.utils_lib import webots_radians_to_normal, radians_to_degrees
 
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 import torch
 import torchvision.models as models
 import torchvision.transforms as transforms
-from PIL import Image
-
-
-def get_resnet18_embedding(image_array):
-    # Load pre-trained ResNet-18 model
-
-    weights = models.ResNet18_Weights.DEFAULT
-    model = models.resnet18(weights=weights)
-
-    if image_array.dtype != np.uint8:
-        image_array = (image_array * 255).clip(0, 255).astype(np.uint8)
-
-    # Remove the final fully-connected layer
-    model = torch.nn.Sequential(*list(model.children())[:-1])
-
-    # Set the model to evaluation mode
-    model.eval()
-
-    # Define preprocessing
-    preprocess = transforms.Compose([
-        transforms.ToPILImage(),
-        transforms.Resize(256),
-        transforms.CenterCrop(224),
-        transforms.ToTensor(),
-        transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
-    ])
-
-    # Preprocess the image
-    input_tensor = preprocess(image_array)
-
-    # Add batch dimension
-    input_batch = input_tensor.unsqueeze(0)
-
-    # Move the input and model to GPU if available
-    if torch.cuda.is_available():
-        input_batch = input_batch.to('cuda')
-        model = model.to('cuda')
-
-    # Disable gradient calculation for inference
-    with torch.no_grad():
-        # Get the embedding
-        embedding = model(input_batch)
-
-    # Reshape the embedding to a 1D tensor of size 512
-    embedding = embedding
-
-    return embedding
-
-
-def degrees_to_radians(degrees: float) -> float:
-    return degrees * math.pi / 180
-
-
-def radians_to_degrees(radians: float) -> float:
-    return radians * 180 / math.pi
-
-
-def webots_radians_to_normal(x: float) -> float:
-    if x < 0:
-        x += 2 * math.pi
-    return x
-
-
-def normal_radians_to_webots(x: float) -> float:
-    if x > math.pi:
-        x -= 2 * math.pi
-    return x
-
 
 storage: StorageSuperset2 = None
 direction_network = None
@@ -118,13 +52,6 @@ def load_everything():
     storage.load_raw_data_from_others(f"data{grid_dataset}x{grid_dataset}_rotated24_image_embeddings.json")
     storage.load_raw_data_connections_from_others(f"data{grid_dataset}x{grid_dataset}_connections.json")
     direction_network = load_manually_saved_ai(DIRECTION_NETWORK_PATH)
-
-
-def calculate_angle(x_vector, y_vector):
-    dot_product = x_vector[0] * y_vector[0] + x_vector[1] * y_vector[1]
-    determinant = x_vector[0] * y_vector[1] - x_vector[1] * y_vector[0]
-    angle = math.atan2(determinant, dot_product)
-    return angle
 
 
 def arg_to_angle(arg):
@@ -175,8 +102,7 @@ def next_embedding_policy_ab(current_embedding, target_embedding):
     return next_embedding
 
 
-THRESHOLD = 23
-prev_best_distance = 10000
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
 def find_closest_known_position(current_embedding, theta_percent):
@@ -188,6 +114,8 @@ def find_closest_known_position(current_embedding, theta_percent):
 
     theta_search_index_left = int(current_theta_percent * 24)
     theta_search_index_right = int(current_theta_percent * 24) + 1
+    if theta_search_index_right == 24:
+        theta_search_index_right = 0
 
     for i in range(grid_dataset):
         for j in range(grid_dataset):
@@ -213,7 +141,9 @@ def find_closest_known_position(current_embedding, theta_percent):
 
 def next_embedding_policy_search_closest(current_embedding, current_theta_percent, target_embedding_i,
                                          target_embedding_j):
-    global THRESHOLD, prev_best_distance
+    # global THRESHOLD, prev_best_distance
+    THRESHOLD = 0.5
+    prev_best_distance = 100000
     # print("target embedding", target_embedding_i, target_embedding_j)
 
     global storage
@@ -303,44 +233,69 @@ def next_embedding_policy_search_closest(current_embedding, current_theta_percen
     return potential_current_embedding
 
 
-def test_images_accuracy():
-    width = 3
-    height = 3
-    grid_size = 5
-    total_rotations = 24
-    i, j = 4, 4
-    rotation = 0
-    x, y = get_position(width, height, grid_size, i, j, 0, 0.5)
-    angle = get_angle(total_rotations, rotation)
-    time.sleep(0.25)
-    detach_robot_teleport_absolute(x, y)
-    yield
-    time.sleep(0.25)
-    detach_robot_rotate_absolute(angle)
-    yield
-    detach_robot_sample_image_inference()
-    yield
+def djakstra_search(current_uid, target_uid):
+    global storage
+    all_connections = storage.get_all_adjacent_data()
+    # filter for distance = 1
+    all_connections = [connection for connection in all_connections if connection["distance"] == 1]
+    visited = {}
+    distances = {}
+    previous = {}
 
-    global_data_buffer: GlobalDataBuffer = GlobalDataBuffer.get_instance()
-    buffer = global_data_buffer.buffer
-    # print("Buffer:", buffer)
-    image_data = buffer["data"]
-    empty_global_data_buffer()
+    for connection in all_connections:
+        start = connection["start"]
+        end = connection["end"]
+        distance = connection["distance"]
 
-    nd_array_data = np.array(image_data)
-    angle = buffer["params"]["angle"]
-    angle = webots_radians_to_normal(angle)
+        if start not in visited:
+            visited[start] = False
+            distances[start] = 100000
+            previous[start] = None
 
-    current_embedding = get_resnet18_embedding(nd_array_data).squeeze(-1).squeeze(-1).to(device)
-    print("Current embedding:", current_embedding.shape)
+        if end not in visited:
+            visited[end] = False
+            distances[end] = 100000
+            previous[end] = None
 
-    # get embedding for i,j,rot from data json
-    target_embedding = storage.get_datapoint_data_tensor_by_name(f"{i}_{j}")[rotation].unsqueeze(0).to(device)
+    distances[current_uid] = 0
 
-    # compare current embedding with target embedding
-    distance = torch.norm(target_embedding.squeeze(0) - current_embedding.squeeze(0), p=2, dim=0)
-    print("DISTANCE", distance.shape)
-    print("DISTANCE", distance.item())
+    while True:
+        min_distance = 100000
+        min_uid = None
+
+        for uid in visited:
+            if visited[uid] is False and distances[uid] < min_distance:
+                min_distance = distances[uid]
+                min_uid = uid
+
+        if min_uid is None:
+            break
+
+        visited[min_uid] = True
+
+        for connection in all_connections:
+            start = connection["start"]
+            end = connection["end"]
+            distance = connection["distance"]
+
+            if start == min_uid:
+                if distances[min_uid] + distance < distances[end]:
+                    distances[end] = distances[min_uid] + distance
+                    previous[end] = min_uid
+
+            if end == min_uid:
+                if distances[min_uid] + distance < distances[start]:
+                    distances[start] = distances[min_uid] + distance
+                    previous[start] = min_uid
+
+    path = []
+    current = target_uid
+    while current is not None:
+        path.append(current)
+        current = previous[current]
+
+    path.reverse()
+    return path
 
 
 def navigation_image_rawdirect() -> Generator[None, None, None]:
@@ -353,11 +308,11 @@ def navigation_image_rawdirect() -> Generator[None, None, None]:
     target_reached = False
 
     while True:
-        i, j = 0, 0
         # takes i j from user
         i = int(input("Enter i: "))
         j = int(input("Enter j: "))
         print("i:", i, "j:", j)
+        target_reached = False
 
         while target_reached is False:
             time.sleep(0.5)
@@ -374,32 +329,31 @@ def navigation_image_rawdirect() -> Generator[None, None, None]:
             angle = buffer["params"]["angle"]
             angle = webots_radians_to_normal(angle)
 
-            # inverting radian angles because of bug
-            current_embedding = get_resnet18_embedding(nd_array_data).squeeze(-1).squeeze(-1).to(device)
-            target_embedding = storage.get_datapoint_data_tensor_by_name(f"{i}_{j}")[0].unsqueeze(0).to(device)
-
-            # print("Current embedding:", current_embedding.shape, target_embedding.shape)
-
-            # next_embedding = next_embedding_policy_ab(current_embedding.squeeze(), target_embedding.squeeze())
             angle_percent = angle / (2 * math.pi)
+            print("ANGLE PERCENT", angle_percent)
+
+            current_embedding = process_webots_image_to_embedding(nd_array_data)
             closest = find_closest_known_position(current_embedding.squeeze(), angle_percent)
-            print(closest)
-            continue
-            # next_embedding = next_embedding_policy_search_closest(current_embedding.squeeze(), angle_percent, i, j)
+            path = djakstra_search(closest, f"{i}_{j}")
 
-            # distance = torch.norm(target_embedding.squeeze(0) - current_embedding.squeeze(0), p=2, dim=0)
-            # print("DISTANCE", distance.shape)
+            if len(path) == 1:
+                print("TARGET REACHED")
+                break
 
-            # if distance < 0.5:
-            #     print("HAS FINISHED TARGET REACHED")
-            #     target_reached = False
-            #     break
+            print("traversing:", closest, path[1])
+            print(path)
+
+            next_embedding = path[1]
+            index_rotation = int(angle_percent * 24)
+
+            next_embedding = storage.get_datapoint_data_tensor_by_name(next_embedding)[index_rotation].to(device)
 
             direction_network = direction_network.to(device)
+            current_embedding = squeeze_out_resnet_output(current_embedding)
             direction = direction_network(current_embedding, next_embedding).squeeze(0)
 
             # print("argmax", torch.argmax(direction).item())
-            angle = angle_policy_simple(direction)
+            angle = angle_policy(direction)
             print("Angle:", radians_to_degrees(angle))
 
             # add angle noise

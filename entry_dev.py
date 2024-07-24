@@ -80,7 +80,7 @@ if __name__ == "__main__":
     # run_autoencoder_ensemble_north()
     # run_direction_network_ensemble()
 
-    run_autoencoder_images_full()
-    # run_direction_network_images_final()
+    # run_autoencoder_images_full()
+    run_direction_network_images_final()
 
     pass

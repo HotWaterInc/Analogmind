@@ -318,7 +318,7 @@ def direction_loss(direction_network, sample_rate=64):
 
 
 def train_direction_ai(direction_network, num_epochs):
-    optimizer = optim.Adam(direction_network.parameters(), lr=0.001, amsgrad=True)
+    optimizer = optim.Adam(direction_network.parameters(), lr=0.002, amsgrad=True)
 
     scale_direction_loss = 1
 
@@ -333,6 +333,7 @@ def train_direction_ai(direction_network, num_epochs):
     for epoch in range(num_epochs):
         if (epoch % 5 == 0):
             storage.build_permuted_data_random_rotations()
+            # storage.build_permuted_data_random_rotations_rotation0()
 
         pretty_display(epoch % epoch_print_rate)
 
@@ -389,13 +390,15 @@ def run_tests_mini(direction_network):
     global storage, autoencoder
 
     direction_network = direction_network.to(device)
-    autoencoder = autoencoder.to(device)
+    # autoencoder = autoencoder.to(device)
 
     datapoints: List[str] = storage.get_all_datapoints()
 
     win = 0
     lose = 0
-    ITERATIONS = 3
+    ITERATIONS = 10
+
+    error_arr = []
     for iter in range(ITERATIONS):
         storage.build_permuted_data_random_rotations()
         for datapoint in datapoints:
@@ -412,6 +415,9 @@ def run_tests_mini(direction_network):
 
                 start_data = storage.get_datapoint_data_tensor_by_name_permuted(start).to(device)
                 end_data = storage.get_datapoint_data_tensor_by_name_permuted(end).to(device)
+                metadata = storage.get_pure_permuted_raw_env_metadata_array_rotation()
+                index_start = storage.get_datapoint_index_by_name(start)
+                index_end = storage.get_datapoint_index_by_name(end)
 
                 start_embedding = embedding_policy(start_data).unsqueeze(0)
                 end_embedding = embedding_policy(end_data).unsqueeze(0)
@@ -419,25 +425,27 @@ def run_tests_mini(direction_network):
                 pred_direction_thetas = direction_network(start_embedding, end_embedding).squeeze(0)
                 pred_direction_thetas = F.softmax(pred_direction_thetas, dim=0)
 
-                angle_or = direction_to_degrees(direction)
-
+                expected_degree = direction_to_degrees(direction)
                 max_pred = torch.argmax(pred_direction_thetas)
-                deg = None
-                if max_pred == 0:
-                    deg = 0
-                elif max_pred == 1:
-                    deg = 90
-                elif max_pred == 2:
-                    deg = 180
-                elif max_pred == 3:
-                    deg = 270
 
-                if deg == angle_or:
+                predicted_degree = None
+                if max_pred == 0:
+                    predicted_degree = 0
+                elif max_pred == 1:
+                    predicted_degree = 90
+                elif max_pred == 2:
+                    predicted_degree = 180
+                elif max_pred == 3:
+                    predicted_degree = 270
+
+                if predicted_degree == expected_degree:
                     win += 1
                 else:
+                    error_arr.append((start, end, index_start, index_end))
                     lose += 1
 
     print("")
+    # print(error_arr)
     print("Win", win)
     print("Lose", lose)
     print("Win rate", win / (win + lose))
@@ -525,14 +533,15 @@ def run_tests(direction_network):
 
 def run_new_ai():
     direction_network = DirectionNetworkUpRaw().to(device)
-    train_direction_ai(direction_network, num_epochs=10000)
+    # direction_network = SimpleDirectionNetworkRaw().to(device)
+    train_direction_ai(direction_network, num_epochs=15000)
     save_ai_manually("direction", direction_network)
     run_tests_mini(direction_network)
     # run_tests(direction_network)
 
 
 def run_loaded_ai():
-    direction_network = load_manually_saved_ai("direction_networkup.pth")
+    direction_network = load_manually_saved_ai("direction_image_raw.pth")
 
     run_tests_mini(direction_network)
     # run_tests(direction_network)
@@ -544,14 +553,14 @@ def run_direction_network_images_final():
     global autoencoder
 
     storage = StorageSuperset2()
-    autoencoder = load_manually_saved_ai("autoencod_images_full_without_recons.pth")
+    # autoencoder = load_manually_saved_ai("autoencod_images_full_without_recons.pth")
 
     grid_data = 5
     storage.load_raw_data_from_others(f"data{grid_data}x{grid_data}_rotated24_image_embeddings.json")
     storage.load_raw_data_connections_from_others(f"data{grid_data}x{grid_data}_connections.json")
 
-    run_new_ai()
-    # run_loaded_ai()
+    # run_new_ai()
+    run_loaded_ai()
 
 
 storage: StorageSuperset2 = None
