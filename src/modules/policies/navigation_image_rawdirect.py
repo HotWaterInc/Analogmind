@@ -41,7 +41,10 @@ import torchvision.transforms as transforms
 storage: StorageSuperset2 = None
 direction_network = None
 
-DIRECTION_NETWORK_PATH = "direction_image_raw.pth"
+DIRECTION_NETWORK_PATH = "direction_image_raw_v2.pth"
+
+
+# DIRECTION_NETWORK_PATH = "direction_image_raw_3adj.pth"
 
 
 def load_everything():
@@ -298,6 +301,39 @@ def djakstra_search(current_uid, target_uid):
     return path
 
 
+def turn_angles_to_final_angle(angles):
+    real = 0
+    imaginary = 0
+
+    for angle in angles:
+        cosx = math.cos(angle)
+        sinx = math.sin(angle)
+        real += cosx
+        imaginary += sinx
+
+    final_angle = math.atan2(imaginary, real)
+    if final_angle < 0:
+        final_angle += 2 * math.pi
+
+    return final_angle
+
+
+def policy_average_nav_embeddings(index_rotation, current_embedding, next_target):
+    global direction_network
+
+    next_embeddings = storage.get_datapoint_data_tensor_by_name(next_target).to(device)
+    direction_network = direction_network.to(device)
+    current_embedding = squeeze_out_resnet_output(current_embedding)
+
+    # clone current embedding 24 times
+    current_embeddings = current_embedding.unsqueeze(0).repeat(24, 1)
+    directions = direction_network(current_embeddings, next_embeddings)
+    angles = [angle_policy(direction) for direction in directions]
+
+    final_angle = turn_angles_to_final_angle(angles)
+    return final_angle
+
+
 def navigation_image_rawdirect() -> Generator[None, None, None]:
     load_everything()
     global storage, direction_network
@@ -334,6 +370,7 @@ def navigation_image_rawdirect() -> Generator[None, None, None]:
 
             current_embedding = process_webots_image_to_embedding(nd_array_data)
             closest = find_closest_known_position(current_embedding.squeeze(), angle_percent)
+
             path = djakstra_search(closest, f"{i}_{j}")
 
             if len(path) == 1:
@@ -346,20 +383,32 @@ def navigation_image_rawdirect() -> Generator[None, None, None]:
             next_embedding = path[1]
             index_rotation = int(angle_percent * 24)
 
-            next_embedding = storage.get_datapoint_data_tensor_by_name(next_embedding)[index_rotation].to(device)
+            # next_embedding1 = storage.get_datapoint_data_tensor_by_name(next_embedding)[index_rotation].to(device)
+            # next_embeddings = storage.get_datapoint_data_tensor_by_name(next_embedding).to(device)
+            #
+            # direction_network = direction_network.to(device)
+            # current_embedding = squeeze_out_resnet_output(current_embedding)
+            #
+            # # clone current embedding 24 times
+            # current_embeddings = current_embedding.unsqueeze(0).repeat(24, 1)
+            #
+            # direction1 = direction_network(current_embedding.unsqueeze(0), next_embedding1.unsqueeze(0)).squeeze(0)
+            # # directions = direction_network(current_embeddings, next_embeddings)
+            #
+            # angle = angle_policy(direction1)
+            # # angles = [angle_policy_simple(direction) for direction in directions]
+            #
+            # # final_angle = turn_angles_to_final_angle(angles)
+            # final_angle = angle
 
-            direction_network = direction_network.to(device)
-            current_embedding = squeeze_out_resnet_output(current_embedding)
-            direction = direction_network(current_embedding, next_embedding).squeeze(0)
+            final_angle = policy_average_nav_embeddings(index_rotation, current_embedding, next_embedding)
 
-            # print("argmax", torch.argmax(direction).item())
-            angle = angle_policy(direction)
-            print("Angle:", radians_to_degrees(angle))
+            print("Angle:", radians_to_degrees(final_angle))
 
             # add angle noise
             # angle += np.random.normal(0, 0.1)
 
-            detach_robot_rotate_absolute(angle)
+            detach_robot_rotate_absolute(final_angle)
             yield
             detach_robot_forward_continuous(0.1)
             yield

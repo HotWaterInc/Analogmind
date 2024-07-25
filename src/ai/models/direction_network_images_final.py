@@ -18,77 +18,76 @@ else:
     device = torch.device("cpu")
 
 
-class SimpleDirectionNetworkRaw(nn.Module):
-    def __init__(self, input_size=512, hidden_size=128, output_size=4, dropoout_rate=0.3):
-        super(SimpleDirectionNetworkRaw, self).__init__()
-        self.model = nn.Sequential(
-            nn.Linear(input_size, hidden_size),
-            nn.LeakyReLU(),
-            nn.Dropout(dropoout_rate),
+class ResidualBlock(nn.Module):
+    def __init__(self, hidden_size, dropout_rate):
+        super(ResidualBlock, self).__init__()
+        self.block = nn.Sequential(
             nn.Linear(hidden_size, hidden_size),
-            nn.Tanh(),
-            nn.Dropout(dropoout_rate),
-            nn.Linear(input_size, hidden_size),
+            nn.BatchNorm1d(hidden_size),
             nn.LeakyReLU(),
-            nn.Dropout(dropoout_rate),
-            nn.Linear(input_size, hidden_size),
+            nn.Dropout(dropout_rate),
+            nn.Linear(hidden_size, hidden_size),
+            nn.BatchNorm1d(hidden_size),
             nn.LeakyReLU(),
-            nn.Dropout(dropoout_rate),
-            nn.Linear(hidden_size, output_size)
+            nn.Dropout(dropout_rate),
+            nn.Linear(hidden_size, hidden_size),
+            nn.BatchNorm1d(hidden_size),
+            nn.LeakyReLU(),
+            nn.Dropout(dropout_rate)
         )
 
-    def forward(self, x, y):
-        diff = y - x
-        return self.model(diff)
+    def forward(self, x):
+        return x + self.block(x)
 
 
-class SimpleDirectionNetwork(nn.Module):
-    def __init__(self, input_size=24, hidden_size=128, output_size=4, dropoout_rate=0.3):
-        super(SimpleDirectionNetwork, self).__init__()
-        self.model = nn.Sequential(
-            nn.Linear(input_size, hidden_size),
-            nn.LeakyReLU(),
-            nn.Dropout(dropoout_rate),
-            nn.Linear(hidden_size, hidden_size),
-            nn.Tanh(),
-            nn.Dropout(dropoout_rate),
-            nn.Linear(input_size, hidden_size),
-            nn.LeakyReLU(),
-            nn.Dropout(dropoout_rate),
-            nn.Linear(input_size, hidden_size),
-            nn.LeakyReLU(),
-            nn.Dropout(dropoout_rate),
-            nn.Linear(hidden_size, output_size)
-        )
+class SimpleDirectionNetworkRawAugmented_winputs(nn.Module):
+    def __init__(self, input_size=512, hidden_size=128, output_size=4, dropout_rate=0.3, num_blocks=1):
+        super(SimpleDirectionNetworkRawAugmented_winputs, self).__init__()
+
+        self.input_layer = nn.Linear(input_size * 2, hidden_size)
+        self.blocks = nn.ModuleList([ResidualBlock(hidden_size, dropout_rate) for _ in range(num_blocks)])
+        self.output_layer = nn.Linear(hidden_size, output_size)
 
     def forward(self, x, y):
-        diff = y - x
-        return self.model(diff)
+        inpt = torch.cat((x, y), dim=1)
+
+        out = self.input_layer(inpt)
+        for block in self.blocks:
+            out = block(out)
+
+        return self.output_layer(out)
 
 
-class DirectionNetworkUpRaw(nn.Module):
-    def __init__(self, input_size=512, embedding_size=512, num_heads=16, dropout_rate=0.2, output_size=4):
-        super(DirectionNetworkUpRaw, self).__init__()
+class DirectionNetworkUpBNRaw(nn.Module):
+    def __init__(self, input_size=512, embedding_size=128, num_heads=16, dropout_rate=0.2, output_size=4):
+        super(DirectionNetworkUpBNRaw, self).__init__()
         self.input_size = input_size
         self.embedding_size = embedding_size
 
-        # Initial embedding layer
+        # Initial embedding layers
         self.input_embed = nn.Linear(input_size, embedding_size)
+        self.bn_input = nn.BatchNorm1d(embedding_size)
         self.input_embed2 = nn.Linear(embedding_size, embedding_size)
+        self.bn_input2 = nn.BatchNorm1d(embedding_size)
 
         self.layers = nn.ModuleList()
-        for _ in range(4):
+        for _ in range(2):
             self.layers.append(nn.ModuleDict({
                 'attention': nn.MultiheadAttention(embed_dim=embedding_size, num_heads=num_heads),
+                'bn1': nn.BatchNorm1d(embedding_size),
                 'fc1': nn.Linear(embedding_size, embedding_size),
+                'bn2': nn.BatchNorm1d(embedding_size),
                 'fc2': nn.Linear(embedding_size, embedding_size),
+                'bn3': nn.BatchNorm1d(embedding_size),
                 'tanh': nn.Tanh(),
                 'dropout': nn.Dropout(dropout_rate)
             }))
 
         # Final output layers
         self.output_layer = nn.Linear(embedding_size, embedding_size)
+        self.bn_output = nn.BatchNorm1d(embedding_size)
         self.output_layer2 = nn.Linear(embedding_size, output_size)
+
         self.activation = nn.LeakyReLU()
         self.tanh = nn.Tanh()
 
@@ -98,8 +97,10 @@ class DirectionNetworkUpRaw(nn.Module):
 
         # Initial embedding
         x = self.input_embed(diff)
+        x = self.bn_input(x)
         x = self.activation(x)
         x = self.input_embed2(x)
+        x = self.bn_input2(x)
         x = self.tanh(x)
 
         # Process through attention and additional layers
@@ -110,11 +111,18 @@ class DirectionNetworkUpRaw(nn.Module):
             x_att = x.unsqueeze(0)  # Add sequence dimension
             x_att, _ = layer['attention'](x_att, x_att, x_att)
             x_att = x_att.squeeze(0)  # Remove sequence dimension
+            x = x + x_att  # Add residual connection
+            x = layer['bn1'](x)
 
             # Fully connected layers with dropout
-            x = self.activation(layer['fc1'](x))
+            x = layer['fc1'](x)
+            x = layer['bn2'](x)
+            x = self.activation(x)
             x = layer['dropout'](x)
-            x = self.tanh(layer['fc2'](x))  # Add tanh to one of the FNNs
+
+            x = layer['fc2'](x)
+            x = layer['bn3'](x)
+            x = layer['tanh'](x)
             x = layer['dropout'](x)
 
             # Add residual connection
@@ -122,69 +130,10 @@ class DirectionNetworkUpRaw(nn.Module):
 
         # Final output
         x = self.output_layer(x)
+        x = self.bn_output(x)
         x = self.activation(x)
         x = self.output_layer2(x)
-        return x
 
-
-class DirectionNetworkUp(nn.Module):
-    def __init__(self, input_size=24, embedding_size=512, num_heads=16, dropout_rate=0.2, output_size=4):
-        super(DirectionNetworkUp, self).__init__()
-        self.input_size = input_size
-        self.embedding_size = embedding_size
-
-        # Initial embedding layer
-        self.input_embed = nn.Linear(input_size, embedding_size)
-        self.input_embed2 = nn.Linear(embedding_size, embedding_size)
-
-        self.layers = nn.ModuleList()
-        for _ in range(4):
-            self.layers.append(nn.ModuleDict({
-                'attention': nn.MultiheadAttention(embed_dim=embedding_size, num_heads=num_heads),
-                'fc1': nn.Linear(embedding_size, embedding_size),
-                'fc2': nn.Linear(embedding_size, embedding_size),
-                'tanh': nn.Tanh(),
-                'dropout': nn.Dropout(dropout_rate)
-            }))
-
-        # Final output layers
-        self.output_layer = nn.Linear(embedding_size, embedding_size)
-        self.output_layer2 = nn.Linear(embedding_size, output_size)
-        self.activation = nn.LeakyReLU()
-        self.tanh = nn.Tanh()
-
-    def forward(self, x, y):
-        # Combine input and thetas
-        diff = y - x
-
-        # Initial embedding
-        x = self.input_embed(diff)
-        x = self.activation(x)
-        x = self.input_embed2(x)
-        x = self.tanh(x)
-
-        # Process through attention and additional layers
-        for layer in self.layers:
-            residual = x
-
-            # Attention
-            x_att = x.unsqueeze(0)  # Add sequence dimension
-            x_att, _ = layer['attention'](x_att, x_att, x_att)
-            x_att = x_att.squeeze(0)  # Remove sequence dimension
-
-            # Fully connected layers with dropout
-            x = self.activation(layer['fc1'](x))
-            x = layer['dropout'](x)
-            x = self.tanh(layer['fc2'](x))  # Add tanh to one of the FNNs
-            x = layer['dropout'](x)
-
-            # Add residual connection
-            x = x + residual
-
-        # Final output
-        x = self.output_layer(x)
-        x = self.activation(x)
-        x = self.output_layer2(x)
         return x
 
 
@@ -318,7 +267,7 @@ def direction_loss(direction_network, sample_rate=64):
 
 
 def train_direction_ai(direction_network, num_epochs):
-    optimizer = optim.Adam(direction_network.parameters(), lr=0.002, amsgrad=True)
+    optimizer = optim.Adam(direction_network.parameters(), lr=0.003, amsgrad=True)
 
     scale_direction_loss = 1
 
@@ -332,8 +281,20 @@ def train_direction_ai(direction_network, num_epochs):
 
     for epoch in range(num_epochs):
         if (epoch % 5 == 0):
-            storage.build_permuted_data_random_rotations()
+            rand_rot = np.random.randint(0, 24)
             # storage.build_permuted_data_random_rotations_rotation0()
+            # storage.build_permuted_data_random_rotations_rotation_N(rand_rot)
+            # storage.build_permuted_data_random_rotations()
+
+            rot_arr = [rand_rot - 1, rand_rot, rand_rot + 1]
+
+            if rot_arr[0] < 0:
+                rot_arr = [23, 0, 1]
+
+            if rot_arr[2] > 23:
+                rot_arr = [22, 23, 0]
+
+            storage.build_permuted_data_random_rotations_custom(rot_arr)
 
         pretty_display(epoch % epoch_print_rate)
 
@@ -390,6 +351,7 @@ def run_tests_mini(direction_network):
     global storage, autoencoder
 
     direction_network = direction_network.to(device)
+    direction_network.eval()
     # autoencoder = autoencoder.to(device)
 
     datapoints: List[str] = storage.get_all_datapoints()
@@ -459,82 +421,11 @@ def run_tests_mini(direction_network):
     # print(expected_direction_batch)
 
 
-def run_tests(direction_network):
-    global storage, autoencoder
-    ITERATIONS = 10
-
-    total_l1_loss = 0.0
-    total_l2_loss = 0.0
-    direction_network = direction_network.to(device)
-    autoencoder = autoencoder.to(device)
-
-    for i in range(ITERATIONS):
-        storage.build_permuted_data_random_rotations()
-        datapoints: List[str] = storage.get_all_datapoints()
-        output_diffl1 = 0.0
-        output_diffl2 = 0.0
-
-        start_embedding_batch = []
-        end_embedding_batch = []
-        expected_thetas_batch = []
-        expected_direction_angles = []
-
-        for datapoint in datapoints:
-            connections_to_point: List[RawConnectionData] = storage.get_datapoint_adjacent_connections(datapoint)
-
-            for j in range(len(connections_to_point)):
-                start = connections_to_point[j]["start"]
-                end = connections_to_point[j]["end"]
-                direction = connections_to_point[j]["direction"]
-
-                direction = torch.tensor(direction, dtype=torch.float32, device=device)
-                l2_direction = torch.norm(direction, p=2, dim=0, keepdim=True)
-                direction = direction / l2_direction
-
-                start_data = storage.get_datapoint_data_tensor_by_name_permuted(start).to(device)
-                end_data = storage.get_datapoint_data_tensor_by_name_permuted(end).to(device)
-                start_embedding = autoencoder.encoder_inference(start_data)
-                end_embedding = autoencoder.encoder_inference(end_data)
-
-                start_embedding_batch.append(start_embedding)
-                end_embedding_batch.append(end_embedding)
-
-                angles = direction_to_degrees(direction.cpu().detach().numpy())
-                thetas = build_thetas(angles / 360, 36)
-
-                expected_thetas_batch.append(thetas)
-
-        start_embedding_batch = torch.stack(start_embedding_batch).to(device)
-        end_embedding_batch = torch.stack(end_embedding_batch).to(device)
-
-        predicted_thetas = direction_network(start_embedding_batch, end_embedding_batch)
-        predicted_thetas = F.softmax(predicted_thetas, dim=1)
-
-        expected_thetas_batch = torch.stack(expected_thetas_batch).to(device)
-        expected_thetas_batch = F.normalize(expected_thetas_batch, p=1, dim=1)
-
-        # print(direction_pred)
-        # print(expected_direction_batch)
-
-        l1_loss_point = torch.mean(torch.norm(predicted_thetas - expected_thetas_batch, p=1, dim=1))
-        l2_loss_point = torch.mean(torch.norm(predicted_thetas - expected_thetas_batch, p=2, dim=1))
-
-        output_diffl1 += l1_loss_point.item()
-        output_diffl2 += l2_loss_point.item()
-
-        # print(f"Test {i + 1}/{ITERATIONS} L1 Loss: {output_diffl1:.4f}, L2 Loss: {output_diffl2:.4f}")
-        total_l1_loss += output_diffl1
-        total_l2_loss += output_diffl2
-
-    total_l1_loss /= ITERATIONS
-    total_l2_loss /= ITERATIONS
-    print(f"Total L1 Loss: {total_l1_loss:.4f}, Total L2 Loss: {total_l2_loss:.4f}")
-
-
 def run_new_ai():
-    direction_network = DirectionNetworkUpRaw().to(device)
-    # direction_network = SimpleDirectionNetworkRaw().to(device)
-    train_direction_ai(direction_network, num_epochs=15000)
+    # direction_network = SimpleDirectionNetworkRawAugmented().to(device)
+    direction_network = SimpleDirectionNetworkRawAugmented_winputs().to(device)
+
+    train_direction_ai(direction_network, num_epochs=10000)
     save_ai_manually("direction", direction_network)
     run_tests_mini(direction_network)
     # run_tests(direction_network)
@@ -559,8 +450,8 @@ def run_direction_network_images_final():
     storage.load_raw_data_from_others(f"data{grid_data}x{grid_data}_rotated24_image_embeddings.json")
     storage.load_raw_data_connections_from_others(f"data{grid_data}x{grid_data}_connections.json")
 
-    # run_new_ai()
-    run_loaded_ai()
+    run_new_ai()
+    # run_loaded_ai()
 
 
 storage: StorageSuperset2 = None
