@@ -64,10 +64,73 @@ def angle_to_thetas(true_theta, thetas_length):
             right_index = right_index - len(thetas)
         thetas[right_index] = pdf_value
 
-    # Normalize thetas so the maximum value is 1
-    sd = 1
-    peak_value = 1 / (sd * math.sqrt(2 * math.pi))
-    thetas /= peak_value
+    return thetas
+
+
+def radians_to_degrees(radians):
+    return radians * 180 / np.pi
+
+
+def atan2_to_standard_radians(atan2):
+    if atan2 < 0:
+        atan2 = atan2 + 2 * np.pi
+
+    atan2 = 2 * np.pi - atan2
+    return atan2
+
+
+def coordinate_pair_to_radians_cursed_tranform(x_component, y_component):
+    """
+    wizard magic
+
+    In webots we measure angle counter clockwise from 0 to 2pi
+    Only positive range can be transformed easily in percents
+    counter clockwise because of some webots weird behavior when setting the rotation
+
+    So [0,1] is 0 degrees
+    [-1,0] is 90 degrees
+    [0,-1] is 180 degrees
+    [1,0] is 270 degrees
+
+    You can infer the rest
+    """
+    # atan2 = math.atan2(y_component, x_component)
+    atan2_inversed = math.atan2(x_component, y_component)
+    radians_only_positive = atan2_to_standard_radians(atan2_inversed)
+    return radians_only_positive
+
+
+def radians_to_percent(radians):
+    return radians / (2 * np.pi)
+
+
+def angle_to_thetas_normalized(true_theta_percent, thetas_length):
+    thetas = torch.zeros(thetas_length)
+    if true_theta_percent == 1:
+        true_theta_percent = 0
+    true_theta_index = true_theta_percent * thetas_length
+    integer_index_left = int(true_theta_index)
+    integer_index_right = integer_index_left + 1
+
+    FILL_DISTANCE = 5
+    SD = 1.5
+    for i in range(FILL_DISTANCE):
+        left_index = integer_index_left - i
+        right_index = integer_index_right + i
+
+        pdf_value = norm.pdf(left_index, loc=true_theta_index, scale=SD)
+        if left_index < 0:
+            left_index = len(thetas) + left_index
+
+        thetas[left_index] = pdf_value
+
+        pdf_value = norm.pdf(right_index, loc=true_theta_index, scale=SD)
+        if right_index >= len(thetas):
+            right_index = right_index - len(thetas)
+        thetas[right_index] = pdf_value
+
+    l1_norm = torch.norm(thetas, p=1)
+    thetas /= l1_norm
     return thetas
 
 
@@ -75,7 +138,7 @@ def deg_to_rad(degrees):
     return degrees * math.pi / 180
 
 
-def thetas_to_angle(thetas):
+def thetas_to_radians(thetas):
     # theta is cos x + i sin x
     lng = len(thetas)
     step = 360 / lng
@@ -105,6 +168,7 @@ def thetas_to_angle(thetas):
     angle = math.atan2(imag_sum, real_sum)
     if angle < 0:
         angle += 2 * math.pi
+
     return angle
 
 
@@ -308,6 +372,9 @@ class StorageSuperset2(StorageSuperset):
         Returns the data point by its name
         """
         return [datapoint["data"] for datapoint in self.raw_env_data_permuted_choice]
+
+    def get_pure_xy_permuted_raw_env_data(self):
+        return [[datapoint["params"]["x"], datapoint["params"]["y"]] for datapoint in self.raw_env_data_permuted_choice]
 
     _permutation_metadata: Dict[str, any] = {}
     _permutation_metadata_array: List[int] = []

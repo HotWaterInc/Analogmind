@@ -224,6 +224,7 @@ class Storage:
         if self._non_adjacent_numpy_array is None:
             self.build_non_adjacent_numpy_array_from_metadata()
 
+        # print(len(self._non_adjacent_numpy_array))
         sampled_connections = np.random.choice(self._non_adjacent_numpy_array, sample_size, replace=False)
         return sampled_connections
 

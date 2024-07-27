@@ -27,6 +27,9 @@ from src.ai.models.autoencoder_images_stacked_thetas import run_autoencoder_imag
 from src.ai.models.autoencoder_images_north_ensemble import run_autoencoder_ensemble_north
 
 from src.ai.models.direction_network_images_final import run_direction_network_images_final
+from src.ai.models.direction_network_images_thetas import run_direction_network_images_thetas
+from src.ai.models.autoencoder_images_abstract_block import run_autoencoder_abstraction_block_images
+from src.ai.models.autoencoder_image_positon_predictor import run_autoencoder_position_predictor
 
 
 def start_server_thread():
@@ -81,6 +84,10 @@ if __name__ == "__main__":
     # run_direction_network_ensemble()
 
     # run_autoencoder_images_full()
-    run_direction_network_images_final()
+    # run_direction_network_images_final()
+
+    # run_direction_network_images_thetas()
+    # run_autoencoder_abstraction_block_images()
+    run_autoencoder_position_predictor()
 
     pass

@@ -18,7 +18,7 @@ import numpy as np
 from src.modules.save_load_handlers.ai_models_handle import save_ai, save_ai_manually, load_latest_ai, \
     load_manually_saved_ai
 from src.modules.save_load_handlers.parameters import *
-from src.ai.runtime_data_storage.storage_superset2 import StorageSuperset2
+from src.ai.runtime_data_storage.storage_superset2 import StorageSuperset2, thetas_to_radians
 from src.ai.runtime_data_storage import Storage
 from typing import List, Dict, Union
 from src.utils import array_to_tensor
@@ -41,10 +41,8 @@ import torchvision.transforms as transforms
 storage: StorageSuperset2 = None
 direction_network = None
 
-DIRECTION_NETWORK_PATH = "direction_image_raw_v2.pth"
-
-
-# DIRECTION_NETWORK_PATH = "direction_image_raw_3adj.pth"
+# DIRECTION_NETWORK_PATH = "direction_image_raw_v3.pth"
+DIRECTION_NETWORK_PATH = "direction_thetas_v1.pth"
 
 
 def load_everything():
@@ -236,11 +234,17 @@ def next_embedding_policy_search_closest(current_embedding, current_theta_percen
     return potential_current_embedding
 
 
+import random
+
+
 def djakstra_search(current_uid, target_uid):
     global storage
     all_connections = storage.get_all_adjacent_data()
     # filter for distance = 1
     all_connections = [connection for connection in all_connections if connection["distance"] == 1]
+    # shuffle connections
+    random.shuffle(all_connections)
+
     visited = {}
     distances = {}
     previous = {}
@@ -301,7 +305,7 @@ def djakstra_search(current_uid, target_uid):
     return path
 
 
-def turn_angles_to_final_angle(angles):
+def average_angles_directions(angles):
     real = 0
     imaginary = 0
 
@@ -318,7 +322,7 @@ def turn_angles_to_final_angle(angles):
     return final_angle
 
 
-def policy_average_nav_embeddings(index_rotation, current_embedding, next_target):
+def policy_thetas_navigation(index_rotation, current_embedding, next_target):
     global direction_network
 
     next_embeddings = storage.get_datapoint_data_tensor_by_name(next_target).to(device)
@@ -327,10 +331,28 @@ def policy_average_nav_embeddings(index_rotation, current_embedding, next_target
 
     # clone current embedding 24 times
     current_embeddings = current_embedding.unsqueeze(0).repeat(24, 1)
+
+    thetas_directions = direction_network(current_embeddings, next_embeddings)
+    angles = [thetas_to_radians(direction) for direction in thetas_directions]
+
+    final_angle = average_angles_directions(angles)
+    return final_angle
+
+
+def policy_4direction_nav_embeddings(index_rotation, current_embedding, next_target):
+    global direction_network
+
+    next_embeddings = storage.get_datapoint_data_tensor_by_name(next_target).to(device)
+    direction_network = direction_network.to(device)
+    current_embedding = squeeze_out_resnet_output(current_embedding)
+
+    # clone current embedding 24 times
+    current_embeddings = current_embedding.unsqueeze(0).repeat(24, 1)
+
     directions = direction_network(current_embeddings, next_embeddings)
     angles = [angle_policy(direction) for direction in directions]
 
-    final_angle = turn_angles_to_final_angle(angles)
+    final_angle = average_angles_directions(angles)
     return final_angle
 
 
@@ -383,25 +405,14 @@ def navigation_image_rawdirect() -> Generator[None, None, None]:
             next_embedding = path[1]
             index_rotation = int(angle_percent * 24)
 
-            # next_embedding1 = storage.get_datapoint_data_tensor_by_name(next_embedding)[index_rotation].to(device)
-            # next_embeddings = storage.get_datapoint_data_tensor_by_name(next_embedding).to(device)
-            #
-            # direction_network = direction_network.to(device)
-            # current_embedding = squeeze_out_resnet_output(current_embedding)
-            #
-            # # clone current embedding 24 times
-            # current_embeddings = current_embedding.unsqueeze(0).repeat(24, 1)
-            #
-            # direction1 = direction_network(current_embedding.unsqueeze(0), next_embedding1.unsqueeze(0)).squeeze(0)
-            # # directions = direction_network(current_embeddings, next_embeddings)
-            #
-            # angle = angle_policy(direction1)
-            # # angles = [angle_policy_simple(direction) for direction in directions]
-            #
-            # # final_angle = turn_angles_to_final_angle(angles)
-            # final_angle = angle
+            # final_angle = policy_4direction_nav_embeddings(index_rotation, current_embedding, next_embedding)
 
-            final_angle = policy_average_nav_embeddings(index_rotation, current_embedding, next_embedding)
+            final_angle = policy_thetas_navigation(index_rotation, current_embedding, next_embedding)
+
+            # if len(path) >= 3:
+            #     next_embedding2 = path[2]
+            #     final_angle2 = policy_4direction_nav_embeddings(index_rotation, current_embedding, next_embedding2)
+            #     final_angle = average_angles_directions([final_angle, final_angle2])
 
             print("Angle:", radians_to_degrees(final_angle))
 
@@ -410,5 +421,5 @@ def navigation_image_rawdirect() -> Generator[None, None, None]:
 
             detach_robot_rotate_absolute(final_angle)
             yield
-            detach_robot_forward_continuous(0.1)
+            detach_robot_forward_continuous(0.25)
             yield

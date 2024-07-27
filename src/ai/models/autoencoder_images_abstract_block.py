@@ -22,104 +22,104 @@ import torch
 import torch.nn as nn
 
 
-class AutoencoderAbstractionBlock(nn.Module):
-    def __init__(self, drop_rate: float = 0.2):
-        super(AutoencoderAbstractionBlock, self).__init__()
-        self.embedding_size = 128
-
-        # Encoder layers
-        self.encoder_layers = nn.ModuleList([
-            self._make_layer(512, 512, drop_rate),
-            self._make_layer(512, 512, drop_rate),
-            self._make_layer(512, 512, drop_rate),
-            self._make_layer(512, 512, drop_rate=0, final_layer=True),
-        ])
-
-        self.positional_encoder = nn.ModuleList([
-            self._make_layer(512, 512, drop_rate),
-            self._make_layer(512, 512, drop_rate),
-            self._make_layer(512, 512, drop_rate),
-            self._make_layer(512, self.embedding_size, drop_rate=0, final_layer=True)
-        ])
-
-        self.rotational_encoder = nn.ModuleList([
-            self._make_layer(512, 512, drop_rate),
-            self._make_layer(512, 512, drop_rate),
-            self._make_layer(512, 512, drop_rate),
-            self._make_layer(512, self.embedding_size, drop_rate=0, final_layer=True),
-        ])
-
-        # Decoder layers
-        self.positional_decoder = nn.ModuleList([
-            self._make_layer(self.embedding_size, 512, drop_rate),
-            self._make_layer(512, 512, drop_rate),
-            self._make_layer(512, 512, drop_rate),
-            self._make_layer(512, 512, drop_rate=0),
-        ])
-
-        self.rotational_decoder = nn.ModuleList([
-            self._make_layer(self.embedding_size, 512, drop_rate),
-            self._make_layer(512, 512, drop_rate),
-            self._make_layer(512, 512, drop_rate),
-            self._make_layer(512, 512, drop_rate=0),
-        ])
-
-        self.decoder_layers = nn.ModuleList([
-            self._make_layer(1024, 512, drop_rate),
-            self._make_layer(512, 512, drop_rate),
-            self._make_layer(512, 512, drop_rate),
-            self._make_layer(512, 512, drop_rate=0, final_layer=True),
-        ])
-
-    def _make_layer(self, in_features, out_features, drop_rate, final_layer=False):
-        layer = nn.Sequential(
-            nn.Linear(in_features, out_features),
-            nn.BatchNorm1d(out_features),
+class ResidualBlockSmall(nn.Module):
+    def __init__(self, hidden_size, dropout_rate):
+        super(ResidualBlockSmall, self).__init__()
+        self.block = nn.Sequential(
+            nn.Linear(hidden_size, hidden_size),
+            nn.BatchNorm1d(hidden_size),
             nn.LeakyReLU(),
+            nn.Dropout(dropout_rate),
+            nn.Linear(hidden_size, hidden_size),
+            nn.BatchNorm1d(hidden_size),
+            nn.LeakyReLU(),
+            nn.Dropout(dropout_rate),
         )
-        if not final_layer:
-            layer.add_module('dropout', nn.Dropout(drop_rate))
-        return layer
+
+    def forward(self, x):
+        return x + self.block(x)
+
+
+class ResidualBlock(nn.Module):
+    def __init__(self, hidden_size, dropout_rate):
+        super(ResidualBlock, self).__init__()
+        self.block = nn.Sequential(
+            nn.Linear(hidden_size, hidden_size),
+            nn.BatchNorm1d(hidden_size),
+            nn.LeakyReLU(),
+            nn.Dropout(dropout_rate),
+            nn.Linear(hidden_size, hidden_size),
+            nn.BatchNorm1d(hidden_size),
+            nn.LeakyReLU(),
+            nn.Dropout(dropout_rate),
+            nn.Linear(hidden_size, hidden_size),
+            nn.BatchNorm1d(hidden_size),
+            nn.LeakyReLU(),
+            nn.Dropout(dropout_rate)
+        )
+
+    def forward(self, x):
+        return x + self.block(x)
+
+
+def _make_layer(in_features, out_features):
+    layer = nn.Sequential(
+        nn.Linear(in_features, out_features),
+        nn.BatchNorm1d(out_features),
+        nn.LeakyReLU(),
+    )
+    return layer
+
+
+class AutoencoderAbstractionBlock(BaseAutoencoderModel):
+    def __init__(self, dropout_rate: float = 0.2, position_embedding_size: int = 96, thetas_embedding_size: int = 96,
+                 hidden_size: int = 1024, num_blocks: int = 1, input_output_size=512):
+        super(AutoencoderAbstractionBlock, self).__init__()
+
+        self.input_layer = nn.Linear(input_output_size, hidden_size)
+        self.encoding_blocks = nn.ModuleList([ResidualBlockSmall(hidden_size) for _ in range(num_blocks)])
+
+        self.positional_encoder = _make_layer(hidden_size, position_embedding_size)
+        self.thetas_encoder = _make_layer(hidden_size, thetas_embedding_size)
+        self.decoder_initial_layer = _make_layer(position_embedding_size + thetas_embedding_size, hidden_size)
+
+        self.decoding_blocks = nn.ModuleList([ResidualBlockSmall(hidden_size, dropout_rate) for _ in range(num_blocks)])
+        self.output_layer = nn.Linear(hidden_size, input_output_size)
+
+        self.leaky_relu = nn.LeakyReLU()
+        self.embedding_size = position_embedding_size
 
     def encoder_training(self, x: torch.Tensor) -> any:
         initial_data = x
-        for layer in self.encoder_layers:
-            x = layer(x)
 
-        # x += initial_data
-        positional_encoder = x
-        rotational_encoder = x
+        x = self.input_layer(x)
+        for block in self.encoding_blocks:
+            x = block(x)
 
-        for layer in self.positional_encoder:
-            positional_encoder = layer(positional_encoder)
-
-        for layer in self.rotational_encoder:
-            rotational_encoder = layer(rotational_encoder)
-
-        return positional_encoder, rotational_encoder
+        positional_encoding = self.positional_encoder(x)
+        thetas_encoding = self.thetas_encoder(x)
+        return positional_encoding, thetas_encoding
 
     def encoder_inference(self, x: torch.Tensor) -> torch.Tensor:
-        return self.encoder_training(x)
+        position, thetas = self.encoder_training(x)
+        return position
 
-    def decoder_training(self, x: torch.Tensor, positional_encoding, rotational_encoding) -> torch.Tensor:
-        for layer in self.positional_decoder:
-            positional_encoding = layer(positional_encoding)
-
-        for layer in self.rotational_decoder:
-            rotational_encoding = layer(rotational_encoding)
-
+    def decoder_training(self, positional_encoding, rotational_encoding) -> torch.Tensor:
         x = torch.cat((positional_encoding, rotational_encoding), dim=1)
-        for layer in self.decoder_layers:
-            x = layer(x)
+        x = self.decoder_initial_layer(x)
+        for block in self.decoding_blocks:
+            x = block(x)
 
+        x = self.output_layer(x)
+        x = self.leaky_relu(x)
         return x
 
-    def decoder_inference(self, x: torch.Tensor) -> torch.Tensor:
-        pass
+    def decoder_inference(self, positional_encoding, rotational_encoding) -> torch.Tensor:
+        return self.decoder_training(positional_encoding, rotational_encoding)
 
     def forward_training(self, x: torch.Tensor) -> torch.Tensor:
         positional_encoding, rotational_encoding = self.encoder_training(x)
-        return self.decoder_training(x, positional_encoding, rotational_encoding)
+        return self.decoder_training(positional_encoding, rotational_encoding)
 
     def forward_inference(self, x: torch.Tensor) -> torch.Tensor:
         return self.forward_training(x)
@@ -222,36 +222,45 @@ def permutation_adjustion_handling(autoencoder: BaseAutoencoderModel, samples: i
     return accumulated_loss / samples * scale_permutation_adjustion_loss
 
 
-def train_autoencoder_abstraction_block(autoencoder: nn.Module, epochs: int,
+def loss_freeze_thetas(autoencoder: BaseAutoencoderModel) -> torch.Tensor:
+    """
+    Makes the thetas embeddings the same for identical rotations
+    """
+    global storage
+    random_theta_index = np.random.randint(0, 24)
+    storage.build_permuted_data_random_rotations_rotation_N(random_theta_index)
+
+    # datapoint: List[str] = storage.sample_n_random_datapoints(samples)
+    # datapoints_data = [storage.get_datapoint_data_tensor_by_name(name) for name in datapoint]
+    # accumulated_loss = torch.tensor(0.0)
+    # for datapoint_data in datapoints_data:
+    #     enc = autoencoder.encoder_training(datapoint_data)
+    #     loss = torch.cdist(enc, enc, p=2).mean()
+    #     accumulated_loss += loss
+    #
+    # return accumulated_loss / samples * scale_permutation_adjustion_loss
+
+
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+
+def train_autoencoder_abstraction_block(autoencoder: BaseAutoencoderModel, epochs: int,
                                         pretty_print: bool = False) -> nn.Module:
     # PARAMETERS
-    optimizer = optim.Adam(autoencoder.parameters(), lr=0.0015)
+    optimizer = optim.Adam(autoencoder.parameters(), lr=0.005, amsgrad=True)
 
     num_epochs = epochs
 
     scale_reconstruction_loss = 1
+    scale_freeze_thetas_loss = 0.1
     scale_adjacent_distance_loss = 0.1
-    scale_non_adjacent_distance_loss = 0.5
-    scale_permutation_adjustion_loss = 0.75
-
-    adjacent_sample_size = 100
-    non_adjacent_sample_size = 2000
-    permutation_sample_size = 100
 
     epoch_average_loss = 0
     reconstruction_average_loss = 0
-    adjacent_average_loss = 0
-    non_adjacent_average_loss = 0
-    permutation_average_loss = 0
 
-    epoch_print_rate = 250
-    DISTANCE_CONSTANT_PER_NEURON = 0.005
+    epoch_print_rate = 1000
 
-    # train_data = array_to_tensor(np.array(storage.get_pure_sensor_data())[0])
     train_data = array_to_tensor(np.array(storage.get_pure_permuted_raw_env_data()))
-
-    best_loss = 10000000
-    stagnation_streak = 0
 
     SHUFFLE_RATE = 5
 
@@ -259,10 +268,19 @@ def train_autoencoder_abstraction_block(autoencoder: nn.Module, epochs: int,
         set_pretty_display(epoch_print_rate, "Epoch batch")
         pretty_display_start(0)
 
+    frozen_abstract = "thetas"
+
+    autoencoder = autoencoder.to(device=device)
+
     for epoch in range(num_epochs):
-        # if (epoch % SHUFFLE_RATE == 0):
-        #     storage.build_permuted_data_random_rotations()
-        #     train_data = array_to_tensor(np.array(storage.get_pure_permuted_raw_env_data()))
+        if (epoch % SHUFFLE_RATE == 0):
+            storage.build_permuted_data_random_rotations()
+            # storage.build_permuted_data_random_rotations_rotation0()
+
+            # random_rotation = np.random.randint(0, 24)
+            # storage.build_permuted_data_random_rotations_rotation_N(random_rotation)
+
+            train_data = array_to_tensor(np.array(storage.get_pure_permuted_raw_env_data())).to(device=device)
 
         reconstruction_loss = torch.tensor(0.0)
         epoch_loss = 0.0
@@ -272,35 +290,11 @@ def train_autoencoder_abstraction_block(autoencoder: nn.Module, epochs: int,
         reconstruction_loss = reconstruction_handling(autoencoder, train_data, scale_reconstruction_loss)
         reconstruction_loss.backward()
 
-        # ADJACENT DISTANCE LOSS
-        adjacent_distance_loss = torch.tensor(0.0)
-        # adjacent_distance_loss, average_distance_adjacent = adjacent_distance_handling(autoencoder,
-        #                                                                                adjacent_sample_size,
-        #                                                                                scale_adjacent_distance_loss)
-        # adjacent_distance_loss.backward()
-
-        # NON-ADJACENT DISTANCE LOSS
-        non_adjacent_distance_loss = torch.tensor(0.0)
-        # non_adjacent_distance_loss = non_adjacent_distance_handling(autoencoder, non_adjacent_sample_size,
-        #                                                             scale_non_adjacent_distance_loss,
-        #                                                             distance_per_neuron=DISTANCE_CONSTANT_PER_NEURON)
-        # non_adjacent_distance_loss.backward()
-        # PERMUTATION ADJUSTION LOSS
-        permutation_adjustion_loss = torch.tensor(0.0)
-        # permutation_adjustion_loss = permutation_adjustion_handling(autoencoder, permutation_sample_size,
-        #                                                             scale_permutation_adjustion_loss)
-        # permutation_adjustion_loss.backward()
-
         optimizer.step()
 
-        epoch_loss += reconstruction_loss.item() + adjacent_distance_loss.item() + non_adjacent_distance_loss.item() + permutation_adjustion_loss.item()
-
+        epoch_loss += reconstruction_loss.item()
         epoch_average_loss += epoch_loss
-
         reconstruction_average_loss += reconstruction_loss.item()
-        adjacent_average_loss += adjacent_distance_loss.item()
-        non_adjacent_average_loss += non_adjacent_distance_loss.item()
-        permutation_average_loss += permutation_adjustion_loss.item()
 
         if pretty_print:
             pretty_display(epoch % epoch_print_rate)
@@ -309,34 +303,17 @@ def train_autoencoder_abstraction_block(autoencoder: nn.Module, epochs: int,
 
             epoch_average_loss /= epoch_print_rate
             reconstruction_average_loss /= epoch_print_rate
-            adjacent_average_loss /= epoch_print_rate
-            non_adjacent_average_loss /= epoch_print_rate
-            permutation_average_loss /= epoch_print_rate
-
-            if epoch_average_loss < best_loss:
-                best_loss = epoch_average_loss
-                stagnation_streak = 0
-
-            if epoch_average_loss >= best_loss:
-                stagnation_streak += 1
-
-            if stagnation_streak >= 10:
-                break
 
             # Print average loss for this epoch
             print("")
-            print(f"EPOCH:{epoch}/{num_epochs} - streak: {stagnation_streak}")
-            # print(f"average distance between adjacent: {average_distance_adjacent}")
+            print(f"EPOCH:{epoch}/{num_epochs} ")
             print(
-                f"RECONSTRUCTION LOSS:{reconstruction_average_loss} | ADJACENT LOSS:{adjacent_average_loss} | NON-ADJACENT LOSS:{non_adjacent_average_loss} | PERMUTATION LOSS:{permutation_average_loss}")
+                f"RECONSTRUCTION LOSS:{reconstruction_average_loss} ")
             print(f"AVERAGE LOSS:{epoch_average_loss}")
             print("--------------------------------------------------")
 
             epoch_average_loss = 0
             reconstruction_average_loss = 0
-            adjacent_average_loss = 0
-            non_adjacent_average_loss = 0
-            permutation_average_loss = 0
 
             if pretty_print:
                 pretty_display_reset()
@@ -348,7 +325,7 @@ def train_autoencoder_abstraction_block(autoencoder: nn.Module, epochs: int,
 def run_ai():
     global storage
     autoencoder = AutoencoderAbstractionBlock()
-    train_autoencoder_abstraction_block(autoencoder, epochs=4000, pretty_print=True)
+    autoencoder = train_autoencoder_abstraction_block(autoencoder, epochs=10000, pretty_print=True)
     return autoencoder
 
 
@@ -356,7 +333,7 @@ def run_tests(autoencoder):
     global storage
 
     evaluate_reconstruction_error_super_fist_rotation(autoencoder, storage)
-    # evaluate_reconstruction_error_super(autoencoder, storage, rotations0=False)
+    evaluate_reconstruction_error_super(autoencoder, storage, rotations0=False)
     # avg_distance_adj = evaluate_distances_between_pairs_super(autoencoder, storage, rotations0=True)
     # evaluate_adjacency_properties_super(autoencoder, storage, avg_distance_adj, rotation0=True)
 
@@ -376,10 +353,11 @@ def run_new_ai() -> None:
 
 def run_autoencoder_abstraction_block_images() -> None:
     global storage
-    global permutor
 
-    storage.load_raw_data_from_others("data15x15_rotated24_image_embeddings.json")
-    storage.load_raw_data_connections_from_others("data15x15_connections.json")
+    grid_data = 5
+
+    storage.load_raw_data_from_others(f"data{grid_data}x{grid_data}_rotated24_image_embeddings.json")
+    storage.load_raw_data_connections_from_others(f"data{grid_data}x{grid_data}_connections.json")
     # selects first rotation
     storage.build_permuted_data_random_rotations_rotation0()
 
@@ -388,4 +366,3 @@ def run_autoencoder_abstraction_block_images() -> None:
 
 
 storage: StorageSuperset2 = StorageSuperset2()
-permutor = None

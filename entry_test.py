@@ -53,7 +53,7 @@ from src.modules.save_load_handlers.data_handle import read_other_data_from_file
 
 from src.ai.models.autoencoder_images_north import run_autoencoder_images_north
 from src.ai.models.autoencoder_images_full_forced import run_autoencoder_images_full
-from src.ai.models.autoencoder_images_abstract_split import run_autoencoder_abstraction_block_images
+from src.ai.models.autoencoder_images_abstract_block import run_autoencoder_abstraction_block_images
 from src.ai.models.autoencoder_images_stacked_thetas import run_autoencoder_images_stacked_thetas
 from src.ai.models.autoencoder_images_north_ensemble import run_autoencoder_ensemble_north
 

@@ -41,7 +41,7 @@ class ResidualBlock(nn.Module):
 
 
 class SimpleDirectionNetworkRawAugmented_winputs(nn.Module):
-    def __init__(self, input_size=512, hidden_size=128, output_size=4, dropout_rate=0.3, num_blocks=1):
+    def __init__(self, input_size=512, hidden_size=512, output_size=4, dropout_rate=0.3, num_blocks=3):
         super(SimpleDirectionNetworkRawAugmented_winputs, self).__init__()
 
         self.input_layer = nn.Linear(input_size * 2, hidden_size)
@@ -267,7 +267,7 @@ def direction_loss(direction_network, sample_rate=64):
 
 
 def train_direction_ai(direction_network, num_epochs):
-    optimizer = optim.Adam(direction_network.parameters(), lr=0.003, amsgrad=True)
+    optimizer = optim.Adam(direction_network.parameters(), lr=0.0015, amsgrad=True)
 
     scale_direction_loss = 1
 
@@ -284,17 +284,17 @@ def train_direction_ai(direction_network, num_epochs):
             rand_rot = np.random.randint(0, 24)
             # storage.build_permuted_data_random_rotations_rotation0()
             # storage.build_permuted_data_random_rotations_rotation_N(rand_rot)
-            # storage.build_permuted_data_random_rotations()
+            storage.build_permuted_data_random_rotations()
 
-            rot_arr = [rand_rot - 1, rand_rot, rand_rot + 1]
-
-            if rot_arr[0] < 0:
-                rot_arr = [23, 0, 1]
-
-            if rot_arr[2] > 23:
-                rot_arr = [22, 23, 0]
-
-            storage.build_permuted_data_random_rotations_custom(rot_arr)
+            # rot_arr = [rand_rot - 1, rand_rot, rand_rot + 1]
+            #
+            # if rot_arr[0] < 0:
+            #     rot_arr = [23, 0, 1]
+            #
+            # if rot_arr[2] > 23:
+            #     rot_arr = [22, 23, 0]
+            #
+            # storage.build_permuted_data_random_rotations_custom(rot_arr)
 
         pretty_display(epoch % epoch_print_rate)
 
@@ -425,7 +425,7 @@ def run_new_ai():
     # direction_network = SimpleDirectionNetworkRawAugmented().to(device)
     direction_network = SimpleDirectionNetworkRawAugmented_winputs().to(device)
 
-    train_direction_ai(direction_network, num_epochs=10000)
+    direction_network = train_direction_ai(direction_network, num_epochs=25000)
     save_ai_manually("direction", direction_network)
     run_tests_mini(direction_network)
     # run_tests(direction_network)

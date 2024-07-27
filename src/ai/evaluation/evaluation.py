@@ -128,6 +128,48 @@ def evaluate_reconstruction_error_super(model: BaseAutoencoderModel, storage: St
     print(f'Total average error over  iterations: {total_averaged_error / ITERATIONS:.4f}')
 
 
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+
+def evaluate_differences_between_rotations(model: BaseAutoencoderModel, storage: StorageSuperset2) -> None:
+    """
+    Evaluates the reconstruction error on random samples from the training data
+    """
+    print("\n")
+    print("Evaluation on random samples from training data:")
+
+    total_averaged_error = 0
+    average_error_between_different_positions = 0
+    model.eval()
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    model = model.to(device)
+    ITERATIONS = 1
+    data_length = len(storage.get_pure_sensor_data())
+
+    reconstructions = []
+
+    for iteration in range(ITERATIONS):
+        for idx, data in enumerate(storage.get_pure_sensor_data()):
+            data = array_to_tensor(np.array(data)).to(device)
+            total_averaged_error = 0
+            reconstructed = model.encoder_inference(data)
+            reconstructions.append(reconstructed)
+            total_averaged_error += torch.cdist(reconstructed, reconstructed, p=2).mean().item()
+
+    for idx, data in enumerate(reconstructions):
+        for idx2, data2 in enumerate(reconstructions):
+            if idx == idx2:
+                continue
+            average_error_between_different_positions += torch.cdist(data, data2, p=2).mean().item()
+
+    average_error_between_different_positions /= (data_length * data_length)
+    print(
+        f'Total average error BETWEWN ROTATIONS: {(total_averaged_error / ITERATIONS / data_length):.4f} per datapoint ')
+
+    print("Compared to average distance between different positions: ",
+          average_error_between_different_positions / ITERATIONS / data_length)
+
+
 def evaluate_reconstruction_error_super_fist_rotation(model: BaseAutoencoderModel, storage: StorageSuperset2) -> None:
     """
     Evaluates the reconstruction error on random samples from the training data
@@ -137,10 +179,12 @@ def evaluate_reconstruction_error_super_fist_rotation(model: BaseAutoencoderMode
 
     total_averaged_error = 0
     model.eval()
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    model = model.to(device)
     ITERATIONS = 1
 
     for iteration in range(ITERATIONS):
-        train_data = array_to_tensor(np.array(storage.get_pure_sensor_data())[0])
+        train_data = array_to_tensor(np.array(storage.get_pure_sensor_data())[0]).to(device)
         total_error = 0
         reconstructed = model.forward_inference(train_data)
         total_error += torch.sum(torch.norm(train_data - reconstructed, p=2, dim=1)).item()
@@ -159,7 +203,7 @@ def evaluate_reconstruction_error_super(model: BaseAutoencoderModel, storage: St
     print("Evaluation on random samples from training data:")
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    nr_of_samples = 25
+    # nr_of_samples = 25
     total_averaged_error = 0
     model.eval()
     model.to(device)
@@ -173,18 +217,14 @@ def evaluate_reconstruction_error_super(model: BaseAutoencoderModel, storage: St
         else:
             storage.build_permuted_data_random_rotations()
 
-        train_data = array_to_tensor(np.array(storage.get_pure_permuted_raw_env_data()))
-        indices = np.random.choice(len(train_data), nr_of_samples, replace=False)
+        train_data = array_to_tensor(np.array(storage.get_pure_permuted_raw_env_data())).to(device)
         total_error = 0
-        with torch.no_grad():
-            for i, idx in enumerate(indices):
-                data = train_data[idx].unsqueeze(0).to(device)  # Add batch dimension
-                reconstructed = model.forward_inference(data)
-                total_error += torch.sum(torch.abs(data - reconstructed)).item()
+        reconstructed = model.forward_inference(train_data)
+        total_error += torch.sum(torch.norm(train_data - reconstructed, p=2, dim=1)).item()
 
         datapoints_size = train_data.shape[1]
 
-        total_averaged_error += total_error / (nr_of_samples * datapoints_size)
+        total_averaged_error += total_error / (datapoints_size)
 
     print(f'Total average error over  iterations: {total_averaged_error / ITERATIONS:.4f}')
 
