@@ -1,65 +1,10 @@
-import sys
-from src.modules.external_communication import start_server, CommunicationInterface
-from src.configs_setup import configs, configs_communication, config_data_collection_pipeline
+from src.configs_setup import configs_communication, config_data_collection_pipeline
+
+from src.modules.external_communication import start_server
 import threading
-from src.modules.visualizations import run_visualization
-from src.ai.models.autoencoder import *
-from src.ai.models.permutor import run_permutor
-from src.ai.models.permutor_deshift import run_permutor_deshift
-from src.ai.models.variational_autoencoder import *
-from src.utils import perror
-from src.modules.external_communication.communication_interface import send_data, CommunicationInterface
-from src.utils import get_instance
-from src.action_robot_controller import detach_robot_teleport_relative, \
-    detach_robot_rotate_absolute, detach_robot_rotate_relative, detach_robot_teleport_absolute
-from src.modules.policies.data_collection import grid_data_collection
-from src.ai.models.permutor_autoenc_pipelined import run_permuted_autoencoder
-from src.ai.models.permutor_autoenc_pipelined2 import run_permuted_autoencoder2
-from src.ai.models.direction_network_final import run_direction_network
-from src.ai.models.direction_network_final2 import run_direction_network2
-
-from src.ai.models.direction_network_ensemble import run_direction_network_ensemble
-
-from src.modules.policies.navigation8x8_v1_distance import navigation8x8
-
-from src.ai.models.autoencoder_images_north import run_autoencoder_images_north
-from src.ai.models.autoencoder_images_full_forced import run_autoencoder_images_full
-from src.ai.models.autoencoder_images_stacked_thetas import run_autoencoder_images_stacked_thetas
-from src.ai.models.autoencoder_images_north_ensemble import run_autoencoder_ensemble_north
-
-from src.ai.models.direction_network_images_final import run_direction_network_images_final
-
-import time
-import asyncio
-from src.modules.external_communication import start_server, CommunicationInterface
-from src.configs_setup import configs
-import threading
-from src.modules.visualizations import run_visualization
-from src.ai.models.autoencoder import *
-from src.ai.models.variational_autoencoder import *
-from src.utils import perror
-from src.modules.external_communication.communication_interface import send_data, CommunicationInterface
-from src.utils import get_instance
-from src.action_robot_controller import detach_robot_sample_distance, detach_robot_teleport_relative, \
-    detach_robot_rotate_absolute, detach_robot_rotate_relative
-import torch
-import math
-from scipy.stats import norm
-import torch
-from torchvision import models, transforms
-from PIL import Image
-import time
 from src.modules.save_load_handlers.data_handle import read_other_data_from_file, write_other_data_to_file
 
-from src.ai.models.autoencoder_images_north import run_autoencoder_images_north
-from src.ai.models.autoencoder_images_full_forced import run_autoencoder_images_full
-from src.ai.models.autoencoder_images_abstract_block import run_autoencoder_abstraction_block_images
-from src.ai.models.autoencoder_images_stacked_thetas import run_autoencoder_images_stacked_thetas
-from src.ai.models.autoencoder_images_north_ensemble import run_autoencoder_ensemble_north
-
-from src.ai.models.direction_network_images_final import run_direction_network_images_final
-from src.modules.policies.navigation_image_rawdirect import navigation_image_rawdirect
-from src.modules.policies.testing_image_data import test_images_accuracy, process_webots_image_to_embedding
+from src.ai.variants.raw_direction_images import navigation_image_rawdirect
 
 
 def build_resnet18_embeddings():

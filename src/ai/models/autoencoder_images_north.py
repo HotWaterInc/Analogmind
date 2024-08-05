@@ -184,8 +184,8 @@ def train_autoencoder_with_distance_constraint(autoencoder: BaseAutoencoderModel
     scale_adjacent_distance_loss = 0.5
     scale_non_adjacent_distance_loss = 0.25
 
-    adjacent_sample_size = 100
-    non_adjacent_sample_size = 400
+    adjacent_sample_size = 25
+    non_adjacent_sample_size = 300
 
     epoch_average_loss = 0
     reconstruction_average_loss = 0
@@ -311,8 +311,10 @@ def run_autoencoder_images_north() -> None:
     global storage
     global permutor
 
-    storage.load_raw_data_from_others("data15x15_rotated24_image_embeddings.json")
-    storage.load_raw_data_connections_from_others("data15x15_connections.json")
+    grid_dataset = 5
+
+    storage.load_raw_data_from_others(f"data{grid_dataset}x{grid_dataset}_rotated24_image_embeddings.json")
+    storage.load_raw_data_connections_from_others(f"data{grid_dataset}x{grid_dataset}_connections.json")
     # selects first rotation
     storage.build_permuted_data_random_rotations_rotation0()
 

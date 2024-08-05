@@ -211,6 +211,44 @@ class StorageSuperset2(StorageSuperset):
             # rebuilds map with new values
         self._convert_raw_data_to_map()
 
+    def build_permuted_data_12images(self) -> None:
+        """
+        Returns the data point by its name
+        """
+        for index, datapoint in enumerate(self.raw_env_data):
+            name = datapoint["name"]
+            new_data = []
+            for offset in range(24):
+                new_datapoint = self.get_point_rotations_with_full_info_set_offset_concatenated(name, 12, offset)
+                new_data.append(new_datapoint)
+
+            new_data = torch.tensor(new_data, dtype=torch.float32, device=device)
+
+            permuted_data: torch.Tensor = self.permutor(new_data)
+            permuted_data_raw = permuted_data.tolist()
+
+            self.raw_env_data[index]["data"] = permuted_data_raw
+
+        # rebuilds map with new values
+        self._convert_raw_data_to_map()
+
+    def build_permuted_data_raw_abstraction_block_1img(self) -> None:
+        """
+        Returns the data point by its name
+        """
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        for index, datapoint in enumerate(self.raw_env_data):
+            name = datapoint["name"]
+            data_tensor = torch.tensor(np.array(datapoint["data"]), dtype=torch.float32, device=device)
+            positional_encoding = self.permutor.encoder_inference(data_tensor)
+            print(torch.cdist(positional_encoding, positional_encoding).mean().item())
+
+            permuted_data_raw = positional_encoding.tolist()
+            self.raw_env_data[index]["data"] = permuted_data_raw
+
+        # rebuilds map with new values
+        self._convert_raw_data_to_map()
+
     def build_permuted_data_raw(self) -> None:
         """
         Returns the data point by its name
@@ -353,6 +391,48 @@ class StorageSuperset2(StorageSuperset):
             name: str = datapoint["name"]
             self.raw_env_data_permuted_choice_map[name] = datapoint
 
+    def get_point_rotations_with_full_info_set_offset_concatenated(self, name: str, rotation_count: int, offset: int):
+        """
+        Returns the data point by its name
+        """
+        data_length = len(self.get_datapoint_data_by_name(name))
+        new_data = self.get_point_rotations_with_full_info(name, rotation_count, offset)
+        np_arr = np.array(new_data)
+        return np_arr.flatten()
+
+    def get_point_rotations_with_full_info_random_offset_concatenated(self, name: str, rotation_count: int):
+        """
+        Returns the data point by its name
+        """
+        data_length = len(self.get_datapoint_data_by_name(name))
+        offset = random.randint(0, data_length - 1)
+        new_data = self.get_point_rotations_with_full_info(name, rotation_count, offset)
+        np_arr = np.array(new_data)
+        return np_arr.flatten()
+
+    def get_point_rotations_with_full_info_random_offset(self, name: str, rotation_count: int):
+        """
+        Returns the data point by its name
+        """
+        data_length = len(self.get_datapoint_data_by_name(name))
+        offset = random.randint(0, data_length - 1)
+        return self.get_point_rotations_with_full_info(name, rotation_count, offset)
+
+    def get_point_rotations_with_full_info(self, name: str, rotation_count: int, offset: int = 0) -> List[List[float]]:
+        """
+        Returns the data point by its name
+        """
+        data_raw: List[List[float]] = self.get_datapoint_data_by_name(name)
+        rotation_total = len(data_raw)
+        step = rotation_total / rotation_count
+        new_data = []
+        for i in range(rotation_count):
+            index = int(i * step) + offset
+            index = index % rotation_total
+            new_data.append(data_raw[index])
+
+        return new_data
+
     def select_random_rotations_for_permuted_data(self):
         """
         For each datapoint in the transformed data, select a random sample to train the network on
@@ -390,11 +470,3 @@ class StorageSuperset2(StorageSuperset):
         Returns the data point by its name
         """
         return torch.tensor(self.raw_env_data_permuted_choice_map[name]["data"], dtype=torch.float32)
-
-    # def get_datapoint_data_tensor_by_name_permuted_random_rotation(self, name: str) -> torch.Tensor:
-    #     """
-    #     Returns a random arr from the datapoint data field
-    #     """
-    #     data = self.raw_env_data_permuted_choice_map[name]["data"]
-    #     index = random.randint(0, len(data) - 1)
-    #     return torch.tensor(data[index], dtype=torch.float32)

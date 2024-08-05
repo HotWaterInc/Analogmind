@@ -1,5 +1,6 @@
 import enum
 
+
 class CollectedDataType(enum.Enum):
     """
     Enum for different types of data formats that might be collected from the environment
@@ -12,6 +13,7 @@ class CollectedDataType(enum.Enum):
     Data15x15 = 2
     Other = 3
 
+
 class Paths(enum.Enum):
     """
     Enum for different paths to data files
@@ -20,6 +22,7 @@ class Paths(enum.Enum):
     Data15x15 = 'data/data15x15.json'
     Other = 'data/other/'
 
+
 class AIType(enum.Enum):
     """
     Enum for different types of AI models
@@ -27,6 +30,8 @@ class AIType(enum.Enum):
     Autoencoder = 1
     VariationalAutoencoder = 2
     ManuallySaved = 3
+    Others = 4
+
 
 class AIPaths(enum.Enum):
     """
@@ -35,8 +40,11 @@ class AIPaths(enum.Enum):
     Autoencoder = 'models/autoencoders/'
     VariationalAutoencoder = 'models/variational_autoencoders/'
     ManuallySaved = 'models/manually_saved/'
+    Others = 'models/others/'
+
 
 AI_MODELS_TRACKER_PATH = 'models/ai_models_tracker.json'
+
 
 def get_model_path(ai_type: AIType):
     """
@@ -48,6 +56,9 @@ def get_model_path(ai_type: AIType):
         return AIPaths.VariationalAutoencoder.value
     elif ai_type == AIType.ManuallySaved:
         return AIPaths.ManuallySaved.value
+    else:
+        return AIPaths.Others.value
+
 
 def get_data_file_path(data_sample: CollectedDataType):
     """
@@ -59,6 +70,7 @@ def get_data_file_path(data_sample: CollectedDataType):
         return Paths.Data15x15.value
     elif data_sample == CollectedDataType.Other:
         return Paths.Other.value
+
 
 DATA_NAME_FIELD = "name"
 DATA_SENSORS_FIELD = "data"

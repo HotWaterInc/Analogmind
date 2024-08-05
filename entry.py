@@ -1,33 +1,9 @@
-from src.configs_setup import configs
 from src.modules.external_communication import start_server
+from src.configs_setup import configs_communication, config_data_collection_pipeline
 import threading
-from src.modules.visualizations import run_visualization
-from src.ai.models.autoencoder import *
-from src.ai.models.variational_autoencoder import *
-from src.utils import perror
-from src.modules.external_communication import start_server, CommunicationInterface
-from src.ai.models.permutor_autoenc_pipelined2 import run_permuted_autoencoder2
-from src.configs_setup import configs, configs_communication, config_data_collection_pipeline
-import threading
-from src.modules.visualizations import run_visualization
-from src.ai.models.autoencoder import *
-from src.ai.models.permutor import run_permutor
-from src.ai.models.permutor_deshift import run_permutor_deshift
-from src.ai.models.variational_autoencoder import *
-from src.utils import perror
-from src.modules.external_communication.communication_interface import send_data, CommunicationInterface
-from src.utils import get_instance
-from src.action_robot_controller import detach_robot_sample_distance, detach_robot_teleport_relative, \
-    detach_robot_rotate_absolute, detach_robot_rotate_relative, detach_robot_teleport_absolute
 from src.modules.policies.data_collection import grid_data_collection
-from src.ai.models.permutor_autoenc_pipelined import run_permuted_autoencoder
 from src.modules.policies.navigation8x8_v1_distance import navigation8x8
 from src.modules.policies.directed_data_collection import directed_data_collection
-
-from src.ai.models.permutor_autoenc_pipelined2 import run_permuted_autoencoder2
-
-from src.ai.models.direction_network_final import run_direction_network
-from src.ai.models.direction_network_final2 import run_direction_network2
 
 
 def start_server_thread():
