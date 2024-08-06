@@ -280,7 +280,7 @@ def train_autoencoder_with_distance_constraint(autoencoder: BaseAutoencoderModel
 def run_ai():
     global storage
     autoencoder = AutoencoderImageNorthOnly()
-    train_autoencoder_with_distance_constraint(autoencoder, epochs=1000)
+    train_autoencoder_with_distance_constraint(autoencoder, epochs=5001)
     return autoencoder
 
 
@@ -294,10 +294,7 @@ def run_tests(autoencoder):
 
 def run_loaded_ai():
     # autoencoder = load_manually_saved_ai("autoenc_dynamic10k.pth")
-    autoencoder = load_manually_saved_ai("autoencodPerm10k.pth")
-    global storage
-    storage.build_permuted_data_raw_with_thetas()
-
+    autoencoder = load_manually_saved_ai("autoencod_imaged_north.pth")
     run_tests(autoencoder)
 
 
@@ -318,8 +315,8 @@ def run_autoencoder_images_north() -> None:
     # selects first rotation
     storage.build_permuted_data_random_rotations_rotation0()
 
-    run_new_ai()
-    # run_loaded_ai()
+    # run_new_ai()
+    run_loaded_ai()
 
 
 storage: StorageSuperset2 = StorageSuperset2()

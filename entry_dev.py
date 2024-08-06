@@ -5,11 +5,11 @@ from src.modules.policies.data_collection import grid_data_collection
 from src.modules.policies.navigation8x8_v1_distance import navigation8x8
 from src.ai.models.autoencoder_image_positon_predictor import run_autoencoder_position_predictor
 
-from src.ai.variants.full_camera_abstraction_block.autoencoder_images_abstract_block import \
+from src.ai.variants.full_camera_abstraction_block.images_abstract_block import \
     run_autoencoder_abstraction_block_images
 
-from src.ai.variants.full_camera_abstraction_block.autoencoder_images_abstract_block_img1 import \
-    run_autoencoder_abstraction_block_images_img1
+from src.ai.variants.full_camera_abstraction_block.images_abstract_block_img1 import \
+    run_abstraction_block_images_img1
 
 from src.ai.variants.full_camera_abstraction_block.vae_post_abstract_block import \
     run_autoencoder_post_abstract_block_img1
@@ -56,9 +56,9 @@ if __name__ == "__main__":
 
     # run_autoencoder_abstraction_block_images()
 
-    run_autoencoder_abstraction_block_images_img1()
+    # run_abstraction_block_images_img1()
 
-    # run_autoencoder_post_abstract_block_img1()
     # run_autoencoder_images_north()
+    run_autoencoder_post_abstract_block_img1()
 
     pass

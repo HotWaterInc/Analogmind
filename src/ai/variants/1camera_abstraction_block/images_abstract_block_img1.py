@@ -19,7 +19,7 @@ from src.ai.evaluation.evaluation import evaluate_reconstruction_error, evaluate
     evaluate_adjacency_properties_super, evaluate_reconstruction_error_super_fist_rotation
 from src.modules.pretty_display import pretty_display_reset, pretty_display_start, pretty_display, set_pretty_display
 from .evaluation_abstract_block import evaluation_position_rotation_embeddings, \
-    evaluation_position_rotation_embeddings_img1
+    evaluation_position_rotation_embeddings_img1, evaluation_position_rotation_embeddings_img1_on_00
 
 import torch
 import torch.nn as nn
@@ -341,7 +341,7 @@ def train_autoencoder_abstraction_block(autoencoder: BaseAutoencoderModel, epoch
 
     reconstruction_average_loss = 0
 
-    epoch_print_rate = 500
+    epoch_print_rate = 1000
 
     SHUFFLE_RATE = 5
 
@@ -452,7 +452,8 @@ def train_autoencoder_abstraction_block(autoencoder: BaseAutoencoderModel, epoch
 
 def run_tests(autoencoder):
     global storage
-    evaluation_position_rotation_embeddings_img1(autoencoder, storage)
+    # evaluation_position_rotation_embeddings_img1(autoencoder, storage)
+    evaluation_position_rotation_embeddings_img1_on_00(autoencoder, storage)
 
 
 def run_loaded_ai():
@@ -465,12 +466,12 @@ def run_loaded_ai():
 
 def run_new_ai() -> None:
     autoencoder = AutoencoderAbstractionBlockImg1()
-    autoencoder = train_autoencoder_abstraction_block(autoencoder, 10001, True)
+    autoencoder = train_autoencoder_abstraction_block(autoencoder, 15001, True)
     save_ai_manually("abstract_block_img1", autoencoder)
     run_tests(autoencoder)
 
 
-def run_autoencoder_abstraction_block_images_img1() -> None:
+def run_abstraction_block_images_img1() -> None:
     global storage
 
     grid_data = 5
@@ -481,8 +482,8 @@ def run_autoencoder_abstraction_block_images_img1() -> None:
     # selects first rotation
     storage.build_permuted_data_random_rotations_rotation0()
 
-    # run_new_ai()
-    run_loaded_ai()
+    run_new_ai()
+    # run_loaded_ai()
 
 
 storage: StorageSuperset2 = StorageSuperset2()

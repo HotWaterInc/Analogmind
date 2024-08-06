@@ -1,3 +1,5 @@
+import sys
+
 total_number_per_line = None
 pretty_display_name = None
 current_line = None
@@ -21,6 +23,7 @@ def _display_bars(current_percentage, prev_percentage):
 
     for i in range(current_percentage):
         print("#", end="")
+        sys.stdout.flush()
 
 
 def pretty_display(current_value):

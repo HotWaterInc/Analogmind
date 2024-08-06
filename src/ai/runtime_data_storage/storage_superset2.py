@@ -237,11 +237,11 @@ class StorageSuperset2(StorageSuperset):
         Returns the data point by its name
         """
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
         for index, datapoint in enumerate(self.raw_env_data):
             name = datapoint["name"]
             data_tensor = torch.tensor(np.array(datapoint["data"]), dtype=torch.float32, device=device)
-            positional_encoding = self.permutor.encoder_inference(data_tensor)
-            print(torch.cdist(positional_encoding, positional_encoding).mean().item())
+            positional_encoding, rotational_encoding = self.permutor.encoder_training(data_tensor)
 
             permuted_data_raw = positional_encoding.tolist()
             self.raw_env_data[index]["data"] = permuted_data_raw

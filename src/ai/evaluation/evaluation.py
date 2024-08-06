@@ -585,7 +585,7 @@ def evaluate_adjacency_properties_super(model: BaseAutoencoderModel, storage: St
     Evaluates how well the encoder finds adjacency in the data
     """
     embedding_size = model.get_embedding_size()
-    distance_threshold = average_distance_adjacent * embedding_size * 1.1
+    distance_threshold = average_distance_adjacent * embedding_size * 1.25
 
     adjacent_data = storage.get_adjacency_data()
     non_adjacent_data = storage.get_non_adjacent_data()

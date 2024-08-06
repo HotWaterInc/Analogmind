@@ -25,7 +25,7 @@ from src.ai.variants.blocks import ResidualBlockSmallBatchNorm, _make_layer
 
 class VAEOverAbstraction(BaseAutoencoderModel):
     def __init__(self, dropout_rate: float = 0.2, embedding_size: int = 128, input_output_size: int = 96,
-                 hidden_size: int = 256, num_blocks: int = 1):
+                 hidden_size: int = 1024, num_blocks: int = 1):
         super(VAEOverAbstraction, self).__init__()
         self.embedding_size = embedding_size
 
@@ -157,14 +157,14 @@ def non_adjacent_distance_handling(autoencoder: BaseAutoencoderModel, non_adjace
 def train_autoencoder_with_distance_constraint(autoencoder: BaseAutoencoderModel, epochs: int) -> BaseAutoencoderModel:
     global storage
     # PARAMETERS
-    optimizer = optim.Adam(autoencoder.parameters(), lr=0.001)
+    optimizer = optim.Adam(autoencoder.parameters(), lr=0.00025, amsgrad=True)
 
     num_epochs = epochs
     autoencoder = autoencoder.to(device)
 
     scale_reconstruction_loss = 1
     scale_adjacent_distance_loss = 0.5
-    scale_non_adjacent_distance_loss = 0.25
+    scale_non_adjacent_distance_loss = 0.5
 
     adjacent_sample_size = 25
     non_adjacent_sample_size = 300
@@ -175,7 +175,7 @@ def train_autoencoder_with_distance_constraint(autoencoder: BaseAutoencoderModel
     adjacent_average_loss = 0
     non_adjacent_average_loss = 0
 
-    epoch_print_rate = 100
+    epoch_print_rate = 1000
     DISTANCE_CONSTANT_PER_NEURON = 0.005
     SHUFFLE_RATE = 10
 
@@ -188,8 +188,8 @@ def train_autoencoder_with_distance_constraint(autoencoder: BaseAutoencoderModel
 
     for epoch in range(num_epochs):
         if (epoch % SHUFFLE_RATE == 0):
-            # storage.build_permuted_data_random_rotations()
-            storage.build_permuted_data_random_rotations_rotation0()
+            storage.build_permuted_data_random_rotations()
+            # storage.build_permuted_data_random_rotations_rotation0()
 
             train_data = array_to_tensor(np.array(storage.get_pure_permuted_raw_env_data()))
             train_data = train_data.to(device)
@@ -204,10 +204,10 @@ def train_autoencoder_with_distance_constraint(autoencoder: BaseAutoencoderModel
 
         # ADJACENT DISTANCE LOSS
         adjacent_distance_loss = torch.tensor(0.0)
-        # adjacent_distance_loss, average_distance_adjacent = adjacent_distance_handling(autoencoder,
-        #                                                                                adjacent_sample_size,
-        #                                                                                scale_adjacent_distance_loss)
-        # adjacent_distance_loss.backward()
+        adjacent_distance_loss, average_distance_adjacent = adjacent_distance_handling(autoencoder,
+                                                                                       adjacent_sample_size,
+                                                                                       scale_adjacent_distance_loss)
+        adjacent_distance_loss.backward()
 
         # NON-ADJACENT DISTANCE LOSS
         non_adjacent_distance_loss = torch.tensor(0.0)
@@ -254,23 +254,20 @@ def train_autoencoder_with_distance_constraint(autoencoder: BaseAutoencoderModel
 def run_tests(autoencoder):
     global storage
 
-    evaluate_reconstruction_error_super(autoencoder, storage, rotations0=True)
-    avg_distance_adj = evaluate_distances_between_pairs_super(autoencoder, storage, rotations0=True)
-    evaluate_adjacency_properties_super(autoencoder, storage, avg_distance_adj, rotation0=True)
+    evaluate_reconstruction_error_super(autoencoder, storage, rotations0=False)
+    avg_distance_adj = evaluate_distances_between_pairs_super(autoencoder, storage, rotations0=False)
+    evaluate_adjacency_properties_super(autoencoder, storage, avg_distance_adj, rotation0=False)
 
 
 def run_loaded_ai():
     # autoencoder = load_manually_saved_ai("autoenc_dynamic10k.pth")
-    autoencoder = load_manually_saved_ai("autoencodPerm10k.pth")
-    global storage
-    storage.build_permuted_data_raw_with_thetas()
-
+    autoencoder = load_manually_saved_ai("vae_post_abstraction_block_saved.pth")
     run_tests(autoencoder)
 
 
 def run_new_ai() -> None:
     autoencoder = VAEOverAbstraction()
-    train_autoencoder_with_distance_constraint(autoencoder, epochs=1001)
+    train_autoencoder_with_distance_constraint(autoencoder, epochs=15001)
     save_ai_manually("vae_post_abstraction_block", autoencoder)
     run_tests(autoencoder)
 
@@ -278,7 +275,8 @@ def run_new_ai() -> None:
 def run_autoencoder_post_abstract_block_img1() -> None:
     global storage
     global permutor
-    permutor = load_manually_saved_ai("abstraction_block_1img_saved.pth")
+    permutor = load_manually_saved_ai("abstract_block_img1_saved.pth")
+    permutor.eval()
     permutor = permutor.to(device)
 
     grid_data = 5
