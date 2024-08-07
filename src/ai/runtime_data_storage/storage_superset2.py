@@ -232,6 +232,25 @@ class StorageSuperset2(StorageSuperset):
         # rebuilds map with new values
         self._convert_raw_data_to_map()
 
+    def build_permuted_data_raw_abstraction_autoencoder_manifold(self) -> None:
+        """
+        Returns the data point by its name
+        """
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+        for index, datapoint in enumerate(self.raw_env_data):
+            data_tensor = torch.tensor(np.array(datapoint["data"]), dtype=torch.float32, device=device)
+            manifold = self.permutor.encoder_training(data_tensor)
+
+            # if datapoint["name"] == "0_0":
+            #     print(manifold)
+
+            permuted_data_raw = manifold.tolist()
+            self.raw_env_data[index]["data"] = permuted_data_raw
+
+        # rebuilds map with new values
+        self._convert_raw_data_to_map()
+
     def build_permuted_data_raw_abstraction_block_1img(self) -> None:
         """
         Returns the data point by its name

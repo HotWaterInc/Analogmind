@@ -4,7 +4,7 @@ from src.modules.external_communication import start_server
 import threading
 from src.modules.save_load_handlers.data_handle import read_other_data_from_file, write_other_data_to_file
 
-from src.ai.variants.raw_direction_images import navigation_image_rawdirect
+from src.ai.variants.raw_direction_images import policy_navigation_image_rawdirect
 
 
 def build_resnet18_embeddings():

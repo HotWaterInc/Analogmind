@@ -425,6 +425,8 @@ class Storage:
 
         found_data_points: List[str] = []
         found_data_points_map: Dict[str, bool] = {}
+        found_data_points_map[datapoint_name] = True
+
         new_data_points: List[str] = [datapoint_name]
 
         for degree in range(1, distance_degree + 1):
@@ -438,8 +440,38 @@ class Storage:
                     found_data_points_map[new_data_point] = True
                     found_data_points.append(new_data_point)
 
-            found_data_points.extend(new_data_points)
         return found_data_points
+
+    def get_datapoints_adjacent_at_degree_n_as_raw_connection_data(self, datapoint_name: str, degree: int) -> List[
+        RawConnectionData]:
+        """
+        Returns the datapoints that are adjacent to a certain datapoint at a certain degree
+        """
+        adjacent_degree_n = self.get_datapoint_adjacent_datapoints_at_most_n_deg(datapoint_name, degree)
+        adjacent_degree_n_minus_1 = self.get_datapoint_adjacent_datapoints_at_most_n_deg(datapoint_name, degree - 1)
+        adjacent_data_points = [item for item in adjacent_degree_n if item not in adjacent_degree_n_minus_1]
+
+        adjacent_at_deg_raw_connection_data = []
+        for datapoint in adjacent_data_points:
+            start = datapoint_name
+            end = datapoint
+            distance = degree
+            direction = [0, 0]
+            # calculate augmented direction
+            start_data = self.get_datapoint_by_name(start)["params"]
+            end_data = self.get_datapoint_by_name(end)["params"]
+
+            x_start, y_start = start_data["i"], start_data["j"]
+            x_end, y_end = end_data["i"], end_data["j"]
+
+            x_dir = x_end - x_start
+            y_dir = y_end - y_start
+            direction = [x_dir, y_dir]
+
+            connection_data = RawConnectionData(start=start, end=end, distance=distance, direction=direction)
+            adjacent_at_deg_raw_connection_data.append(connection_data)
+
+        return adjacent_at_deg_raw_connection_data
 
     def get_datapoints_adjacent_at_degree_n(self, datapoint_name: str, degree: int) -> List[str]:
         """

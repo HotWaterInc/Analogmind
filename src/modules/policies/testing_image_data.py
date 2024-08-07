@@ -80,7 +80,7 @@ def build_pil_image_from_recv(image_array):
     return input_tensor_preprocess
 
 
-def pil_tensor_to_resnet18_embedding(pil_tensor):
+def pil_tensor_to_resnet18_embedding(pil_tensor) -> torch.Tensor:
     weights = models.ResNet18_Weights.DEFAULT
     model = models.resnet18(weights=weights)
     model = torch.nn.Sequential(*list(model.children())[:-1])
@@ -173,7 +173,7 @@ def webots_radians_to_normal(x: float) -> float:
     return x
 
 
-def process_webots_image_to_embedding(webots_raw_image):
+def process_webots_image_to_embedding(webots_raw_image) -> torch.Tensor:
     webots_image_np = np.array(webots_raw_image)
     webots_image_np = webots_image_np.astype(np.uint8)
 

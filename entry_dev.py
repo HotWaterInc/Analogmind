@@ -3,18 +3,10 @@ from src.configs_setup import configs_communication, config_data_collection_pipe
 import threading
 from src.modules.policies.data_collection import grid_data_collection
 from src.modules.policies.navigation8x8_v1_distance import navigation8x8
-from src.ai.models.autoencoder_image_positon_predictor import run_autoencoder_position_predictor
-
-from src.ai.variants.full_camera_abstraction_block.images_abstract_block import \
-    run_autoencoder_abstraction_block_images
-
-from src.ai.variants.full_camera_abstraction_block.images_abstract_block_img1 import \
-    run_abstraction_block_images_img1
-
-from src.ai.variants.full_camera_abstraction_block.vae_post_abstract_block import \
-    run_autoencoder_post_abstract_block_img1
-
+from src.ai.variants.camera1_full_forced.autoencoder_images_full_forced import run_autoencoder_images_full_forced
 from src.ai.models.autoencoder_images_north import run_autoencoder_images_north
+from src.ai.variants.camera1_full_forced.policy_images_simple import navigation_image_1camera_vae
+from src.ai.variants.camera1_full_forced.direction_network_SS import run_direction_post_autoencod_SS
 
 
 def start_server_thread():
@@ -38,9 +30,9 @@ def data_collection_pipeline():
     server_thread.join()
 
 
-def navigation8x8pipeline():
+def navigation_1camera_vae_pipeline():
     configs_communication()
-    generator = navigation8x8()
+    generator = navigation_image_1camera_vae()
 
     config_data_collection_pipeline(generator)
     server_thread = threading.Thread(target=start_server, name="ServerThread")
@@ -50,15 +42,8 @@ def navigation8x8pipeline():
 
 
 if __name__ == "__main__":
-    # data_collection_pipeline()
-    # navigation8x8pipeline()
-    # test_angles_direction()
+    # run_autoencoder_images_full_forced()
 
-    # run_autoencoder_abstraction_block_images()
-
-    # run_abstraction_block_images_img1()
-
-    # run_autoencoder_images_north()
-    run_autoencoder_post_abstract_block_img1()
-
+    navigation_1camera_vae_pipeline()
+    # run_direction_post_autoencod_SS()
     pass

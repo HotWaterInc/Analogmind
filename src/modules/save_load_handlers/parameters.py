@@ -31,6 +31,7 @@ class AIType(enum.Enum):
     VariationalAutoencoder = 2
     ManuallySaved = 3
     Others = 4
+    Base = 5
 
 
 class AIPaths(enum.Enum):
@@ -41,6 +42,7 @@ class AIPaths(enum.Enum):
     VariationalAutoencoder = 'models/variational_autoencoders/'
     ManuallySaved = 'models/manually_saved/'
     Others = 'models/others/'
+    Base = 'models/'
 
 
 AI_MODELS_TRACKER_PATH = 'models/ai_models_tracker.json'
@@ -56,7 +58,7 @@ def get_model_path(ai_type: AIType):
         return AIPaths.VariationalAutoencoder.value
     elif ai_type == AIType.ManuallySaved:
         return AIPaths.ManuallySaved.value
-    else:
+    elif ai_type == AIType.Others:
         return AIPaths.Others.value
 
 
