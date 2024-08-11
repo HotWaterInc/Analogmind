@@ -5,8 +5,11 @@ from src.modules.policies.data_collection import grid_data_collection
 from src.modules.policies.navigation8x8_v1_distance import navigation8x8
 from src.ai.variants.camera1_full_forced.autoencoder_images_full_forced import run_autoencoder_images_full_forced
 from src.ai.models.autoencoder_images_north import run_autoencoder_images_north
-from src.ai.variants.camera1_full_forced.policy_images_simple import navigation_image_1camera_vae
+from src.ai.variants.camera1_full_forced.policy_images_simple import navigation_image_1camera_vae, \
+    get_closest_point_policy
 from src.ai.variants.camera1_full_forced.direction_network_SS import run_direction_post_autoencod_SS
+from src.ai.variants.camera1_full_forced.direction_network_SDS import run_direction_post_autoencod_SDS
+from src.ai.variants.camera1_full_forced.vae_abstract_block_image import run_vae_abstract_block
 
 
 def start_server_thread():
@@ -32,7 +35,8 @@ def data_collection_pipeline():
 
 def navigation_1camera_vae_pipeline():
     configs_communication()
-    generator = navigation_image_1camera_vae()
+    # generator = navigation_image_1camera_vae()
+    generator = get_closest_point_policy()
 
     config_data_collection_pipeline(generator)
     server_thread = threading.Thread(target=start_server, name="ServerThread")
@@ -42,8 +46,7 @@ def navigation_1camera_vae_pipeline():
 
 
 if __name__ == "__main__":
-    # run_autoencoder_images_full_forced()
-
     navigation_1camera_vae_pipeline()
-    # run_direction_post_autoencod_SS()
+    # run_vae_abstract_block()
+
     pass

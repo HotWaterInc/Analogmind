@@ -12,8 +12,9 @@ from typing import List
 import torch.nn.functional as F
 from src.modules.pretty_display import pretty_display, set_pretty_display, pretty_display_start, pretty_display_reset
 from src.ai.runtime_data_storage.storage_superset2 import angle_to_thetas, thetas_to_radians, \
-    angle_to_thetas_normalized, \
-    radians_to_degrees, atan2_to_standard_radians, radians_to_percent, coordinate_pair_to_radians_cursed_tranform
+    angle_percent_to_thetas_normalized, \
+    radians_to_degrees, atan2_to_standard_radians, radians_to_percent, coordinate_pair_to_radians_cursed_tranform, \
+    direction_to_degrees_atan
 from src.ai.variants.blocks import ResidualBlockSmallBatchNorm
 
 THETAS_SIZE = 36
@@ -77,11 +78,7 @@ def direction_loss(direction_network, sample_rate=25):
 
             final_radian = coordinate_pair_to_radians_cursed_tranform(direction[0], direction[1])
             radian_percent = radians_to_percent(final_radian)
-            thetas_target = angle_to_thetas_normalized(radian_percent, 36)
-
-            # print("Direction", direction)
-            # print("Radian from direction", final_radian)
-            # print("Radian from thetas", thetas_to_radians(thetas_target))
+            thetas_target = angle_percent_to_thetas_normalized(radian_percent, 36)
 
             start_data = storage.get_datapoint_data_tensor_by_name_permuted(start)
             end_data = storage.get_datapoint_data_tensor_by_name_permuted(end)
@@ -196,26 +193,6 @@ def direction_to_degrees(direction):
         raise Exception("Shit went wrong as always dir to deg")
 
     return degrees
-
-
-def direction_to_degrees_atan(direction):
-    y = direction[1]
-    x = direction[0]
-
-    # Calculate the angle in radians using atan2
-    angle_rad = math.atan2(x, y)
-
-    # Convert radians to degrees
-    angle_deg = math.degrees(angle_rad)
-
-    # Normalize the angle to be between 0 and 360 degrees
-    normalized_angle = (angle_deg + 360) % 360
-    # account for weird representation
-    normalized_angle = (360 - angle_deg) % 360
-
-    # print(direction, normalized_angle)
-
-    return normalized_angle
 
 
 def run_tests_permuted_data_unseen_before(direction_network):

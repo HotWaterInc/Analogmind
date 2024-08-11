@@ -488,7 +488,6 @@ def run_abstraction_block_images_img1() -> None:
 
 storage: StorageSuperset2 = StorageSuperset2()
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
 ROTATIONS_PER_FULL = 1
 OFFSETS_PER_DATAPOINT = 24
 TOTAL_ROTATIONS = 24

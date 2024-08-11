@@ -41,6 +41,26 @@ def build_thetas_2(true_theta, thetas_length):
     return thetas
 
 
+def direction_to_degrees_atan(direction):
+    y = direction[1]
+    x = direction[0]
+
+    # Calculate the angle in radians using atan2
+    angle_rad = math.atan2(x, y)
+
+    # Convert radians to degrees
+    angle_deg = math.degrees(angle_rad)
+
+    # Normalize the angle to be between 0 and 360 degrees
+    normalized_angle = (angle_deg + 360) % 360
+    # account for weird representation
+    normalized_angle = (360 - angle_deg) % 360
+
+    # print(direction, normalized_angle)
+
+    return normalized_angle
+
+
 def angle_to_thetas(true_theta, thetas_length):
     thetas = torch.zeros(thetas_length)
     true_theta_index = true_theta * (thetas_length)
@@ -79,6 +99,10 @@ def atan2_to_standard_radians(atan2):
     return atan2
 
 
+def degrees_to_percent(angle_degrees):
+    return angle_degrees / 360
+
+
 def coordinate_pair_to_radians_cursed_tranform(x_component, y_component):
     """
     wizard magic
@@ -104,7 +128,7 @@ def radians_to_percent(radians):
     return radians / (2 * np.pi)
 
 
-def angle_to_thetas_normalized(true_theta_percent, thetas_length):
+def angle_percent_to_thetas_normalized(true_theta_percent, thetas_length):
     thetas = torch.zeros(thetas_length)
     if true_theta_percent == 1:
         true_theta_percent = 0
@@ -240,12 +264,9 @@ class StorageSuperset2(StorageSuperset):
 
         for index, datapoint in enumerate(self.raw_env_data):
             data_tensor = torch.tensor(np.array(datapoint["data"]), dtype=torch.float32, device=device)
-            manifold = self.permutor.encoder_training(data_tensor)
+            manifold_position = self.permutor.encoder_inference(data_tensor)
 
-            # if datapoint["name"] == "0_0":
-            #     print(manifold)
-
-            permuted_data_raw = manifold.tolist()
+            permuted_data_raw = manifold_position.tolist()
             self.raw_env_data[index]["data"] = permuted_data_raw
 
         # rebuilds map with new values

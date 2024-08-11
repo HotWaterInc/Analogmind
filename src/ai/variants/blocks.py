@@ -89,6 +89,15 @@ class ResidualBlock(nn.Module):
         return x + self.block(x)
 
 
+def _make_layer_linear(in_features, out_features):
+    layer = nn.Sequential(
+        nn.Linear(in_features, out_features),
+        # nn.BatchNorm1d(out_features),
+        # nn.LeakyReLU(),
+    )
+    return layer
+
+
 def _make_layer(in_features, out_features):
     layer = nn.Sequential(
         nn.Linear(in_features, out_features),

@@ -107,7 +107,7 @@ def load_other_ai(model_name: str):
 
 
 def load_custom_ai(model_name: str, folder_name: str):
-    model_path = get_model_path(AIType.Others)
-    absolute_model_path = prefix_path_with_root(model_path + model_name)
+    model_path = get_model_path(AIType.Base)
+    absolute_model_path = prefix_path_with_root(model_path + folder_name + "/" + model_name)
     model = torch.load(absolute_model_path)
     return model

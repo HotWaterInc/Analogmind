@@ -39,14 +39,14 @@ import torchvision.models as models
 import torchvision.transforms as transforms
 
 storage: StorageSuperset2 = None
-direction_network = None
+direction_network_SSD = None
 
 # DIRECTION_NETWORK_PATH = "direction_image_raw_v3.pth"
 DIRECTION_NETWORK_PATH = "direction_thetas_v1.pth"
 
 
 def load_everything():
-    global storage, direction_network
+    global storage, direction_network_SSD
     storage = StorageSuperset2()
     grid_dataset = 5
 
@@ -323,7 +323,7 @@ def average_angles_directions(angles):
 
 
 def policy_thetas_navigation(index_rotation, current_embedding, next_target):
-    global direction_network
+    global direction_network_SSD
 
     next_embeddings = storage.get_datapoint_data_tensor_by_name(next_target).to(device)
     direction_network = direction_network.to(device)
@@ -340,7 +340,7 @@ def policy_thetas_navigation(index_rotation, current_embedding, next_target):
 
 
 def policy_4direction_nav_embeddings(index_rotation, current_embedding, next_target):
-    global direction_network
+    global direction_network_SSD
 
     next_embeddings = storage.get_datapoint_data_tensor_by_name(next_target).to(device)
     direction_network = direction_network.to(device)
@@ -358,7 +358,7 @@ def policy_4direction_nav_embeddings(index_rotation, current_embedding, next_tar
 
 def navigation_image_rawdirect() -> Generator[None, None, None]:
     load_everything()
-    global storage, direction_network
+    global storage, direction_network_SSD
 
     direction_network.to(device)
     direction_network.eval()

@@ -60,6 +60,8 @@ def get_model_path(ai_type: AIType):
         return AIPaths.ManuallySaved.value
     elif ai_type == AIType.Others:
         return AIPaths.Others.value
+    elif ai_type == AIType.Base:
+        return AIPaths.Base.value
 
 
 def get_data_file_path(data_sample: CollectedDataType):

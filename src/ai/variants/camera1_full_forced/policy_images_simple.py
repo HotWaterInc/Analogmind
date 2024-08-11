@@ -16,9 +16,10 @@ import torch.nn as nn
 import torch.optim as optim
 import numpy as np
 from src.modules.save_load_handlers.ai_models_handle import save_ai, save_ai_manually, load_latest_ai, \
-    load_manually_saved_ai
+    load_manually_saved_ai, load_custom_ai, load_other_ai
 from src.modules.save_load_handlers.parameters import *
-from src.ai.runtime_data_storage.storage_superset2 import StorageSuperset2, thetas_to_radians
+from src.ai.runtime_data_storage.storage_superset2 import StorageSuperset2, thetas_to_radians, \
+    direction_to_degrees_atan, angle_percent_to_thetas_normalized, degrees_to_percent
 from src.ai.runtime_data_storage import Storage
 from typing import List, Dict, Union
 from src.utils import array_to_tensor
@@ -40,16 +41,22 @@ import torchvision.transforms as transforms
 
 
 def load_everything():
-    global storage, direction_network
+    global storage, direction_network_SSD, direction_network_SDS, AUTOENCODER_NAME
+    # AUTOENCODER_NAME = "vae_image_full_forced.pth"
+
     storage = StorageSuperset2()
     grid_dataset = 5
 
     storage.load_raw_data_from_others(f"data{grid_dataset}x{grid_dataset}_rotated24_image_embeddings.json")
     storage.load_raw_data_connections_from_others(f"data{grid_dataset}x{grid_dataset}_connections.json")
 
-    direction_network = load_manually_saved_ai(DIRECTION_NETWORK_SS_NAME)
-    direction_network.to(device)
-    direction_network.eval()
+    direction_network_SSD = load_custom_ai(DIRECTION_NETWORK_SSD_NAME, MODELS_FOLDER)
+    direction_network_SSD.to(device)
+    direction_network_SSD.eval()
+
+    direction_network_SDS = load_custom_ai(DIRECTION_NETWORK_SDS_NAME, MODELS_FOLDER)
+    direction_network_SDS.to(device)
+    direction_network_SDS.eval()
 
 
 def next_embedding_policy_ab(current_embedding, target_embedding):
@@ -278,27 +285,27 @@ def average_angles_directions(angles):
 
 
 def policy_thetas_navigation_next_manifold(current_manifold: torch.Tensor, next_manifold: torch.Tensor):
-    global direction_network
+    global direction_network_SSD
 
-    direction_network = direction_network.to(device)
-    direction_network.eval()
+    direction_network_SSD = direction_network_SSD.to(device)
+    direction_network_SSD.eval()
 
-    thetas_direction = direction_network(current_manifold.unsqueeze(0), next_manifold.unsqueeze(0)).squeeze(0)
+    thetas_direction = direction_network_SSD(current_manifold.unsqueeze(0), next_manifold.unsqueeze(0)).squeeze(0)
     final_angle = thetas_to_radians(thetas_direction)
     return final_angle
 
 
 def policy_thetas_navigation_next_close_target(index_rotation, current_embedding, next_target: str):
-    global direction_network
+    global direction_network_SSD
 
     next_embeddings = storage.get_datapoint_data_tensor_by_name(next_target).to(device)
-    direction_network = direction_network.to(device)
+    direction_network_SSD = direction_network_SSD.to(device)
     current_embedding = squeeze_out_resnet_output(current_embedding)
 
     # clone current embedding 24 times
     current_embeddings = current_embedding.unsqueeze(0).repeat(24, 1)
 
-    thetas_directions = direction_network(current_embeddings, next_embeddings)
+    thetas_directions = direction_network_SSD(current_embeddings, next_embeddings)
     angles = [thetas_to_radians(direction) for direction in thetas_directions]
 
     final_angle = average_angles_directions(angles)
@@ -308,7 +315,7 @@ def policy_thetas_navigation_next_close_target(index_rotation, current_embedding
 def storage_to_manifold():
     global storage
     global autoencoder
-    autoencoder = load_manually_saved_ai(AUTOENCODER_NAME)
+    autoencoder = load_custom_ai(AUTOENCODER_NAME, MODELS_FOLDER)
     autoencoder.eval()
     autoencoder = autoencoder.to(device)
 
@@ -316,13 +323,102 @@ def storage_to_manifold():
     storage.build_permuted_data_raw_abstraction_autoencoder_manifold()
 
 
+def print_closest_known_position(current_embedding, angle_percent):
+    closest = find_closest_known_position(current_embedding, angle_percent)
+    print("Closest known position:", closest)
+
+
+def final_angle_policy_direction_testing(current_embedding, angle_percent, target_i, target_j):
+    global storage, direction_network_SDS
+
+    current_manifold = autoencoder.encoder_inference(current_embedding.unsqueeze(0)).squeeze()
+    target_manifold = storage.get_datapoint_data_tensor_by_name(f"{target_i}_{target_j}")[0].to(device)
+
+    closest = find_closest_known_position(current_manifold, angle_percent)
+    if closest == f"{target_i}_{target_j}":
+        print("target reached")
+        return None
+
+    # test 8 directions with SDS
+    directions = [[1, 0], [1, 1], [0, 1], [-1, 1], [-1, 0], [-1, -1], [0, -1], [1, -1]]
+    directions_percent = [degrees_to_percent(direction_to_degrees_atan(direction)) for direction in directions]
+    directions_thetas = [angle_percent_to_thetas_normalized(direction, THETAS_SIZE) for direction in directions_percent]
+    directions_thetas = torch.stack(directions_thetas).to(device)
+
+    # get predicted directions
+    predicted_manifolds = [direction_network_SDS(current_manifold.unsqueeze(0), direction.unsqueeze(0)).squeeze(0) for
+                           direction in directions_thetas]
+
+    # check to see which manifold is closest to target manifold
+    best_distance = 100000
+    best_direction = None
+    best_next_manifold = None
+    for i, predicted_manifold in enumerate(predicted_manifolds):
+        distance = torch.norm(predicted_manifold - target_manifold, p=2, dim=0).item()
+        if distance < best_distance:
+            best_distance = distance
+            best_direction = directions[i]
+            best_next_manifold = predicted_manifold
+
+    final_angle = policy_thetas_navigation_next_manifold(current_manifold, best_next_manifold)
+    return final_angle
+
+
+def final_angle_policy_abn(current_embedding, angle_percent, target_i, target_j):
+    current_manifold = autoencoder.encoder_inference(current_embedding.unsqueeze(0)).squeeze()
+    closest = find_closest_known_position(current_manifold, angle_percent)
+    if closest == f"{target_i}_{target_j}":
+        print("target reached")
+        return None
+
+    target_manifold = storage.get_datapoint_data_tensor_by_name(f"{target_i}_{target_j}")[0].to(device)
+    next_manifold_location = next_embedding_policy_ab(current_manifold, target_manifold)
+
+    final_angle = policy_thetas_navigation_next_manifold(current_manifold, next_manifold_location)
+    return final_angle
+
+
+def get_closest_point_policy() -> Generator[None, None, None]:
+    load_everything()
+    storage_to_manifold()
+    global storage, direction_network_SSD, autoencoder
+
+    autoencoder.eval()
+    target_reached = False
+
+    while True:
+        target_reached = False
+        while target_reached is False:
+            time.sleep(0.5)
+            detach_robot_sample_image_inference()
+            yield
+
+            global_data_buffer: GlobalDataBuffer = GlobalDataBuffer.get_instance()
+            buffer = global_data_buffer.buffer
+            image_data = buffer["data"]
+            empty_global_data_buffer()
+
+            nd_array_data = np.array(image_data)
+            angle = buffer["params"]["angle"]
+            angle = webots_radians_to_normal(angle)
+
+            angle_percent = angle / (2 * math.pi)
+            print("ANGLE PERCENT", angle_percent)
+
+            current_embedding = process_webots_image_to_embedding(nd_array_data).to(device)
+            current_embedding = squeeze_out_resnet_output(current_embedding)
+            current_manifold = autoencoder.encoder_inference(current_embedding.unsqueeze(0))
+            current_manifold = current_manifold.squeeze()
+
+            print_closest_known_position(current_manifold, angle_percent)
+
+
 def navigation_image_1camera_vae() -> Generator[None, None, None]:
     load_everything()
     storage_to_manifold()
-    global storage, direction_network, autoencoder
+    global storage, direction_network_SSD, autoencoder
 
     autoencoder.eval()
-
     target_reached = False
 
     while True:
@@ -352,31 +448,16 @@ def navigation_image_1camera_vae() -> Generator[None, None, None]:
 
             current_embedding = process_webots_image_to_embedding(nd_array_data).to(device)
             current_embedding = squeeze_out_resnet_output(current_embedding)
-            current_manifold = autoencoder.encoder_inference(current_embedding.unsqueeze(0)).squeeze()
 
-            closest = find_closest_known_position(current_manifold, angle_percent)
-            if closest == f"{i}_{j}":
-                print("TARGET REACHED")
-                break
+            # final_angle = final_angle_policy_abn(current_embedding, angle_percent, i, j)
+            final_angle = final_angle_policy_direction_testing(current_embedding, angle_percent, i, j)
 
-            # path = djakstra_search(closest, f"{i}_{j}")
-            # print("traversing:", closest, path[1])
-            # print(path)
-            #
-            # next_embedding = path[1]
-            # index_rotation = int(angle_percent * 24)
-            # final_angle = policy_thetas_navigation_next_close_target(index_rotation, current_manifold, next_embedding)
-
-            target_manifold = storage.get_datapoint_data_tensor_by_name(f"{i}_{j}")[0].to(device)
-            next_manifold_location = next_embedding_policy_ab(current_manifold, target_manifold)
-
-            final_angle = policy_thetas_navigation_next_manifold(current_manifold, next_manifold_location)
-
-            print("Angle:", radians_to_degrees(final_angle))
+            if final_angle is None:
+                target_reached = True
+                continue
 
             # add angle noise
-            # angle += np.random.normal(0, 0.1)
-
+            # angle += np.random.normal(0, 2.5)
             detach_robot_rotate_absolute(final_angle)
             yield
             detach_robot_forward_continuous(0.25)
@@ -384,11 +465,14 @@ def navigation_image_1camera_vae() -> Generator[None, None, None]:
 
 
 storage: StorageSuperset2 = None
-direction_network = None
+direction_network_SSD: nn.Module = None
+direction_network_SDS: nn.Module = None
 autoencoder: BaseAutoencoderModel = None
 
-# DIRECTION_NETWORK_PATH = "direction_image_raw_v3.pth"
-DIRECTION_NETWORK_SS_NAME = "direction_SS_thetas_postautoencod_saved.pth"
-AUTOENCODER_NAME = "camera1_full_forced_saved.pth"
+DIRECTION_NETWORK_SSD_NAME = "direction_SSD_v1.1.pth"
+DIRECTION_NETWORK_SDS_NAME = "direction_SDS_v1.1.pth"
+AUTOENCODER_NAME = "camera1_autoencoder_v1.1.pth"
+MODELS_FOLDER = "models_v11"
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+THETAS_SIZE = 36

@@ -75,7 +75,7 @@ def testing():
 storage: StorageSuperset2 = None
 permutor = None
 autoencoder: BaseAutoencoderModel = None
-direction_network = None
+direction_network_SSD = None
 
 DIRECTION_NETWORK = "direction_noauto_w92.pth"
 PERMUTOR_NETWORK = "permutor_deshift_working.pth"
@@ -83,7 +83,7 @@ AUTOENCODER_NETWORK = "autoencodPerm10k_working.pth"
 
 
 def load_everything():
-    global storage, permutor, autoencoder, direction_network
+    global storage, permutor, autoencoder, direction_network_SSD
 
     permutor = load_manually_saved_ai(PERMUTOR_NETWORK)
     storage = StorageSuperset2()
@@ -150,7 +150,7 @@ def angle_policy_simple(direction):
 
 def navigation8x8() -> Generator[None, None, None]:
     load_everything()
-    global storage, permutor, autoencoder, direction_network
+    global storage, permutor, autoencoder, direction_network_SSD
     permutor = permutor.to(device)
     # autoencoder = autoencoder.to(device)
     permutor.eval()

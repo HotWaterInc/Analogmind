@@ -12,7 +12,7 @@ from typing import List
 import torch.nn.functional as F
 from src.modules.pretty_display import pretty_display, set_pretty_display, pretty_display_start, pretty_display_reset
 from src.ai.runtime_data_storage.storage_superset2 import angle_to_thetas, thetas_to_radians, \
-    angle_to_thetas_normalized, \
+    angle_percent_to_thetas_normalized, \
     radians_to_degrees, atan2_to_standard_radians, radians_to_percent, coordinate_pair_to_radians_cursed_tranform
 
 if torch.cuda.is_available():
@@ -104,7 +104,7 @@ def direction_loss(direction_network, sample_rate=25):
 
             final_radian = coordinate_pair_to_radians_cursed_tranform(direction[0], direction[1])
             radian_percent = radians_to_percent(final_radian)
-            thetas_target = angle_to_thetas_normalized(radian_percent, 36)
+            thetas_target = angle_percent_to_thetas_normalized(radian_percent, 36)
 
             # print("Direction", direction)
             # print("Radian from direction", final_radian)
