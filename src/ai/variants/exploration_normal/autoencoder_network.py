@@ -11,7 +11,7 @@ from src.modules.save_load_handlers.parameters import *
 from src.ai.runtime_data_storage.storage_superset2 import StorageSuperset2
 from src.ai.runtime_data_storage import Storage
 from typing import List, Dict, Union
-from src.utils import array_to_tensor
+from src.utils import array_to_tensor, get_device
 from src.ai.models.base_autoencoder_model import BaseAutoencoderModel
 from src.ai.evaluation.evaluation import evaluate_reconstruction_error, evaluate_distances_between_pairs, \
     evaluate_adjacency_properties
@@ -25,10 +25,10 @@ import torch.nn as nn
 from src.ai.variants.blocks import ResidualBlockSmallBatchNorm, _make_layer
 
 
-class AutoencoderImagesNorth(BaseAutoencoderModel):
+class AutoencoderExploration(BaseAutoencoderModel):
     def __init__(self, dropout_rate: float = 0.2, embedding_size: int = 128, input_output_size: int = 512,
                  hidden_size: int = 512, num_blocks: int = 1):
-        super(AutoencoderImagesNorth, self).__init__()
+        super(AutoencoderExploration, self).__init__()
         self.embedding_size = embedding_size
 
         self.input_layer = nn.Linear(input_output_size, hidden_size)
@@ -86,43 +86,8 @@ def reconstruction_handling(autoencoder: BaseAutoencoderModel, data: any,
     return criterion(dec, data) * scale_reconstruction_loss
 
 
-def adjacent_distance_handling(autoencoder: BaseAutoencoderModel, adjacent_sample_size: int,
-                               scale_adjacent_distance_loss: float) -> tuple[torch.Tensor, float]:
-    """
-    Keeps adjacent pairs close to each other
-    """
-    sampled_pairs = storage.sample_adjacent_datapoints_connections(adjacent_sample_size)
-
-    adjacent_distance_loss = torch.tensor(0.0)
-    average_distance = 0
-    batch_datapoint1 = []
-    batch_datapoint2 = []
-    for pair in sampled_pairs:
-        # keep adjacent close to each other
-        data_point1 = storage.get_datapoint_data_tensor_by_name_permuted(pair["start"])
-        data_point2 = storage.get_datapoint_data_tensor_by_name_permuted(pair["end"])
-        batch_datapoint1.append(data_point1)
-        batch_datapoint2.append(data_point2)
-
-    batch_datapoint1 = torch.stack(batch_datapoint1).to(device)
-    batch_datapoint2 = torch.stack(batch_datapoint2).to(device)
-
-    encoded_i = autoencoder.encoder_training(batch_datapoint1)
-    encoded_j = autoencoder.encoder_training(batch_datapoint2)
-
-    embedding_size = encoded_i.shape[1]
-
-    # puts distance on cpu
-    distance = torch.sum(torch.norm((encoded_i - encoded_j), p=2)).to("cpu")
-
-    average_distance += distance.item() / adjacent_sample_size
-
-    adjacent_distance_loss += distance / adjacent_sample_size * scale_adjacent_distance_loss
-
-    return adjacent_distance_loss, average_distance
-
-
-def non_adjacent_distance_handling(autoencoder: BaseAutoencoderModel, non_adjacent_sample_size: int,
+def non_adjacent_distance_handling(autoencoder: BaseAutoencoderModel, storage: StorageSuperset2,
+                                   non_adjacent_sample_size: int,
                                    scale_non_adjacent_distance_loss: float, distance_per_neuron: float) -> torch.Tensor:
     """
     Keeps non-adjacent pairs far from each other
@@ -139,8 +104,8 @@ def non_adjacent_distance_handling(autoencoder: BaseAutoencoderModel, non_adjace
         batch_datapoint1.append(datapoint1)
         batch_datapoint2.append(datapoint2)
 
-    batch_datapoint1 = torch.stack(batch_datapoint1).to(device)
-    batch_datapoint2 = torch.stack(batch_datapoint2).to(device)
+    batch_datapoint1 = torch.stack(batch_datapoint1).to(get_device())
+    batch_datapoint2 = torch.stack(batch_datapoint2).to(get_device())
 
     encoded_i = autoencoder.encoder_training(batch_datapoint1)
     encoded_j = autoencoder.encoder_training(batch_datapoint2)
@@ -149,7 +114,7 @@ def non_adjacent_distance_handling(autoencoder: BaseAutoencoderModel, non_adjace
 
     distance = torch.norm(encoded_i - encoded_j, p=2, dim=1)
     expected_distance = [pair["distance"] * distance_per_neuron * embedding_size for pair in sampled_pairs]
-    expected_distance = torch.tensor(expected_distance, dtype=torch.float32).to(device)
+    expected_distance = torch.tensor(expected_distance, dtype=torch.float32).to(get_device())
 
     criterion = nn.MSELoss()
 
@@ -157,7 +122,8 @@ def non_adjacent_distance_handling(autoencoder: BaseAutoencoderModel, non_adjace
     return non_adjacent_distance_loss
 
 
-def train_autoencoder_with_distance_constraint(autoencoder: BaseAutoencoderModel, epochs: int) -> BaseAutoencoderModel:
+def train_autoencoder_with_distance_constraint(autoencoder: BaseAutoencoderModel, storage: StorageSuperset2,
+                                               epochs: int) -> BaseAutoencoderModel:
     # PARAMETERS
     optimizer = optim.Adam(autoencoder.parameters(), lr=0.0005)
 
@@ -167,22 +133,17 @@ def train_autoencoder_with_distance_constraint(autoencoder: BaseAutoencoderModel
     scale_adjacent_distance_loss = 0.5
     scale_non_adjacent_distance_loss = 0.5
 
-    adjacent_sample_size = 25
-    non_adjacent_sample_size = 300
+    non_adjacent_sample_size = 1000
 
     epoch_average_loss = 0
     reconstruction_average_loss = 0
-    adjacent_average_loss = 0
     non_adjacent_average_loss = 0
 
     epoch_print_rate = 100
     DISTANCE_CONSTANT_PER_NEURON = 0.005
 
-    train_data = array_to_tensor(np.array(storage.get_pure_permuted_raw_env_data())).to(device)
-    autoencoder = autoencoder.to(device)
-
-    best_loss = 10000000
-    stagnation_streak = 0
+    train_data = array_to_tensor(np.array(storage.get_pure_permuted_raw_env_data())).to(get_device())
+    autoencoder = autoencoder.to(get_device())
 
     set_pretty_display(epoch_print_rate, "Epoch batch")
     pretty_display_start(0)
@@ -197,61 +158,39 @@ def train_autoencoder_with_distance_constraint(autoencoder: BaseAutoencoderModel
         reconstruction_loss = reconstruction_handling(autoencoder, train_data, scale_reconstruction_loss)
         reconstruction_loss.backward()
 
-        # ADJACENT DISTANCE LOSS
-        adjacent_distance_loss = torch.tensor(0.0)
-        # adjacent_distance_loss, average_distance_adjacent = adjacent_distance_handling(autoencoder,
-        #                                                                                adjacent_sample_size,
-        #                                                                                scale_adjacent_distance_loss)
-        # adjacent_distance_loss.backward()
-
         # NON-ADJACENT DISTANCE LOSS
         non_adjacent_distance_loss = torch.tensor(0.0)
-        non_adjacent_distance_loss = non_adjacent_distance_handling(autoencoder, non_adjacent_sample_size,
+        non_adjacent_distance_loss = non_adjacent_distance_handling(autoencoder, storage, non_adjacent_sample_size,
                                                                     scale_non_adjacent_distance_loss,
                                                                     distance_per_neuron=DISTANCE_CONSTANT_PER_NEURON)
         non_adjacent_distance_loss.backward()
 
         optimizer.step()
 
-        epoch_loss += reconstruction_loss.item() + adjacent_distance_loss.item() + non_adjacent_distance_loss.item()
+        epoch_loss += reconstruction_loss.item() + non_adjacent_distance_loss.item()
 
         epoch_average_loss += epoch_loss
 
         reconstruction_average_loss += reconstruction_loss.item()
-        adjacent_average_loss += adjacent_distance_loss.item()
         non_adjacent_average_loss += non_adjacent_distance_loss.item()
 
         pretty_display(epoch % epoch_print_rate)
 
         if epoch % epoch_print_rate == 0 and epoch != 0:
-
             epoch_average_loss /= epoch_print_rate
             reconstruction_average_loss /= epoch_print_rate
-            adjacent_average_loss /= epoch_print_rate
             non_adjacent_average_loss /= epoch_print_rate
-
-            if epoch_average_loss < best_loss:
-                best_loss = epoch_average_loss
-                stagnation_streak = 0
-
-            if epoch_average_loss >= best_loss:
-                stagnation_streak += 1
-
-            if stagnation_streak >= 10:
-                break
-
             # Print average loss for this epoch
             print("")
-            print(f"EPOCH:{epoch}/{num_epochs} - streak: {stagnation_streak}")
+            print(f"EPOCH:{epoch}/{num_epochs}")
             # print(f"average distance between adjacent: {average_distance_adjacent}")
             print(
-                f"RECONSTRUCTION LOSS:{reconstruction_average_loss} | ADJACENT LOSS:{adjacent_average_loss} | NON-ADJACENT LOSS:{non_adjacent_average_loss}")
+                f"RECONSTRUCTION LOSS:{reconstruction_average_loss} | NON-ADJACENT LOSS:{non_adjacent_average_loss}")
             print(f"AVERAGE LOSS:{epoch_average_loss}")
             print("--------------------------------------------------")
 
             epoch_average_loss = 0
             reconstruction_average_loss = 0
-            adjacent_average_loss = 0
             non_adjacent_average_loss = 0
 
             pretty_display_reset()
@@ -260,47 +199,19 @@ def train_autoencoder_with_distance_constraint(autoencoder: BaseAutoencoderModel
     return autoencoder
 
 
-def run_tests(autoencoder):
-    global storage
-
-    evaluate_reconstruction_error_super(autoencoder, storage, rotations0=True)
-    avg_distance_adj = evaluate_distances_between_pairs_super(autoencoder, storage, rotations0=True)
-    evaluate_adjacency_properties_super(autoencoder, storage, avg_distance_adj, rotation0=True)
-
-
-def run_loaded_ai():
-    # autoencoder = load_manually_saved_ai("autoenc_dynamic10k.pth")
-    autoencoder = load_manually_saved_ai("autoencod_imaged_north.pth")
-    run_tests(autoencoder)
+def run_tests(autoencoder: BaseAutoencoderModel, storage: StorageSuperset2):
+    # evaluate_reconstruction_error_super(autoencoder, storage, rotations0=True)
+    # avg_distance_adj = evaluate_distances_between_pairs_super(autoencoder, storage, rotations0=True)
+    # evaluate_adjacency_properties_super(autoencoder, storage, avg_distance_adj, rotation0=True)
+    pass
 
 
-def run_new_ai() -> None:
-    autoencoder = AutoencoderImagesNorth()
-    train_autoencoder_with_distance_constraint(autoencoder, epochs=1001)
-    save_ai_manually("autoencod_imaged_north", autoencoder)
-    run_tests(autoencoder)
-
-
-def run_autoencoder_images_north() -> None:
-    global storage
-    global permutor
-
-    grid_dataset = 5
-
-    storage.load_raw_data_from_others(f"data{grid_dataset}x{grid_dataset}_rotated24_image_embeddings.json")
-    storage.load_raw_data_connections_from_others(f"data{grid_dataset}x{grid_dataset}_connections.json")
-    # selects first rotation
+def run_autoencoder_network(autoencoder: BaseAutoencoderModel, storage: StorageSuperset2):
     storage.build_permuted_data_random_rotations_rotation0()
+    autoencoder = train_autoencoder_with_distance_constraint(autoencoder, storage, epochs=3001)
 
-    run_new_ai()
-    # run_loaded_ai()
+    return autoencoder
 
 
-storage: StorageSuperset2 = StorageSuperset2()
-permutor = None
-
-device = None
-if torch.cuda.is_available():
-    device = torch.device("cuda")
-else:
-    device = torch.device("cpu")
+def generate_autoencoder_ai():
+    return AutoencoderExploration().to(get_device())

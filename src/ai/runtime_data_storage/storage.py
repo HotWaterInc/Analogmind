@@ -47,7 +47,7 @@ class RawConnectionData(TypedDict):
 class AdjacencyDataSample(TypedDict):
     start: str  # uid of the datapoint
     end: str  # uid of the datapoint
-    distance: int
+    distance: float
 
 
 class Storage:
@@ -206,9 +206,10 @@ class Storage:
         array: List[AdjacencyDataSample] = []
         for i in range(len(self.raw_env_data)):
             for j in range(i + 1, len(self.raw_env_data)):
-                i_x, i_y = self.raw_env_data[i]["params"]["i"], self.raw_env_data[i]["params"]["j"]
-                j_x, j_y = self.raw_env_data[j]["params"]["i"], self.raw_env_data[j]["params"]["j"]
-                distance = abs(i_x - j_x) + abs(i_y - j_y)
+                i_x, i_y = self.raw_env_data[i]["params"]["x"], self.raw_env_data[i]["params"]["y"]
+                j_x, j_y = self.raw_env_data[j]["params"]["x"], self.raw_env_data[j]["params"]["y"]
+
+                distance = np.sqrt((i_x - j_x) ** 2 + (i_y - j_y) ** 2)
                 adjacency_sample = AdjacencyDataSample(start=self.raw_env_data[i]["name"],
                                                        end=self.raw_env_data[j]["name"], distance=distance)
                 array.append(adjacency_sample)
@@ -370,6 +371,8 @@ class Storage:
             start = connection_copy["start"]
             end = connection_copy["end"]
             distance = connection_copy["distance"]
+            if connection_copy["direction"] == None:
+                continue
             direction = connection_copy["direction"].copy()
             if start == datapoint_name:
                 found_connections.append(connection_copy)
@@ -496,8 +499,8 @@ class Storage:
             start_data = self.get_datapoint_by_name(start)["params"]
             end_data = self.get_datapoint_by_name(end)["params"]
 
-            x_start, y_start = start_data["i"], start_data["j"]
-            x_end, y_end = end_data["i"], end_data["j"]
+            x_start, y_start = start_data["x"], start_data["y"]
+            x_end, y_end = end_data["x"], end_data["y"]
 
             x_dir = x_end - x_start
             y_dir = y_end - y_start

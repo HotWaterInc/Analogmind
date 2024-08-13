@@ -9,6 +9,7 @@ from src.modules.time_profiler import start_profiler, profiler_checkpoint
 from typing import List
 from src.modules.time_profiler import start_profiler, profiler_checkpoint, profiler_checkpoint_blank
 from src.modules.pretty_display import pretty_display_reset, pretty_display_start, pretty_display, set_pretty_display
+from src.ai.variants.exploration_normal.utils import check_min_distance
 
 
 def _get_connection_distances(storage: StorageSuperset2, seen_network: SeenNetwork) -> any:
@@ -99,33 +100,6 @@ def eval_distances_threshold_averages(storage: StorageSuperset2, seen_network: S
     return average_distance_embeddings, average_distance_data
 
 
-def _check_min_distance(storage: StorageSuperset2, datapoint):
-    datapoints_names = storage.get_all_datapoints()
-    current_x = datapoint["params"]["x"]
-    current_y = datapoint["params"]["y"]
-    current_name = datapoint["name"]
-    adjcent_names = storage.get_datapoint_adjacent_datapoints_at_most_n_deg(current_name, 2)
-    adjcent_names.append(current_name)
-
-    minimum_real_distance = 1000000
-
-    for name in datapoints_names:
-        if name in adjcent_names or name == current_name:
-            continue
-
-        data = storage.get_datapoint_by_name(name)
-
-        data_x = data["params"]["x"]
-        data_y = data["params"]["y"]
-        data_name = name
-
-        real_distance = np.sqrt((current_x - data_x) ** 2 + (current_y - data_y) ** 2)
-        if real_distance < minimum_real_distance:
-            minimum_real_distance = real_distance
-
-    return minimum_real_distance
-
-
 def evaluate_distance_metric(storage: StorageSuperset2, metric, new_datapoints: List[any],
                              distance_threshold):
     """
@@ -139,7 +113,7 @@ def evaluate_distance_metric(storage: StorageSuperset2, metric, new_datapoints: 
     print("Started evaluating metric")
     # finds out what new datapoints should be found as adjacent
     for new_datapoint in new_datapoints:
-        minimum_distance = _check_min_distance(storage, new_datapoint)
+        minimum_distance = check_min_distance(storage, new_datapoint)
         if minimum_distance < THRESHOLD:
             should_be_found.append(new_datapoint)
         else:
@@ -200,5 +174,5 @@ def evaluate_distance_metric(storage: StorageSuperset2, metric, new_datapoints: 
         f"Accuracy: {(true_positives + true_negatives) / (true_positives + true_negatives + false_positives + false_negatives)}")
 
     for false_positive in false_positives_arr:
-        distance = _check_min_distance(storage, false_positive)
+        distance = check_min_distance(storage, false_positive)
         print("false positive", distance)

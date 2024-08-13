@@ -1,8 +1,10 @@
 import time
 import math
 from typing import Dict, TypedDict, Generator, List, Tuple, Any
-
 from src.action_ai_controller import ActionAIController
+from src.ai.variants.exploration_normal.SSDir_network import run_SSDirection, SSDirNetwork
+from src.ai.variants.exploration_normal.evaluation_misc import run_tests_SSDir
+from src.ai.variants.exploration_normal.mutations import build_missing_connections_with_cheating
 from src.ai.variants.exploration_normal.neighborhood_network import NeighborhoodNetwork, run_neighborhood_network
 from src.ai.variants.exploration_normal.neighborhood_network_thetas import NeighborhoodNetworkThetas, \
     run_neighborhood_network_thetas, generate_new_ai_neighborhood_thetas, DISTANCE_THETAS_SIZE, MAX_DISTANCE
@@ -22,7 +24,6 @@ import torch.optim as optim
 import numpy as np
 from src.modules.save_load_handlers.ai_models_handle import save_ai, save_ai_manually, load_latest_ai, \
     load_manually_saved_ai, load_custom_ai, load_other_ai
-
 from src.modules.save_load_handlers.parameters import *
 from src.ai.runtime_data_storage.storage_superset2 import *
 from src.ai.runtime_data_storage import Storage
@@ -40,16 +41,20 @@ from src.modules.policies.testing_image_data import test_images_accuracy, proces
 from src.modules.policies.utils_lib import webots_radians_to_normal, radians_to_degrees
 import torch
 from src.utils import get_device
-from src.ai.variants.exploration_normal.evaluation_metrics import print_distances_embeddings_inputs, \
+from src.ai.variants.exploration_normal.evaluation_exploration import print_distances_embeddings_inputs, \
     eval_distances_threshold_averages, evaluate_distance_metric
+
+from src.ai.variants.exploration_normal.autoencoder_network import run_autoencoder_network, AutoencoderExploration
 
 
 def initial_setup():
-    global storage, seen_network, neighborhood_network
+    global storage, seen_network, neighborhood_network, autoencoder, SSDir_network
 
     storage = StorageSuperset2()
     seen_network = SeenNetwork().to(get_device())
     neighborhood_network = NeighborhoodNetwork().to(get_device())
+    autoencoder = AutoencoderExploration().to(get_device())
+    SSDir_network = SSDirNetwork().to(get_device())
 
 
 def collect_data_generator():
@@ -391,14 +396,11 @@ def random_walk_policy(random_walk_datapoints, random_walk_connections):
 
 def exploration_policy() -> Generator[None, None, None]:
     initial_setup()
-    global storage, seen_network, neighborhood_network
+    global storage, seen_network, neighborhood_network, autoencoder, SSDir_network
 
     while True:
         random_walk_datapoints = []
         random_walk_connections = []
-
-        # yield from display_sensor_data()
-        # continue
 
         detach_robot_teleport_absolute(0, 0)
         yield
@@ -421,20 +423,33 @@ def exploration_policy() -> Generator[None, None, None]:
         # neighborhood_network = load_manually_saved_ai("neighborhood_network_thetas_cache.pth")
         # save_ai_manually("neighborhood_network_thetas_cache", neighborhood_network)
 
-        neighborhood_network = neighborhood_network.to(get_device())
-        neighborhood_network.eval()
+        # neighborhood_network = neighborhood_network.to(get_device())
+        # neighborhood_network.eval()
 
-        find_adjacent_policy = build_find_adjacency_heursitic_raw_data(storage, seen_network)
+        # find_adjacent_policy = build_find_adjacency_heursitic_raw_data(storage, seen_network)
         # find_adjacent_policy = build_find_adjacency_heursitic_neighborhood_network(neighborhood_network)
         # find_adjacent_policy = build_find_adjacency_heursitic_neighborhood_network_thetas(neighborhood_network)
         # evaluate_distance_metric(storage, find_adjacent_policy, random_walk_datapoints,
         #                          distance_threshold=0.35)
 
-        serialize_object_other("storage_superset2_with_augmented_connection", storage)
+        build_missing_connections_with_cheating(storage, random_walk_datapoints, distance_threshold=0.35)
+
+        # serialize_object_other("storage_superset2_with_augmented_connections", storage)
+        # print(storage.get_all_datapoints())
+        # autoencoder = run_autoencoder_network(autoencoder, storage)
+        # save_ai_manually("autoencoder_exploration", autoencoder)
+
+        autoencoder = load_manually_saved_ai("autoencoder_exploration.pth")
+        SSDir_network = run_SSDirection(SSDir_network, autoencoder, storage)
+        run_tests_SSDir(SSDir_network, storage)
+
         break
+
     yield
 
 
 storage: StorageSuperset2 = None
 seen_network: SeenNetwork = None
 neighborhood_network: NeighborhoodNetwork = None
+autoencoder: AutoencoderExploration = None
+SSDir_network: SSDirNetwork = None

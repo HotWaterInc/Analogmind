@@ -182,10 +182,17 @@ def distance_percent_to_distance_thetas(true_theta_percent, thetas_length):
     return thetas
 
 
+_cache_thetas = {}
+
+
 def angle_percent_to_thetas_normalized(true_theta_percent, thetas_length):
     thetas = torch.zeros(thetas_length)
     if true_theta_percent == 1:
         true_theta_percent = 0
+
+    if true_theta_percent in _cache_thetas:
+        return _cache_thetas[true_theta_percent]
+
     true_theta_index = true_theta_percent * thetas_length
     integer_index_left = int(true_theta_index)
     integer_index_right = integer_index_left + 1
@@ -209,6 +216,8 @@ def angle_percent_to_thetas_normalized(true_theta_percent, thetas_length):
 
     l1_norm = torch.norm(thetas, p=1)
     thetas /= l1_norm
+
+    _cache_thetas[true_theta_percent] = thetas
     return thetas
 
 

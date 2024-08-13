@@ -58,8 +58,6 @@ def exploration_pipeline():
 
 
 if __name__ == "__main__":
-    # navigation_1camera_vae_pipeline()
-    # run_vae_abstract_block()
     exploration_pipeline()
 
     pass
