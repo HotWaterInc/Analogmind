@@ -2,8 +2,10 @@ import time
 import math
 from typing import Dict, TypedDict, Generator, List, Tuple, Any
 from src.action_ai_controller import ActionAIController
-from src.ai.variants.exploration_normal.SSDir_network import run_SSDirection, SSDirNetwork
-from src.ai.variants.exploration_normal.evaluation_misc import run_tests_SSDir
+from src.ai.variants.exploration_normal.SDirDistState_network import run_SDirDistState, SDirDistState
+from src.ai.variants.exploration_normal.SSDir_network import run_SSDirection, SSDirNetwork, storage_to_manifold
+from src.ai.variants.exploration_normal.evaluation_misc import run_tests_SSDir, run_tests_SSDir_unseen, \
+    run_tests_SDirDistState
 from src.ai.variants.exploration_normal.mutations import build_missing_connections_with_cheating
 from src.ai.variants.exploration_normal.neighborhood_network import NeighborhoodNetwork, run_neighborhood_network
 from src.ai.variants.exploration_normal.neighborhood_network_thetas import NeighborhoodNetworkThetas, \
@@ -48,13 +50,14 @@ from src.ai.variants.exploration_normal.autoencoder_network import run_autoencod
 
 
 def initial_setup():
-    global storage, seen_network, neighborhood_network, autoencoder, SSDir_network
+    global storage, seen_network, neighborhood_network, autoencoder, SSDir_network, SDirDistState_network
 
     storage = StorageSuperset2()
     seen_network = SeenNetwork().to(get_device())
     neighborhood_network = NeighborhoodNetwork().to(get_device())
     autoencoder = AutoencoderExploration().to(get_device())
     SSDir_network = SSDirNetwork().to(get_device())
+    SDirDistState_network = SDirDistState().to(get_device())
 
 
 def collect_data_generator():
@@ -396,7 +399,7 @@ def random_walk_policy(random_walk_datapoints, random_walk_connections):
 
 def exploration_policy() -> Generator[None, None, None]:
     initial_setup()
-    global storage, seen_network, neighborhood_network, autoencoder, SSDir_network
+    global storage, seen_network, neighborhood_network, autoencoder, SSDir_network, SDirDistState_network
 
     while True:
         random_walk_datapoints = []
@@ -439,9 +442,17 @@ def exploration_policy() -> Generator[None, None, None]:
         # autoencoder = run_autoencoder_network(autoencoder, storage)
         # save_ai_manually("autoencoder_exploration", autoencoder)
 
-        autoencoder = load_manually_saved_ai("autoencoder_exploration.pth")
-        SSDir_network = run_SSDirection(SSDir_network, autoencoder, storage)
-        run_tests_SSDir(SSDir_network, storage)
+        autoencoder = load_manually_saved_ai("autoencoder_exploration_saved.pth")
+
+        storage_to_manifold(storage, autoencoder)
+
+        # SSDir_network = load_manually_saved_ai("SSDir_network_saved.pth")
+        # run_tests_SSDir(SSDir_network, storage)
+        # run_tests_SSDir_unseen(SSDir_network, storage)
+
+        SDirDistState_network = run_SDirDistState(SDirDistState_network, storage)
+        save_ai_manually("SDirDistState_network", SDirDistState_network)
+        run_tests_SDirDistState(SDirDistState_network, storage)
 
         break
 
@@ -453,3 +464,4 @@ seen_network: SeenNetwork = None
 neighborhood_network: NeighborhoodNetwork = None
 autoencoder: AutoencoderExploration = None
 SSDir_network: SSDirNetwork = None
+SDirDistState_network: SDirDistState = None

@@ -14,7 +14,6 @@ from src.ai.variants.exploration_normal.utils import get_missing_connections_bas
 
 def build_missing_connections_with_cheating(storage: StorageSuperset2, new_datapoints, distance_threshold):
     THRESHOLD = distance_threshold
-    print("start build connections")
 
     all_new_connections = []
     for new_datapoint in new_datapoints:
@@ -22,7 +21,6 @@ def build_missing_connections_with_cheating(storage: StorageSuperset2, new_datap
         all_new_connections.extend(new_connections)
 
     storage.incorporate_new_data([], all_new_connections)
-    print("finished building connections")
 
 
 def build_missing_connections_with_metric(storage: StorageSuperset2, metric, new_datapoints: List[any],

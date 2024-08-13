@@ -41,7 +41,7 @@ import torchvision.transforms as transforms
 
 
 def load_everything():
-    global storage, direction_network_SSD, direction_network_SDS, AUTOENCODER_NAME
+    global storage, direction_network_SSD, direction_network_SDirDistS, AUTOENCODER_NAME
 
     storage = StorageSuperset2()
     grid_dataset = 5
@@ -328,7 +328,7 @@ def print_closest_known_position(current_embedding, angle_percent):
 
 
 def final_angle_policy_direction_testing(current_embedding, angle_percent, target_i, target_j):
-    global storage, direction_network_SDS
+    global storage, direction_network_SDirDistS
 
     current_manifold = autoencoder.encoder_inference(current_embedding.unsqueeze(0)).squeeze()
     target_manifold = storage.get_datapoint_data_tensor_by_name(f"{target_i}_{target_j}")[0].to(device)
@@ -467,7 +467,7 @@ def navigation_image_1camera_vae() -> Generator[None, None, None]:
 
 storage: StorageSuperset2 = None
 direction_network_SSD: nn.Module = None
-direction_network_SDS: nn.Module = None
+direction_network_SDirDistS: nn.Module = None
 autoencoder: BaseAutoencoderModel = None
 
 DIRECTION_NETWORK_SSD_NAME = "direction_SSD_v1.1.pth"

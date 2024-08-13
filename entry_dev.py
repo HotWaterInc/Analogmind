@@ -1,3 +1,5 @@
+from src.ai.runtime_data_storage.storage_superset2 import StorageSuperset2
+from src.ai.variants.exploration_normal.mutations import build_missing_connections_with_cheating
 from src.modules.external_communication import start_server
 from src.configs_setup import configs_communication, config_data_collection_pipeline
 import threading
@@ -11,6 +13,9 @@ from src.ai.variants.camera1_full_forced.direction_network_SS import run_directi
 from src.ai.variants.camera1_full_forced.direction_network_SDS import run_direction_post_autoencod_SDS
 from src.ai.variants.camera1_full_forced.vae_abstract_block_image import run_vae_abstract_block
 from src.ai.variants.exploration_normal.exploration_policy import exploration_policy
+
+from src.ai.variants.exploration_normal.inference_policy import teleportation_exploring_inference
+from src.modules.save_load_handlers.data_handle import read_other_data_from_file
 
 
 def start_server_thread():
@@ -57,7 +62,29 @@ def exploration_pipeline():
     server_thread.join()
 
 
+def inference_north_pipeline():
+    configs_communication()
+    models_folder = "exploration_inference_v1_north"
+    autoencoder_name = "autoencoder_exploration_saved.pth"
+    SSD_name = "SSDir_network_saved.pth"
+    SDirDistS_name = "SDirDistState_network_saved.pth"
+    storage: StorageSuperset2 = StorageSuperset2()
+    random_walk_datapoints = read_other_data_from_file(f"datapoints_random_walks_500.json")
+    random_walk_connections = read_other_data_from_file(f"datapoints_connections_randon_walks_500.json")
+    storage.incorporate_new_data(random_walk_datapoints, random_walk_connections)
+    build_missing_connections_with_cheating(storage, random_walk_datapoints, distance_threshold=0.35)
+
+    generator = teleportation_exploring_inference(models_folder, autoencoder_name, SSD_name, SDirDistS_name, storage)
+
+    config_data_collection_pipeline(generator)
+    server_thread = threading.Thread(target=start_server, name="ServerThread")
+    server_thread.start()
+
+    server_thread.join()
+
+
 if __name__ == "__main__":
-    exploration_pipeline()
+    # exploration_pipeline()
+    inference_north_pipeline()
 
     pass

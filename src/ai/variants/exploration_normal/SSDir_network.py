@@ -18,10 +18,12 @@ from src.ai.runtime_data_storage.storage_superset2 import angle_to_thetas, theta
 from src.ai.variants.blocks import ResidualBlockSmallBatchNorm
 
 THETAS_SIZE = 36
+MANIFOLD_SIZE = 128
 
 
 class SSDirNetwork(nn.Module):
-    def __init__(self, input_size=128, hidden_size=512, output_size=THETAS_SIZE, dropout_rate=0.3, num_blocks=1):
+    def __init__(self, input_size=MANIFOLD_SIZE, hidden_size=512, output_size=THETAS_SIZE, dropout_rate=0.3,
+                 num_blocks=1):
         super(SSDirNetwork, self).__init__()
 
         self.input_layer = nn.Linear(input_size * 2, hidden_size)
@@ -175,6 +177,6 @@ def storage_to_manifold(storage: StorageSuperset2, autoencoder: BaseAutoencoderM
 
 
 def run_SSDirection(SSDir_network: SSDirNetwork, autoencoder: BaseAutoencoderModel, storage: StorageSuperset2):
-    storage_to_manifold(storage, autoencoder)
+    # storage_to_manifold(storage, autoencoder)
     direction_network = train_direction_ai(SSDir_network, storage, num_epochs=2500)
     return direction_network

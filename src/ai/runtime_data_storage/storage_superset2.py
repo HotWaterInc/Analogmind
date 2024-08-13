@@ -10,11 +10,14 @@ from src.ai.data_processing.ai_data_processing import normalize_data_min_max_sup
 import math
 from scipy.stats import norm
 
-device = None
-if torch.cuda.is_available():
-    device = torch.device("cuda")
-else:
-    device = torch.device("cpu")
+from ...utils import get_device
+
+
+def normalize_direction(direction):
+    direction = torch.tensor(direction, dtype=torch.float32, device=get_device())
+    l2_direction = torch.norm(direction, p=2, dim=0, keepdim=True)
+    direction = direction / l2_direction
+    return direction
 
 
 def calculate_coords_distance(coords1, coords2):
@@ -152,7 +155,7 @@ def distance_thetas_to_distance_percent(thetas):
 
 def distance_percent_to_distance_thetas(true_theta_percent, thetas_length):
     thetas = torch.zeros(thetas_length)
-    if true_theta_percent == 1:
+    if true_theta_percent >= 1:
         true_theta_percent = 0.99
 
     true_theta_index = true_theta_percent * thetas_length
@@ -280,7 +283,7 @@ class StorageSuperset2(StorageSuperset):
         """
         for index, datapoint in enumerate(self.raw_env_data):
             name = datapoint["name"]
-            data_tensor = torch.tensor(np.array(datapoint["data"]), dtype=torch.float32, device=device)
+            data_tensor = torch.tensor(np.array(datapoint["data"]), dtype=torch.float32, device=get_device())
             thetas_batch = []
             rotations_count = len(data_tensor)
             for index_rot in range(rotations_count):
@@ -288,7 +291,7 @@ class StorageSuperset2(StorageSuperset):
                 thetas = build_thetas(theta, 36)
                 thetas_batch.append(thetas)
 
-            thetas_batch = torch.stack(thetas_batch).to(device)
+            thetas_batch = torch.stack(thetas_batch).to(get_device())
 
             permuted_data: torch.Tensor = self.permutor(data_tensor, thetas_batch)
 
@@ -309,7 +312,7 @@ class StorageSuperset2(StorageSuperset):
                 new_datapoint = self.get_point_rotations_with_full_info_set_offset_concatenated(name, 12, offset)
                 new_data.append(new_datapoint)
 
-            new_data = torch.tensor(new_data, dtype=torch.float32, device=device)
+            new_data = torch.tensor(new_data, dtype=torch.float32, device=get_device())
 
             permuted_data: torch.Tensor = self.permutor(new_data)
             permuted_data_raw = permuted_data.tolist()
@@ -323,10 +326,9 @@ class StorageSuperset2(StorageSuperset):
         """
         Returns the data point by its name
         """
-        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
         for index, datapoint in enumerate(self.raw_env_data):
-            data_tensor = torch.tensor(np.array(datapoint["data"]), dtype=torch.float32, device=device)
+            data_tensor = torch.tensor(np.array(datapoint["data"]), dtype=torch.float32, device=get_device())
             manifold_position = self.permutor.encoder_inference(data_tensor)
             if isinstance(manifold_position, tuple):
                 manifold_position = manifold_position[0]
@@ -341,11 +343,10 @@ class StorageSuperset2(StorageSuperset):
         """
         Returns the data point by its name
         """
-        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
         for index, datapoint in enumerate(self.raw_env_data):
             name = datapoint["name"]
-            data_tensor = torch.tensor(np.array(datapoint["data"]), dtype=torch.float32, device=device)
+            data_tensor = torch.tensor(np.array(datapoint["data"]), dtype=torch.float32, device=get_device())
             positional_encoding, rotational_encoding = self.permutor.encoder_training(data_tensor)
 
             permuted_data_raw = positional_encoding.tolist()
