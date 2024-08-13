@@ -17,6 +17,10 @@ else:
     device = torch.device("cpu")
 
 
+def calculate_coords_distance(coords1, coords2):
+    return math.sqrt((coords1[0] - coords2[0]) ** 2 + (coords1[1] - coords2[1]) ** 2)
+
+
 def build_thetas_2(true_theta, thetas_length):
     thetas = torch.zeros(thetas_length)
     true_theta_index = true_theta * (thetas_length)
@@ -126,6 +130,56 @@ def coordinate_pair_to_radians_cursed_tranform(x_component, y_component):
 
 def radians_to_percent(radians):
     return radians / (2 * np.pi)
+
+
+_cache_distances = {}
+
+
+def distance_thetas_to_distance_percent(thetas):
+    length = len(thetas)
+    step = 1 / length
+    distance_result = 0
+    for i in range(length):
+        distance = i * step
+        distance_result += distance * thetas[i]
+
+    # the thetas arr should already be normalized but just in case
+    l1_norm = torch.norm(thetas, p=1)
+    distance_result /= l1_norm
+
+    return distance_result
+
+
+def distance_percent_to_distance_thetas(true_theta_percent, thetas_length):
+    thetas = torch.zeros(thetas_length)
+    if true_theta_percent == 1:
+        true_theta_percent = 0.99
+
+    true_theta_index = true_theta_percent * thetas_length
+    if true_theta_index in _cache_distances:
+        return _cache_distances[true_theta_index]
+
+    integer_index_left = int(true_theta_index)
+    integer_index_right = integer_index_left + 1
+
+    FILL_DISTANCE = 3
+    SD = 1
+    for i in range(FILL_DISTANCE):
+        left_index = integer_index_left - i
+        right_index = integer_index_right + i
+
+        if left_index > 0:
+            pdf_value = norm.pdf(left_index, loc=true_theta_index, scale=SD)
+            thetas[left_index] = pdf_value
+
+        if right_index < len(thetas):
+            pdf_value = norm.pdf(right_index, loc=true_theta_index, scale=SD)
+            thetas[right_index] = pdf_value
+
+    l1_norm = torch.norm(thetas, p=1)
+    thetas /= l1_norm
+    _cache_distances[true_theta_index] = thetas
+    return thetas
 
 
 def angle_percent_to_thetas_normalized(true_theta_percent, thetas_length):
@@ -265,6 +319,8 @@ class StorageSuperset2(StorageSuperset):
         for index, datapoint in enumerate(self.raw_env_data):
             data_tensor = torch.tensor(np.array(datapoint["data"]), dtype=torch.float32, device=device)
             manifold_position = self.permutor.encoder_inference(data_tensor)
+            if isinstance(manifold_position, tuple):
+                manifold_position = manifold_position[0]
 
             permuted_data_raw = manifold_position.tolist()
             self.raw_env_data[index]["data"] = permuted_data_raw
@@ -354,6 +410,7 @@ class StorageSuperset2(StorageSuperset):
             self.raw_env_data_permuted_choice_map[name] = datapoint
 
     def build_permuted_data_random_rotations_rotation0(self) -> None:
+
         """
         Returns the data point by its name
         """
@@ -510,3 +567,12 @@ class StorageSuperset2(StorageSuperset):
         Returns the data point by its name
         """
         return torch.tensor(self.raw_env_data_permuted_choice_map[name]["data"], dtype=torch.float32)
+
+    def incorporate_new_data(self, new_datapoints, new_connections):
+        for datapoint in new_datapoints:
+            self.raw_env_data.append(datapoint)
+
+        for connection in new_connections:
+            self.raw_connections_data.append(connection)
+
+        self._convert_raw_data_to_map()

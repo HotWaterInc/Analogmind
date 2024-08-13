@@ -299,6 +299,20 @@ class Storage:
 
         return self.raw_env_data_map[name]["data"]
 
+    _cached_tensors: Dict[str, torch.Tensor] = {}
+
+    def get_datapoint_data_tensor_by_name_cached(self, name: str) -> torch.Tensor:
+        """
+        Returns the data point by its name
+        """
+
+        if name in self._cached_tensors:
+            return self._cached_tensors[name]
+
+        tens = torch.tensor(self.raw_env_data_map[name]["data"], dtype=torch.float32)
+        self._cached_tensors[name] = tens
+        return tens
+
     def get_datapoint_data_tensor_by_name(self, name: str) -> torch.Tensor:
         """
         Returns the data point by its name
@@ -396,6 +410,12 @@ class Storage:
         self._connection_directed_cache[datapoint_name] = found_connections
         return found_connections
 
+    def get_datapoint_metadata_coords(self, name):
+        """
+        Returns the metadata coordinates of a datapoint
+        """
+        return [self.raw_env_data_map[name]["params"]["x"], self.raw_env_data_map[name]["params"]["y"]]
+
     def _expand_existing_datapoints_with_adjacent(self, datapoints: List[str]):
         """
         Expands the datapoints with the adjacent ones
@@ -415,6 +435,21 @@ class Storage:
         new_datapoints = list(set(new_datapoints))
 
         return new_datapoints
+
+    def get_datapoints_adjacency_degree(self, datapoint1: str, datapoint2: str) -> int:
+        """
+        Returns the degree of adjacency between two datapoints
+        """
+        if datapoint1 == datapoint2:
+            return 0
+
+        degree = 1
+        adjacent_datapoints = self.get_datapoint_adjacent_datapoints_at_most_n_deg(datapoint1, degree)
+        while datapoint2 not in adjacent_datapoints:
+            degree += 1
+            adjacent_datapoints = self.get_datapoint_adjacent_datapoints_at_most_n_deg(datapoint1, degree)
+
+        return degree
 
     def get_datapoint_adjacent_datapoints_at_most_n_deg(self, datapoint_name, distance_degree: int) -> List[str]:
         """

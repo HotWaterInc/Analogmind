@@ -42,7 +42,6 @@ import torchvision.transforms as transforms
 
 def load_everything():
     global storage, direction_network_SSD, direction_network_SDS, AUTOENCODER_NAME
-    # AUTOENCODER_NAME = "vae_image_full_forced.pth"
 
     storage = StorageSuperset2()
     grid_dataset = 5
@@ -408,6 +407,8 @@ def get_closest_point_policy() -> Generator[None, None, None]:
             current_embedding = process_webots_image_to_embedding(nd_array_data).to(device)
             current_embedding = squeeze_out_resnet_output(current_embedding)
             current_manifold = autoencoder.encoder_inference(current_embedding.unsqueeze(0))
+            if isinstance(current_manifold, tuple):
+                current_manifold = current_manifold[0]
             current_manifold = current_manifold.squeeze()
 
             print_closest_known_position(current_manifold, angle_percent)

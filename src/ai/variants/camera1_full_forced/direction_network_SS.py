@@ -98,7 +98,6 @@ def direction_loss(direction_network, sample_rate=25):
 
     # Log softmax output
     output_thetas_batch = direction_network.forward_training(start_embeddings_batch, end_embeddings_batch)
-
     criterion = torch.nn.KLDivLoss(reduction='batchmean')
     loss = criterion(output_thetas_batch, target_thetas_batch)
     return loss

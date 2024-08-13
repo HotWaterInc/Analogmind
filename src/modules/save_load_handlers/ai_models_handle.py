@@ -93,6 +93,9 @@ def load_ai_version(model_type: AIType, version: int):
 
 
 def load_manually_saved_ai(model_name: str):
+    # if it doesnt end in pth
+    if model_name[-4:] != ".pth":
+        model_name += ".pth"
     model_path = get_model_path(AIType.ManuallySaved)
     absolute_model_path = prefix_path_with_root(model_path + model_name)
     model = torch.load(absolute_model_path)

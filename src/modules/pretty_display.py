@@ -44,7 +44,7 @@ def pretty_display_reset():
     print("")
 
 
-def pretty_display_start(current_line_value):
+def pretty_display_start(current_line_value=0):
     global current_line
     print(f"{pretty_display_name}: {current_line_value} loading:", end="")
     current_line = True

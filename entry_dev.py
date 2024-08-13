@@ -10,6 +10,7 @@ from src.ai.variants.camera1_full_forced.policy_images_simple import navigation_
 from src.ai.variants.camera1_full_forced.direction_network_SS import run_direction_post_autoencod_SS
 from src.ai.variants.camera1_full_forced.direction_network_SDS import run_direction_post_autoencod_SDS
 from src.ai.variants.camera1_full_forced.vae_abstract_block_image import run_vae_abstract_block
+from src.ai.variants.exploration_normal.exploration_policy import exploration_policy
 
 
 def start_server_thread():
@@ -45,8 +46,20 @@ def navigation_1camera_vae_pipeline():
     server_thread.join()
 
 
+def exploration_pipeline():
+    configs_communication()
+    generator = exploration_policy()
+
+    config_data_collection_pipeline(generator)
+    server_thread = threading.Thread(target=start_server, name="ServerThread")
+    server_thread.start()
+
+    server_thread.join()
+
+
 if __name__ == "__main__":
-    navigation_1camera_vae_pipeline()
+    # navigation_1camera_vae_pipeline()
     # run_vae_abstract_block()
+    exploration_pipeline()
 
     pass

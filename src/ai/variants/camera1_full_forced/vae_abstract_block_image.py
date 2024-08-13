@@ -22,8 +22,8 @@ def reparameterization(mean, var):
 
 
 class VAEAutoencoderAbstractionBlockImage(BaseAutoencoderModel):
-    def __init__(self, dropout_rate: float = 0.2, position_embedding_size: int = 72, thetas_embedding_size: int = 48,
-                 hidden_size: int = 1024, num_blocks: int = 1, input_output_size=512,
+    def __init__(self, dropout_rate: float = 0.2, position_embedding_size: int = 48, thetas_embedding_size: int = 48,
+                 hidden_size: int = 256, num_blocks: int = 1, input_output_size=512,
                  concatenated_instances: int = 1):
         super(VAEAutoencoderAbstractionBlockImage, self).__init__()
         self.concatenated_instances = concatenated_instances
@@ -106,8 +106,8 @@ def vae_loss(x: torch.Tensor, x_recon: torch.Tensor, position_mean: torch.Tensor
     criterion_mse = nn.MSELoss()
     recon_loss = criterion_mse(x_recon, x)
 
-    position_kld = -0.5 * torch.sum(1 + position_logvar - position_mean.pow(2) - position_logvar.exp())
-    thetas_kld = -0.5 * torch.sum(1 + thetas_logvar - thetas_mean.pow(2) - thetas_logvar.exp())
+    position_kld = -0.5 * torch.mean(1 + position_logvar - position_mean.pow(2) - position_logvar.exp())
+    thetas_kld = -0.5 * torch.mean(1 + thetas_logvar - thetas_mean.pow(2) - thetas_logvar.exp())
 
     return recon_loss, beta * (position_kld + thetas_kld)
 
@@ -348,7 +348,7 @@ def train_vae_abstract_block(autoencoder: BaseAutoencoderModel, epochs: int,
     train_data = array_to_tensor(np.array(storage.get_pure_permuted_raw_env_data())).to(device)
 
     SHUFFLE_RATE = 5
-    beta = 1e-4 * 2
+    beta = 0
     scale_reconstruction_loss = 1
 
     if pretty_print:
@@ -464,7 +464,7 @@ def run_loaded_ai():
 
 def run_new_ai() -> None:
     autoencoder = VAEAutoencoderAbstractionBlockImage()
-    train_vae_abstract_block(autoencoder, epochs=15001, pretty_print=True)
+    train_vae_abstract_block(autoencoder, epochs=10001, pretty_print=True)
     save_ai_manually("vae_image_full_forced", autoencoder)
     run_tests(autoencoder)
 

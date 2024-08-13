@@ -53,3 +53,13 @@ def perror(*args, **kwargs):
 
 def get_instance():
     return CommunicationInterface.get_instance()
+
+
+def get_device():
+    global device
+    if not device:
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    return device
+
+
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")

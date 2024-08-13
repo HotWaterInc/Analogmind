@@ -1,4 +1,5 @@
 import json
+import pickle
 from src.utils import get_project_root, prefix_path_with_root
 from .parameters import CollectedDataType, get_data_file_path
 
@@ -37,3 +38,28 @@ def write_other_data_to_file(file_name: str, data: any) -> None:
 
     with open(file_path, 'w') as file:
         json.dump(data, file, indent=4)
+
+
+def serialize_object_other(file_name: str, obj):
+    local_path = get_data_file_path(CollectedDataType.Other)
+    file_path = prefix_path_with_root(local_path + file_name)
+    _serialize_object(obj, file_path)
+
+
+def deserialize_object_other(file_name: str):
+    local_path = get_data_file_path(CollectedDataType.Other)
+    file_path = prefix_path_with_root(local_path + file_name)
+    return _deserialize_object(file_path)
+
+
+def _serialize_object(obj, filename):
+    with open(filename, 'wb') as file:
+        pickle.dump(obj, file)
+    print(f"Object serialized and saved to '{filename}'")
+
+
+def _deserialize_object(filename):
+    with open(filename, 'rb') as file:
+        obj = pickle.load(file)
+    print(f"Object deserialized from '{filename}'")
+    return obj

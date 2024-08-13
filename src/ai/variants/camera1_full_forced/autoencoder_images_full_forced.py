@@ -17,7 +17,6 @@ from src.ai.evaluation.evaluation import evaluate_reconstruction_error, evaluate
     evaluate_adjacency_properties, evaluate_reconstruction_error_super, evaluate_distances_between_pairs_super, \
     evaluate_adjacency_properties_super
 from src.modules.pretty_display import pretty_display_reset, pretty_display_start, pretty_display, set_pretty_display
-
 import torch
 import torch.nn as nn
 from src.ai.variants.blocks import ResidualBlockSmallBatchNorm, _make_layer
