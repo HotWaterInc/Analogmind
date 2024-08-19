@@ -104,7 +104,7 @@ def adjacent_distance_handling(autoencoder: BaseAutoencoderModel, adjacent_sampl
     """
     Keeps adjacent pairs close to each other
     """
-    sampled_pairs = storage.sample_adjacent_datapoints_connections(adjacent_sample_size)
+    sampled_pairs = storage_raw.sample_adjacent_datapoints_connections(adjacent_sample_size)
 
     adjacent_distance_loss = torch.tensor(0.0)
     average_distance = 0
@@ -112,8 +112,8 @@ def adjacent_distance_handling(autoencoder: BaseAutoencoderModel, adjacent_sampl
     batch_datapoint2 = []
     for pair in sampled_pairs:
         # keep adjacent close to each other
-        data_point1 = storage.get_datapoint_data_tensor_by_name_permuted(pair["start"])
-        data_point2 = storage.get_datapoint_data_tensor_by_name_permuted(pair["end"])
+        data_point1 = storage_raw.get_datapoint_data_tensor_by_name_permuted(pair["start"])
+        data_point2 = storage_raw.get_datapoint_data_tensor_by_name_permuted(pair["end"])
         batch_datapoint1.append(data_point1)
         batch_datapoint2.append(data_point2)
 
@@ -140,14 +140,14 @@ def non_adjacent_distance_handling(autoencoder: BaseAutoencoderModel, non_adjace
     Keeps non-adjacent pairs far from each other
     """
     global count
-    sampled_pairs = storage.sample_datapoints_adjacencies(non_adjacent_sample_size)
+    sampled_pairs = storage_raw.sample_datapoints_adjacencies(non_adjacent_sample_size)
 
     batch_datapoint1 = []
     batch_datapoint2 = []
 
     for pair in sampled_pairs:
-        datapoint1 = storage.get_datapoint_data_tensor_by_name_permuted(pair["start"])
-        datapoint2 = storage.get_datapoint_data_tensor_by_name_permuted(pair["end"])
+        datapoint1 = storage_raw.get_datapoint_data_tensor_by_name_permuted(pair["start"])
+        datapoint2 = storage_raw.get_datapoint_data_tensor_by_name_permuted(pair["end"])
 
         batch_datapoint1.append(datapoint1)
         batch_datapoint2.append(datapoint2)
@@ -173,8 +173,8 @@ def permutation_adjustion_handling(autoencoder: BaseAutoencoderModel, samples: i
     """
     Keeps the permutation of the data points close to each other
     """
-    datapoint: List[str] = storage.sample_n_random_datapoints(samples)
-    datapoints_data = [storage.get_datapoint_data_tensor_by_name(name) for name in datapoint]
+    datapoint: List[str] = storage_raw.sample_n_random_datapoints(samples)
+    datapoints_data = [storage_raw.get_datapoint_data_tensor_by_name(name) for name in datapoint]
     accumulated_loss = torch.tensor(0.0)
     for datapoint_data in datapoints_data:
         enc = autoencoder.encoder_training(datapoint_data)
@@ -216,17 +216,17 @@ def train_autoencoder_with_distance_constraint(autoencoder: BaseAutoencoderModel
     epoch_print_rate = 250
     DISTANCE_CONSTANT = 0.1
 
-    train_data_names = storage.get_sensor_data_names()
-    storage.build_permuted_data_random_rotations()
-    train_data = array_to_tensor(np.array(storage.get_pure_permuted_raw_env_data()))
+    train_data_names = storage_raw.get_sensor_data_names()
+    storage_raw.build_permuted_data_random_rotations()
+    train_data = array_to_tensor(np.array(storage_raw.get_pure_permuted_raw_env_data()))
 
     best_loss = 10000000
     stagnation_streak = 0
 
     for epoch in range(num_epochs):
         if (epoch % 10 == 0):
-            storage.build_permuted_data_random_rotations()
-            train_data = array_to_tensor(np.array(storage.get_pure_permuted_raw_env_data()))
+            storage_raw.build_permuted_data_random_rotations()
+            train_data = array_to_tensor(np.array(storage_raw.get_pure_permuted_raw_env_data()))
 
         reconstruction_loss = torch.tensor(0.0)
         epoch_loss = 0.0
@@ -300,7 +300,7 @@ def train_autoencoder_with_distance_constraint(autoencoder: BaseAutoencoderModel
 
 
 def run_ai():
-    global storage
+    global storage_raw
 
     autoencoder = AutoencoderPostPermutor()
 
@@ -309,7 +309,7 @@ def run_ai():
 
 
 def eval_perm_pre_and_post(autoencoder: BaseAutoencoderModel):
-    global storage
+    global storage_raw
 
     datapoint: List[str] = storage.sample_n_random_datapoints(64)
     datapoints_data = [storage.get_datapoint_data_tensor_by_name(name) for name in datapoint]
@@ -328,7 +328,7 @@ def eval_perm_pre_and_post(autoencoder: BaseAutoencoderModel):
 
 
 def run_tests(autoencoder):
-    global storage
+    global storage_raw
 
     evaluate_reconstruction_error_super(autoencoder, storage)
     avg_distance_adj = evaluate_distances_between_pairs_super(autoencoder, storage)
@@ -339,7 +339,7 @@ def run_tests(autoencoder):
 def run_loaded_ai():
     # autoencoder = load_manually_saved_ai("autoenc_dynamic10k.pth")
     autoencoder = load_manually_saved_ai("autoencodPerm10k.pth")
-    global storage
+    global storage_raw
     storage.build_permuted_data_raw_with_thetas()
 
     run_tests(autoencoder)
@@ -352,7 +352,7 @@ def run_new_ai() -> None:
 
 
 def run_permuted_autoencoder2() -> None:
-    global storage
+    global storage_raw
     global permutor
 
     permutor = load_manually_saved_ai("permutor_deshift_working.pth")
@@ -367,5 +367,5 @@ def run_permuted_autoencoder2() -> None:
     # run_loaded_ai()
 
 
-storage: StorageSuperset2 = StorageSuperset2()
+storage_raw: StorageSuperset2 = StorageSuperset2()
 permutor = None

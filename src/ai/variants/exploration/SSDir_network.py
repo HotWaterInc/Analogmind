@@ -4,7 +4,7 @@ import torch.nn as nn
 import torch.optim as optim
 import numpy as np
 from src.ai.runtime_data_storage.storage_superset2 import StorageSuperset2, RawConnectionData
-from src.ai.variants.exploration_normal.evaluation_misc import run_tests_SSDir, run_tests_SSDir_unseen
+from src.ai.variants.exploration.evaluation_misc import run_tests_SSDir, run_tests_SSDir_unseen
 from src.modules.save_load_handlers.ai_models_handle import load_manually_saved_ai, save_ai_manually
 from src.ai.models.base_autoencoder_model import BaseAutoencoderModel
 from src.utils import array_to_tensor, get_device
@@ -176,7 +176,6 @@ def storage_to_manifold(storage: StorageSuperset2, autoencoder: BaseAutoencoderM
     storage.build_permuted_data_raw_abstraction_autoencoder_manifold()
 
 
-def run_SSDirection(SSDir_network: SSDirNetwork, autoencoder: BaseAutoencoderModel, storage: StorageSuperset2):
-    # storage_to_manifold(storage, autoencoder)
+def run_SSDirection(SSDir_network: SSDirNetwork, storage: StorageSuperset2):
     direction_network = train_direction_ai(SSDir_network, storage, num_epochs=2500)
     return direction_network

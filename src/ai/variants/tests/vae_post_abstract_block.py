@@ -88,7 +88,7 @@ def adjacent_distance_handling(autoencoder: BaseAutoencoderModel, adjacent_sampl
     """
     Keeps adjacent pairs close to each other
     """
-    sampled_pairs = storage.sample_adjacent_datapoints_connections(adjacent_sample_size)
+    sampled_pairs = storage_raw.sample_adjacent_datapoints_connections(adjacent_sample_size)
 
     adjacent_distance_loss = torch.tensor(0.0)
     average_distance = 0
@@ -96,8 +96,8 @@ def adjacent_distance_handling(autoencoder: BaseAutoencoderModel, adjacent_sampl
     batch_datapoint2 = []
     for pair in sampled_pairs:
         # keep adjacent close to each other
-        data_point1 = storage.get_datapoint_data_tensor_by_name_permuted(pair["start"])
-        data_point2 = storage.get_datapoint_data_tensor_by_name_permuted(pair["end"])
+        data_point1 = storage_raw.get_datapoint_data_tensor_by_name_permuted(pair["start"])
+        data_point2 = storage_raw.get_datapoint_data_tensor_by_name_permuted(pair["end"])
         batch_datapoint1.append(data_point1)
         batch_datapoint2.append(data_point2)
 
@@ -124,14 +124,14 @@ def non_adjacent_distance_handling(autoencoder: BaseAutoencoderModel, non_adjace
     """
     Keeps non-adjacent pairs far from each other
     """
-    sampled_pairs = storage.sample_datapoints_adjacencies(non_adjacent_sample_size)
+    sampled_pairs = storage_raw.sample_datapoints_adjacencies(non_adjacent_sample_size)
 
     batch_datapoint1 = []
     batch_datapoint2 = []
 
     for pair in sampled_pairs:
-        datapoint1 = storage.get_datapoint_data_tensor_by_name_permuted(pair["start"])
-        datapoint2 = storage.get_datapoint_data_tensor_by_name_permuted(pair["end"])
+        datapoint1 = storage_raw.get_datapoint_data_tensor_by_name_permuted(pair["start"])
+        datapoint2 = storage_raw.get_datapoint_data_tensor_by_name_permuted(pair["end"])
 
         batch_datapoint1.append(datapoint1)
         batch_datapoint2.append(datapoint2)
@@ -155,7 +155,7 @@ def non_adjacent_distance_handling(autoencoder: BaseAutoencoderModel, non_adjace
 
 
 def train_autoencoder_with_distance_constraint(autoencoder: BaseAutoencoderModel, epochs: int) -> BaseAutoencoderModel:
-    global storage
+    global storage_raw
     # PARAMETERS
     optimizer = optim.Adam(autoencoder.parameters(), lr=0.00025, amsgrad=True)
 

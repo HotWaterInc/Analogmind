@@ -17,9 +17,9 @@ from src.ai.runtime_data_storage.storage_superset2 import angle_to_thetas, theta
 from src.ai.variants.blocks import ResidualBlockSmallBatchNorm
 
 
-class NeighborhoodNetwork(nn.Module):
+class NeighborhoodDistanceNetwork(nn.Module):
     def __init__(self, input_size=512, hidden_size=128, output_size=1, dropout_rate=0.3, num_blocks=1):
-        super(NeighborhoodNetwork, self).__init__()
+        super(NeighborhoodDistanceNetwork, self).__init__()
 
         self.input_layer = nn.Linear(input_size * 2, hidden_size)
         self.blocks = nn.ModuleList([ResidualBlockSmallBatchNorm(hidden_size, dropout_rate) for _ in range(num_blocks)])
@@ -103,7 +103,8 @@ def distance_loss(direction_network, storage, sample_rate):
     return loss
 
 
-def _train_neighborhood_network(direction_network, storage, num_epochs, pretty_print=True) -> NeighborhoodNetwork:
+def _train_neighborhood_network(direction_network, storage, num_epochs,
+                                pretty_print=True) -> NeighborhoodDistanceNetwork:
     optimizer = optim.Adam(direction_network.parameters(), lr=0.0005, amsgrad=True)
 
     scale_direction_loss = 1
@@ -139,12 +140,19 @@ def _train_neighborhood_network(direction_network, storage, num_epochs, pretty_p
     return direction_network
 
 
-def generate_new_ai() -> NeighborhoodNetwork:
-    return NeighborhoodNetwork()
+def generate_new_ai() -> NeighborhoodDistanceNetwork:
+    return NeighborhoodDistanceNetwork()
 
 
-def run_neighborhood_network(neighborhood_network: NeighborhoodNetwork,
-                             storage: StorageSuperset2) -> NeighborhoodNetwork:
+def run_neighborhood_network_until_threshold(neighborhood_network: NeighborhoodDistanceNetwork,
+                                             storage: StorageSuperset2,
+                                             threshold: float) -> NeighborhoodDistanceNetwork:
+    neighborhood_network = _train_neighborhood_network(neighborhood_network, storage, 2500, True)
+    return neighborhood_network
+
+
+def run_neighborhood_network(neighborhood_network: NeighborhoodDistanceNetwork,
+                             storage: StorageSuperset2) -> NeighborhoodDistanceNetwork:
     storage.build_permuted_data_random_rotations_rotation0()
     neighborhood_network = _train_neighborhood_network(neighborhood_network, storage, 2500, True)
     return neighborhood_network

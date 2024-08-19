@@ -91,7 +91,7 @@ def adjacent_distance_handling(autoencoder: BaseAutoencoderModel, adjacent_sampl
     """
     Keeps adjacent pairs close to each other
     """
-    sampled_pairs = storage.sample_adjacent_datapoints_connections(adjacent_sample_size)
+    sampled_pairs = storage_raw.sample_adjacent_datapoints_connections(adjacent_sample_size)
 
     adjacent_distance_loss = torch.tensor(0.0)
     average_distance = 0
@@ -99,8 +99,8 @@ def adjacent_distance_handling(autoencoder: BaseAutoencoderModel, adjacent_sampl
     batch_datapoint2 = []
     for pair in sampled_pairs:
         # keep adjacent close to each other
-        data_point1 = storage.get_datapoint_data_tensor_by_name(pair["start"])
-        data_point2 = storage.get_datapoint_data_tensor_by_name(pair["end"])
+        data_point1 = storage_raw.get_datapoint_data_tensor_by_name(pair["start"])
+        data_point2 = storage_raw.get_datapoint_data_tensor_by_name(pair["end"])
         batch_datapoint1.append(data_point1)
         batch_datapoint2.append(data_point2)
 
@@ -123,15 +123,15 @@ def non_adjacent_distance_handling(autoencoder: BaseAutoencoderModel, non_adjace
     """
     Keeps non-adjacent pairs far from each other
     """
-    sampled_pairs = storage.sample_datapoints_adjacencies(non_adjacent_sample_size)
+    sampled_pairs = storage_raw.sample_datapoints_adjacencies(non_adjacent_sample_size)
     non_adjacent_distance_loss = torch.tensor(0.0)
 
     batch_datapoint1 = []
     batch_datapoint2 = []
 
     for pair in sampled_pairs:
-        datapoint1 = storage.get_datapoint_data_tensor_by_name(pair["start"])
-        datapoint2 = storage.get_datapoint_data_tensor_by_name(pair["end"])
+        datapoint1 = storage_raw.get_datapoint_data_tensor_by_name(pair["start"])
+        datapoint2 = storage_raw.get_datapoint_data_tensor_by_name(pair["end"])
 
         batch_datapoint1.append(datapoint1)
         batch_datapoint2.append(datapoint2)
@@ -182,7 +182,7 @@ def train_autoencoder_with_distance_constraint(autoencoder: BaseAutoencoderModel
     epoch_print_rate = 1000
     DISTANCE_CONSTANT = 0.5
 
-    train_data = array_to_tensor(np.array(storage.get_pure_sensor_data()))
+    train_data = array_to_tensor(np.array(storage_raw.get_pure_sensor_data()))
 
     for epoch in range(num_epochs):
         epoch_loss = 0.0
@@ -243,7 +243,7 @@ def train_autoencoder_triple_margin(autoencoder: BaseAutoencoderModel, epochs: i
     """
     Training autoencoder with 3
     """
-    global storage
+    global storage_raw
 
     # PARAMETERS
     optimizer = optim.Adam(autoencoder.parameters(), lr=0.01)
@@ -363,7 +363,7 @@ def run_ai():
 
 
 def run_tests(autoencoder):
-    global storage
+    global storage_raw
 
     evaluate_reconstruction_error(autoencoder, storage)
     avg_distance_adj = evaluate_distances_between_pairs(autoencoder, storage)

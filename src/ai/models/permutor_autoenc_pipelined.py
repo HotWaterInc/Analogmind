@@ -80,7 +80,7 @@ def train_autoencoder_triple_margin(autoencoder: BaseAutoencoderModel, epochs: i
     """
     Training autoencoder with 3
     """
-    global storage
+    global storage_raw
 
     # PARAMETERS
     optimizer = optim.Adam(autoencoder.parameters(), lr=0.01)
@@ -169,7 +169,7 @@ def run_ai():
 
 
 def run_tests(autoencoder):
-    global storage
+    global storage_raw
 
     evaluate_reconstruction_error_super(autoencoder, storage)
     avg_distance_adj = evaluate_distances_between_pairs_super(autoencoder, storage)

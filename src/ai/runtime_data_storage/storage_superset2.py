@@ -188,6 +188,10 @@ def distance_percent_to_distance_thetas(true_theta_percent, thetas_length):
 _cache_thetas = {}
 
 
+def angle_radians_to_percent(angle_radians):
+    return angle_radians / (2 * np.pi)
+
+
 def angle_percent_to_thetas_normalized(true_theta_percent, thetas_length):
     thetas = torch.zeros(thetas_length)
     if true_theta_percent == 1:

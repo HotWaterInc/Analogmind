@@ -117,7 +117,7 @@ def train_vae_without_constraint(vae: VariationalAutoencoder, epochs: int) -> Va
         KLD = -0.5 * torch.sum(1 + log_var - mean.pow(2) - log_var.exp()) / x.size(0)
         return reconstruction_loss * reconstruction_loss_scale + KLD * KL_loss_scale
 
-    train_data = array_to_tensor(np.array(storage.get_pure_sensor_data()))
+    train_data = array_to_tensor(np.array(storage_raw.get_pure_sensor_data()))
 
     reconstruction_average_loss = 0
 
@@ -156,7 +156,7 @@ def train_vae_without_constraint(vae: VariationalAutoencoder, epochs: int) -> Va
 
 
 def run_tests(vae: VariationalAutoencoder):
-    global storage
+    global storage_raw
 
     evaluate_reconstruction_error(vae, storage)
     avg_distance_adj = evaluate_distances_between_pairs(vae, storage)

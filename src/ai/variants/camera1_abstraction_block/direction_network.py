@@ -83,7 +83,7 @@ def embedding_policy(data):
 
 
 def direction_loss(direction_network, sample_rate=25):
-    global storage
+    global storage_raw
     loss = torch.tensor(0.0)
 
     datapoints: List[str] = storage.sample_n_random_datapoints(sample_rate)
@@ -142,7 +142,7 @@ def train_direction_ai(direction_network, num_epochs):
     epoch_average_loss = 0
     epoch_print_rate = 1000
 
-    storage.build_permuted_data_random_rotations_rotation0()
+    storage_raw.build_permuted_data_random_rotations_rotation0()
 
     set_pretty_display(epoch_print_rate, "Epochs batch training")
     pretty_display_start(0)
@@ -152,7 +152,7 @@ def train_direction_ai(direction_network, num_epochs):
             rand_rot = np.random.randint(0, 24)
             # storage.build_permuted_data_random_rotations_rotation0()
             # storage.build_permuted_data_random_rotations_rotation_N(rand_rot)
-            storage.build_permuted_data_random_rotations()
+            storage_raw.build_permuted_data_random_rotations()
 
         pretty_display(epoch % epoch_print_rate)
 
@@ -226,7 +226,7 @@ def direction_to_degrees(direction):
 
 
 def run_tests_permuted_data(direction_network):
-    global storage, autoencoder
+    global storage_raw, autoencoder
 
     direction_network = direction_network.to(device)
     direction_network.eval()
@@ -300,7 +300,7 @@ def run_loaded_ai():
 
 
 def run_direction_network_images_thetas():
-    global storage
+    global storage_raw
     global permutor
     global autoencoder
 
@@ -315,5 +315,5 @@ def run_direction_network_images_thetas():
     run_loaded_ai()
 
 
-storage: StorageSuperset2 = None
+storage_raw: StorageSuperset2 = None
 autoencoder: BaseAutoencoderModel = None

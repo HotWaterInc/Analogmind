@@ -3,13 +3,13 @@ import torch
 from src.ai.models.base_autoencoder_model import BaseAutoencoderModel
 from src.ai.runtime_data_storage import Storage
 from src.ai.runtime_data_storage.storage_superset2 import StorageSuperset2
-from src.ai.variants.exploration_normal.seen_network import SeenNetwork
+from src.ai.variants.exploration.seen_network import SeenNetwork
 from src.utils import array_to_tensor, get_device
 from src.modules.time_profiler import start_profiler, profiler_checkpoint
 from typing import List
 from src.modules.time_profiler import start_profiler, profiler_checkpoint, profiler_checkpoint_blank
 from src.modules.pretty_display import pretty_display_reset, pretty_display_start, pretty_display, set_pretty_display
-from src.ai.variants.exploration_normal.utils import get_missing_connections_based_on_distance
+from src.ai.variants.exploration.utils import get_missing_connections_based_on_distance
 
 
 def build_missing_connections_with_cheating(storage: StorageSuperset2, new_datapoints, distance_threshold):

@@ -41,7 +41,7 @@ import torchvision.transforms as transforms
 
 
 def load_everything():
-    global storage, direction_network_SSD, direction_network_SDirDistS, AUTOENCODER_NAME
+    global storage_raw, direction_network_SSD, direction_network_SDirDistS, AUTOENCODER_NAME
 
     storage = StorageSuperset2()
     grid_dataset = 5
@@ -68,7 +68,7 @@ def next_embedding_policy_ab(current_embedding, target_embedding):
 
 
 def find_closest_known_position(current_embedding, theta_percent):
-    global storage
+    global storage_raw
     best_embedding_distance = 100000
     best_embedding_name = None
     grid_dataset = 5
@@ -108,7 +108,7 @@ def next_embedding_policy_search_closest(current_embedding, current_theta_percen
     prev_best_distance = 100000
     # print("target embedding", target_embedding_i, target_embedding_j)
 
-    global storage
+    global storage_raw
     # searches the closest embedding to current embedding at a minimum distance from target embedding ( distance recorded wise )
 
     all_connections = storage.get_all_adjacent_data()
@@ -199,7 +199,7 @@ import random
 
 
 def djakstra_search(current_uid, target_uid):
-    global storage
+    global storage_raw
     all_connections = storage.get_all_adjacent_data()
     # filter for distance = 1
     all_connections = [connection for connection in all_connections if connection["distance"] == 1]
@@ -297,7 +297,7 @@ def policy_thetas_navigation_next_manifold(current_manifold: torch.Tensor, next_
 def policy_thetas_navigation_next_close_target(index_rotation, current_embedding, next_target: str):
     global direction_network_SSD
 
-    next_embeddings = storage.get_datapoint_data_tensor_by_name(next_target).to(device)
+    next_embeddings = storage_raw.get_datapoint_data_tensor_by_name(next_target).to(device)
     direction_network_SSD = direction_network_SSD.to(device)
     current_embedding = squeeze_out_resnet_output(current_embedding)
 
@@ -312,7 +312,7 @@ def policy_thetas_navigation_next_close_target(index_rotation, current_embedding
 
 
 def storage_to_manifold():
-    global storage
+    global storage_raw
     global autoencoder
     autoencoder = load_custom_ai(AUTOENCODER_NAME, MODELS_FOLDER)
     autoencoder.eval()
@@ -328,7 +328,7 @@ def print_closest_known_position(current_embedding, angle_percent):
 
 
 def final_angle_policy_direction_testing(current_embedding, angle_percent, target_i, target_j):
-    global storage, direction_network_SDirDistS
+    global storage_raw, direction_network_SDirDistS
 
     current_manifold = autoencoder.encoder_inference(current_embedding.unsqueeze(0)).squeeze()
     target_manifold = storage.get_datapoint_data_tensor_by_name(f"{target_i}_{target_j}")[0].to(device)

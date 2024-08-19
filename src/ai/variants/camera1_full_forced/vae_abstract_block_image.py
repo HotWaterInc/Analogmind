@@ -132,7 +132,7 @@ def adjacent_distance_handling(autoencoder: BaseAutoencoderModel, adjacent_sampl
     """
     Keeps adjacent pairs close to each other
     """
-    sampled_pairs = storage.sample_adjacent_datapoints_connections(adjacent_sample_size)
+    sampled_pairs = storage_raw.sample_adjacent_datapoints_connections(adjacent_sample_size)
 
     adjacent_distance_loss = torch.tensor(0.0)
     average_distance = 0
@@ -140,8 +140,8 @@ def adjacent_distance_handling(autoencoder: BaseAutoencoderModel, adjacent_sampl
     batch_datapoint2 = []
     for pair in sampled_pairs:
         # keep adjacent close to each other
-        data_point1 = storage.get_datapoint_data_tensor_by_name_permuted(pair["start"])
-        data_point2 = storage.get_datapoint_data_tensor_by_name_permuted(pair["end"])
+        data_point1 = storage_raw.get_datapoint_data_tensor_by_name_permuted(pair["start"])
+        data_point2 = storage_raw.get_datapoint_data_tensor_by_name_permuted(pair["end"])
         batch_datapoint1.append(data_point1)
         batch_datapoint2.append(data_point2)
 
@@ -166,14 +166,14 @@ def non_adjacent_distance_handling(autoencoder: BaseAutoencoderModel, non_adjace
     """
     Keeps non-adjacent pairs far from each other
     """
-    sampled_pairs = storage.sample_datapoints_adjacencies(non_adjacent_sample_size)
+    sampled_pairs = storage_raw.sample_datapoints_adjacencies(non_adjacent_sample_size)
 
     batch_datapoint1 = []
     batch_datapoint2 = []
 
     for pair in sampled_pairs:
-        datapoint1 = storage.get_datapoint_data_tensor_by_name_permuted(pair["start"])
-        datapoint2 = storage.get_datapoint_data_tensor_by_name_permuted(pair["end"])
+        datapoint1 = storage_raw.get_datapoint_data_tensor_by_name_permuted(pair["start"])
+        datapoint2 = storage_raw.get_datapoint_data_tensor_by_name_permuted(pair["end"])
 
         batch_datapoint1.append(datapoint1)
         batch_datapoint2.append(datapoint2)
@@ -200,7 +200,7 @@ def permutation_adjustion_handling(autoencoder: BaseAutoencoderModel, samples: i
     """
     Keeps the permutation of the data points close to each other
     """
-    global storage
+    global storage_raw
 
     datapoint: List[str] = storage.sample_n_random_datapoints(samples)
     datapoints_data = [storage.get_datapoint_data_tensor_by_name(name) for name in datapoint]
@@ -218,7 +218,7 @@ recons_data = None
 
 def reconstruction_handling_with_freezing(autoencoder: BaseAutoencoderModel,
                                           scale_reconstruction_loss: float = 1) -> any:
-    global storage, recons_data
+    global storage_raw, recons_data
     sampled_count = 25
     sampled_points = storage.sample_n_random_datapoints(sampled_count)
 
@@ -344,8 +344,8 @@ def train_vae_abstract_block(autoencoder: BaseAutoencoderModel, epochs: int,
     position_encoding_change_on_position_avg = 0
     position_encoding_change_on_rotation_avg = 0
 
-    storage.build_permuted_data_random_rotations_rotation0()
-    train_data = array_to_tensor(np.array(storage.get_pure_permuted_raw_env_data())).to(device)
+    storage_raw.build_permuted_data_random_rotations_rotation0()
+    train_data = array_to_tensor(np.array(storage_raw.get_pure_permuted_raw_env_data())).to(device)
 
     SHUFFLE_RATE = 5
     beta = 0
@@ -449,7 +449,7 @@ def train_vae_abstract_block(autoencoder: BaseAutoencoderModel, epochs: int,
 
 
 def run_tests(autoencoder):
-    global storage
+    global storage_raw
 
     evaluate_reconstruct_vae_abstract(autoencoder, storage, rotations0=False)
     evaluate_confidence_vae_abstract(autoencoder, storage, rotations0=False)
@@ -470,7 +470,7 @@ def run_new_ai() -> None:
 
 
 def run_vae_abstract_block() -> None:
-    global storage
+    global storage_raw
 
     dataset_grid = 5
 
@@ -483,7 +483,7 @@ def run_vae_abstract_block() -> None:
     # run_loaded_ai()
 
 
-storage: StorageSuperset2 = StorageSuperset2()
+storage_raw: StorageSuperset2 = StorageSuperset2()
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 ROTATIONS_PER_FULL = 1
 OFFSETS_PER_DATAPOINT = 24

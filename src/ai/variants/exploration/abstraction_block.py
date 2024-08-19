@@ -4,13 +4,16 @@ from typing import Tuple
 import torch.nn as nn
 import torch.optim as optim
 import numpy as np
+from src.ai.variants.blocks import ResidualBlockSmallBatchNorm, _make_layer
+from src.ai.variants.exploration.utils import ROTATIONS, ROTATIONS_PER_FULL, ROTATIONS, OFFSETS_PER_DATAPOINT
 from src.modules.save_load_handlers.ai_models_handle import save_ai, save_ai_manually, load_latest_ai, \
     load_manually_saved_ai
 from src.modules.save_load_handlers.parameters import *
 from src.ai.runtime_data_storage.storage_superset2 import StorageSuperset2
 from src.ai.runtime_data_storage import Storage
 from typing import List, Dict, Union
-from src.utils import array_to_tensor
+from src.modules.time_profiler import profiler_checkpoint_blank, start_profiler, profiler_checkpoint
+from src.utils import array_to_tensor, get_device
 from src.ai.models.base_autoencoder_model import BaseAutoencoderModel
 from src.ai.evaluation.evaluation import evaluate_reconstruction_error, evaluate_distances_between_pairs, \
     evaluate_adjacency_properties
@@ -18,114 +21,15 @@ from src.ai.evaluation.evaluation import evaluate_reconstruction_error, evaluate
     evaluate_adjacency_properties, evaluate_reconstruction_error_super, evaluate_distances_between_pairs_super, \
     evaluate_adjacency_properties_super, evaluate_reconstruction_error_super_fist_rotation
 from src.modules.pretty_display import pretty_display_reset, pretty_display_start, pretty_display, set_pretty_display
-from .evaluation_abstract_block import evaluation_position_rotation_embeddings
-
 import torch
 import torch.nn as nn
 
 
-class AttentionLayer(nn.Module):
-    def __init__(self, hidden_size):
-        super(AttentionLayer, self).__init__()
-        self.attention = nn.MultiheadAttention(hidden_size, num_heads=8, batch_first=True)
-        self.norm = nn.LayerNorm(hidden_size)
-
-    def forward(self, x):
-        attn_output, _ = self.attention(x, x, x)
-        return self.norm(x + attn_output)
-
-
-class ResidualBlockSmallLayerNorm(nn.Module):
-    def __init__(self, hidden_size, dropout_rate):
-        super(ResidualBlockSmallLayerNorm, self).__init__()
-        self.block = nn.Sequential(
-            nn.Linear(hidden_size, hidden_size),
-            nn.LayerNorm(hidden_size),
-            nn.LeakyReLU(),
-            nn.Dropout(dropout_rate),
-            nn.Linear(hidden_size, hidden_size),
-            nn.LayerNorm(hidden_size),
-            nn.LeakyReLU(),
-            nn.Dropout(dropout_rate),
-        )
-
-    def forward(self, x):
-        return x + self.block(x)
-
-
-class ResidualBlockSmallBatchNormWithAttention(nn.Module):
-    def __init__(self, hidden_size, dropout_rate):
-        super(ResidualBlockSmallBatchNormWithAttention, self).__init__()
-        self.block = nn.Sequential(
-            nn.Linear(hidden_size, hidden_size),
-            nn.BatchNorm1d(hidden_size),
-            nn.LeakyReLU(),
-            nn.Dropout(dropout_rate),
-            AttentionLayer(hidden_size),
-            nn.Linear(hidden_size, hidden_size),
-            nn.BatchNorm1d(hidden_size),
-            nn.LeakyReLU(),
-            nn.Dropout(dropout_rate),
-        )
-
-    def forward(self, x):
-        return x + self.block(x)
-
-
-class ResidualBlockSmallBatchNorm(nn.Module):
-    def __init__(self, hidden_size, dropout_rate):
-        super(ResidualBlockSmallBatchNorm, self).__init__()
-        self.block = nn.Sequential(
-            nn.Linear(hidden_size, hidden_size),
-            nn.BatchNorm1d(hidden_size),
-            nn.LeakyReLU(),
-            nn.Dropout(dropout_rate),
-            nn.Linear(hidden_size, hidden_size),
-            nn.BatchNorm1d(hidden_size),
-            nn.LeakyReLU(),
-            nn.Dropout(dropout_rate),
-        )
-
-    def forward(self, x):
-        return x + self.block(x)
-
-
-class ResidualBlock(nn.Module):
-    def __init__(self, hidden_size, dropout_rate):
-        super(ResidualBlock, self).__init__()
-        self.block = nn.Sequential(
-            nn.Linear(hidden_size, hidden_size),
-            nn.BatchNorm1d(hidden_size),
-            nn.LeakyReLU(),
-            nn.Dropout(dropout_rate),
-            nn.Linear(hidden_size, hidden_size),
-            nn.BatchNorm1d(hidden_size),
-            nn.LeakyReLU(),
-            nn.Dropout(dropout_rate),
-            nn.Linear(hidden_size, hidden_size),
-            nn.BatchNorm1d(hidden_size),
-            nn.LeakyReLU(),
-            nn.Dropout(dropout_rate)
-        )
-
-    def forward(self, x):
-        return x + self.block(x)
-
-
-def _make_layer(in_features, out_features):
-    layer = nn.Sequential(
-        nn.Linear(in_features, out_features),
-        # nn.BatchNorm1d(out_features),
-        nn.LeakyReLU(),
-    )
-    return layer
-
-
-class AutoencoderAbstractionBlock(BaseAutoencoderModel):
-    def __init__(self, dropout_rate: float = 0.2, position_embedding_size: int = 96, thetas_embedding_size: int = 96,
-                 hidden_size: int = 1024 + 1024, num_blocks: int = 1, input_output_size=512,
-                 concatenated_instances: int = 12):
-        super(AutoencoderAbstractionBlock, self).__init__()
+class AbstractionBlockImage(BaseAutoencoderModel):
+    def __init__(self, dropout_rate: float = 0.2, position_embedding_size: int = 256, thetas_embedding_size: int = 256,
+                 hidden_size: int = 1024, num_blocks: int = 2, input_output_size=512,
+                 concatenated_instances: int = ROTATIONS_PER_FULL):
+        super(AbstractionBlockImage, self).__init__()
 
         self.concatenated_instances = concatenated_instances
         input_output_size *= concatenated_instances
@@ -194,7 +98,7 @@ class AutoencoderAbstractionBlock(BaseAutoencoderModel):
 
 def reconstruction_handling_raw(autoencoder: BaseAutoencoderModel,
                                 scale_reconstruction_loss: int = 1) -> torch.Tensor:
-    global storage_raw
+    global storage
     sampled_count = 25
     sampled_points = storage.sample_n_random_datapoints(sampled_count)
     data = []
@@ -206,7 +110,7 @@ def reconstruction_handling_raw(autoencoder: BaseAutoencoderModel,
                 storage.get_point_rotations_with_full_info_random_offset_concatenated(point, ROTATIONS_PER_FULL))
             data.append(sampled_full_rotation)
 
-    data = torch.stack(data).to(device=device)
+    data = torch.stack(data).to(device=get_device())
     positional_encoding, thetas_encoding = autoencoder.encoder_training(data)
     dec = autoencoder.decoder_training(positional_encoding, thetas_encoding)
 
@@ -216,55 +120,70 @@ def reconstruction_handling_raw(autoencoder: BaseAutoencoderModel,
     return accumulated_loss * scale_reconstruction_loss
 
 
-def reconstruction_handling_with_freezing(autoencoder: BaseAutoencoderModel,
-                                          scale_reconstruction_loss: float = 1) -> any:
-    global storage_raw
-    sampled_count = 25
+_cache_reconstruction_loss = {}
+
+
+def shuffle_tensor_dim1(tensor):
+    dim1_size = tensor.size(1)
+    indices = torch.randperm(dim1_size)
+    shuffled_tensor = tensor[:, indices]
+    return shuffled_tensor
+
+
+def reconstruction_handling_with_freezing(autoencoder: BaseAutoencoderModel, storage: StorageSuperset2) -> any:
+    global _cache_reconstruction_loss
+    sampled_count = 100
     sampled_points = storage.sample_n_random_datapoints(sampled_count)
     data = []
 
-    loss_reconstruction = torch.tensor(0.0, device=device)
-    loss_freezing_same_position = torch.tensor(0.0, device=device)
-    loss_freezing_same_rotation = torch.tensor(0.0, device=device)
+    loss_reconstruction = torch.tensor(0.0, device=get_device())
+    position_encoding_change_on_position = torch.tensor(0.0, device=get_device())
+    position_encoding_change_on_rotation = torch.tensor(0.0, device=get_device())
+
+    rotation_encoding_change_on_position = torch.tensor(0.0, device=get_device())
+    rotation_encoding_change_on_rotation = torch.tensor(0.0, device=get_device())
+
+    ratio_loss_position = torch.tensor(0.0, device=get_device())
+    ratio_loss_rotation = torch.tensor(0.0, device=get_device())
 
     for point in sampled_points:
-        for i in range(OFFSETS_PER_DATAPOINT):
-            sampled_full_rotation = array_to_tensor(
-                storage.get_point_rotations_with_full_info_set_offset_concatenated(point, ROTATIONS_PER_FULL, i))
-            data.append(sampled_full_rotation)
+        point_data_arr = []
+        if point in _cache_reconstruction_loss:
+            point_data_arr = _cache_reconstruction_loss[point]
+        else:
+            # creates list of inputs for that point
+            for i in range(OFFSETS_PER_DATAPOINT):
+                sampled_full_rotation = array_to_tensor(
+                    storage.get_point_rotations_with_full_info_set_offset_concatenated(point, ROTATIONS_PER_FULL, i))
+                point_data_arr.append(sampled_full_rotation)
 
-    data = torch.stack(data).to(device=device)
+            _cache_reconstruction_loss[point] = point_data_arr
+        data.extend(point_data_arr)
 
+    data = torch.stack(data).to(device=get_device())
     positional_encoding, thetas_encoding = autoencoder.encoder_training(data)
     dec = autoencoder.decoder_training(positional_encoding, thetas_encoding)
 
     criterion_reconstruction = nn.MSELoss()
-
     loss_reconstruction = criterion_reconstruction(dec, data)
     # traverses each OFFSET_PER_DATAPOINT batch, selects tensors from each batch and calculates the loss
 
-    position_encoding_change_on_position = torch.tensor(0.0, device=device)
-    position_encoding_change_on_rotation = torch.tensor(0.0, device=device)
-
-    rotation_encoding_change_on_position = torch.tensor(0.0, device=device)
-    rotation_encoding_change_on_rotation = torch.tensor(0.0, device=device)
-
-    # rotation changes, position stays the same
+    positional_enc_arr = []
+    rotational_enc_arr = []
     for i in range(sampled_count):
         start_index = i * OFFSETS_PER_DATAPOINT
         end_index = (i + 1) * OFFSETS_PER_DATAPOINT
         positional_encs = positional_encoding[start_index:end_index]
         rotational_encs = thetas_encoding[start_index:end_index]
 
-        loss_freezing_same_position += torch.cdist(positional_encs, positional_encs).mean()
+        positional_enc_arr.append(positional_encs)
+        rotational_enc_arr.append(rotational_encs)
 
-        position_encoding_change_on_rotation += torch.cdist(positional_encs, positional_encs).mean()
-        rotation_encoding_change_on_rotation += torch.cdist(rotational_encs, rotational_encs).mean()
+    positional_enc_arr = torch.stack(positional_enc_arr)
+    rotational_enc_arr = torch.stack(rotational_enc_arr)
 
-    loss_freezing_same_position /= sampled_count
-
-    position_encoding_change_on_rotation /= sampled_count
-    rotation_encoding_change_on_rotation /= sampled_count
+    position_encoding_change_on_rotation = torch.cdist(positional_enc_arr, positional_enc_arr).mean()
+    rotation_encoding_change_on_rotation = torch.cdist(rotational_enc_arr, rotational_enc_arr).mean()
 
     rotation_constant_array_rotation_embeddings = []
     rotation_constant_array_position_embeddings = []
@@ -277,10 +196,13 @@ def reconstruction_handling_with_freezing(autoencoder: BaseAutoencoderModel,
             rotation_constant_array_position_embeddings.append(positional_encoding[idx])
 
     rotation_constant_array_rotation_embeddings = torch.stack(rotation_constant_array_rotation_embeddings).to(
-        device=device)
+        device=get_device())
     rotation_constant_array_position_embeddings = torch.stack(rotation_constant_array_position_embeddings).to(
-        device=device
+        device=get_device()
     )
+
+    positional_enc_arr = []
+    rotational_enc_arr = []
 
     # position changes, rotation stays the same
     for i in range(OFFSETS_PER_DATAPOINT):
@@ -290,27 +212,20 @@ def reconstruction_handling_with_freezing(autoencoder: BaseAutoencoderModel,
         rotational_encs = rotation_constant_array_rotation_embeddings[start_index:end_index]
         positional_encs = rotation_constant_array_position_embeddings[start_index:end_index]
 
-        loss_freezing_same_rotation += torch.cdist(rotational_encs, rotational_encs).mean()
+        positional_enc_arr.append(positional_encs)
+        rotational_enc_arr.append(rotational_encs)
 
-        position_encoding_change_on_position += torch.cdist(positional_encs, positional_encs).mean()
-        rotation_encoding_change_on_position += torch.cdist(rotational_encs, rotational_encs).mean()
+    positional_enc_arr = torch.stack(positional_enc_arr)
+    rotational_enc_arr = torch.stack(rotational_enc_arr)
 
-    loss_freezing_same_rotation /= sampled_count
-
-    position_encoding_change_on_position /= sampled_count
-    rotation_encoding_change_on_position /= sampled_count
-
-    loss_reconstruction *= scale_reconstruction_loss
-    loss_freezing_same_position *= 1
-    loss_freezing_same_rotation *= 1
+    position_encoding_change_on_position = torch.cdist(positional_enc_arr, positional_enc_arr).mean()
+    rotation_encoding_change_on_position = torch.cdist(rotational_enc_arr, rotational_enc_arr).mean()
 
     ratio_loss_position = position_encoding_change_on_rotation / position_encoding_change_on_position
     ratio_loss_rotation = rotation_encoding_change_on_position / rotation_encoding_change_on_rotation
 
     return {
         "loss_reconstruction": loss_reconstruction,
-        "loss_freezing_same_position": loss_freezing_same_position,
-        "loss_freezing_same_rotation": loss_freezing_same_rotation,
         "ratio_loss_position": ratio_loss_position,
         "ratio_loss_rotation": ratio_loss_rotation,
         "rotation_encoding_change_on_position": rotation_encoding_change_on_position,
@@ -320,16 +235,16 @@ def reconstruction_handling_with_freezing(autoencoder: BaseAutoencoderModel,
     }
 
 
-def train_autoencoder_abstraction_block(autoencoder: BaseAutoencoderModel, epochs: int,
-                                        pretty_print: bool = False) -> nn.Module:
+def _train_autoencoder_abstraction_block(abstraction_block: AbstractionBlockImage, storage: StorageSuperset2,
+                                         epochs: int,
+                                         pretty_print: bool = False) -> AbstractionBlockImage:
     # PARAMETERS
-    optimizer = optim.Adam(autoencoder.parameters(), lr=0.0001, amsgrad=True)
-    autoencoder = autoencoder.to(device=device)
+    optimizer = optim.Adam(abstraction_block.parameters(), lr=0.00030, amsgrad=True)
+    abstraction_block = abstraction_block.to(device=get_device())
 
     num_epochs = epochs
-
-    scale_reconstruction_loss = 1
-    scale_freezing_loss = 1
+    scale_reconstruction_loss = 5
+    scale_ratio_loss = 1.5
 
     epoch_average_loss = 0
 
@@ -342,8 +257,6 @@ def train_autoencoder_abstraction_block(autoencoder: BaseAutoencoderModel, epoch
 
     epoch_print_rate = 500
 
-    SHUFFLE_RATE = 5
-
     if pretty_print:
         set_pretty_display(epoch_print_rate, "Epoch batch")
         pretty_display_start(0)
@@ -355,46 +268,47 @@ def train_autoencoder_abstraction_block(autoencoder: BaseAutoencoderModel, epoch
     position_encoding_change_on_rotation_avg = 0
 
     for epoch in range(num_epochs):
-
-        reconstruction_loss = torch.tensor(0.0)
-        loss_same_position = torch.tensor(0.0)
-        loss_same_rotation = torch.tensor(0.0)
-        ratio_loss_position = torch.tensor(0.0)
-        ratio_loss_rotation = torch.tensor(0.0)
         epoch_loss = 0.0
         optimizer.zero_grad()
 
         # RECONSTRUCTION LOSS
         losses_json = reconstruction_handling_with_freezing(
-            autoencoder,
-            scale_reconstruction_loss)
+            abstraction_block,
+            storage)
 
         reconstruction_loss = losses_json["loss_reconstruction"]
+
         ratio_loss_position = losses_json["ratio_loss_position"]
         ratio_loss_rotation = losses_json["ratio_loss_rotation"]
-        loss_same_position = losses_json["loss_freezing_same_position"]
-        loss_same_rotation = losses_json["loss_freezing_same_rotation"]
-
         rotation_encoding_change_on_position = losses_json["rotation_encoding_change_on_position"]
         rotation_encoding_change_on_rotation = losses_json["rotation_encoding_change_on_rotation"]
-
         position_encoding_change_on_position = losses_json["position_encoding_change_on_position"]
         position_encoding_change_on_rotation = losses_json["position_encoding_change_on_rotation"]
 
+        reconstruction_loss *= scale_reconstruction_loss
+        ratio_loss_position *= scale_ratio_loss
+        ratio_loss_rotation *= scale_ratio_loss
+
         reconstruction_loss.backward(retain_graph=True)
-        loss_same_position.backward(retain_graph=True)
-        loss_same_rotation.backward(retain_graph=True)
+
+        position_encoding_change_on_rotation.backward(retain_graph=True)
+        rotation_encoding_change_on_position.backward(retain_graph=True)
+
         ratio_loss_rotation.backward(retain_graph=True)
         ratio_loss_position.backward()
 
         optimizer.step()
 
-        epoch_loss += reconstruction_loss.item() + loss_same_position.item() + loss_same_rotation.item() + ratio_loss_position.item() + ratio_loss_rotation.item()
+        reconstruction_loss /= scale_reconstruction_loss
+        ratio_loss_position /= scale_ratio_loss
+        ratio_loss_rotation /= scale_ratio_loss
+
+        epoch_loss += reconstruction_loss.item() + position_encoding_change_on_rotation.item() + rotation_encoding_change_on_position.item() + ratio_loss_position.item() + ratio_loss_rotation.item()
         epoch_average_loss += epoch_loss
 
         reconstruction_average_loss += reconstruction_loss.item()
-        loss_same_position_average_loss += loss_same_position.item()
-        loss_same_rotation_average_loss += loss_same_rotation.item()
+        loss_same_position_average_loss += position_encoding_change_on_rotation.item()
+        loss_same_rotation_average_loss += rotation_encoding_change_on_position.item()
         loss_ratio_position_average_loss += ratio_loss_position.item()
         loss_ratio_rotation_average_loss += ratio_loss_rotation.item()
 
@@ -446,47 +360,18 @@ def train_autoencoder_abstraction_block(autoencoder: BaseAutoencoderModel, epoch
                 pretty_display_reset()
                 pretty_display_start(epoch)
 
-    return autoencoder
+    return abstraction_block
 
 
-def run_tests(autoencoder):
-    global storage_raw
-    evaluation_position_rotation_embeddings(autoencoder, storage)
+def run_abstraction_block_exploration_until_threshold(abstraction_network: AbstractionBlockImage,
+                                                      storage: StorageSuperset2,
+                                                      threshold_reconstruction) -> AbstractionBlockImage:
+    # TODO: Implement exit clause in training
+    # abstraction_network = _train_autoencoder_abstraction_block(abstraction_network, storage, 10000, True)
+    return abstraction_network
 
 
-def run_loaded_ai():
-    # autoencoder = load_manually_saved_ai("abstract_block_v1_0.019.pth")
-    autoencoder = load_manually_saved_ai("abstraction_block_12img.pth")
-
-    global storage_raw
-    run_tests(autoencoder)
-
-
-def run_new_ai() -> None:
-    autoencoder = AutoencoderAbstractionBlock()
-    train_autoencoder_abstraction_block(autoencoder, 10001, True)
-    save_ai_manually("autoencod_abstract_block", autoencoder)
-    run_tests(autoencoder)
-
-
-def run_autoencoder_abstraction_block_images() -> None:
-    global storage_raw
-
-    grid_data = 5
-
-    storage.load_raw_data_from_others(f"data{grid_data}x{grid_data}_rotated24_image_embeddings.json")
-    storage.load_raw_data_connections_from_others(f"data{grid_data}x{grid_data}_connections.json")
-
-    # selects first rotation
-    storage.build_permuted_data_random_rotations_rotation0()
-
-    # run_new_ai()
-    run_loaded_ai()
-
-
-storage_raw: StorageSuperset2 = StorageSuperset2()
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
-ROTATIONS_PER_FULL = 12
-OFFSETS_PER_DATAPOINT = 23
-TOTAL_ROTATIONS = 24
+def run_abstraction_block_exploration(abstraction_network: AbstractionBlockImage,
+                                      storage: StorageSuperset2) -> AbstractionBlockImage:
+    abstraction_network = _train_autoencoder_abstraction_block(abstraction_network, storage, 20000, True)
+    return abstraction_network

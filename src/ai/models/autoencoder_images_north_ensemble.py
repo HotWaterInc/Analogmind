@@ -145,7 +145,7 @@ def adjacent_distance_handling(autoencoder: BaseAutoencoderModel, adjacent_sampl
     """
     Keeps adjacent pairs close to each other
     """
-    sampled_pairs = storage.sample_adjacent_datapoints_connections(adjacent_sample_size)
+    sampled_pairs = storage_raw.sample_adjacent_datapoints_connections(adjacent_sample_size)
 
     adjacent_distance_loss = torch.tensor(0.0)
     average_distance = 0
@@ -153,8 +153,8 @@ def adjacent_distance_handling(autoencoder: BaseAutoencoderModel, adjacent_sampl
     batch_datapoint2 = []
     for pair in sampled_pairs:
         # keep adjacent close to each other
-        data_point1 = storage.get_datapoint_data_tensor_by_name_and_index(pair["start"], permutation_index)
-        data_point2 = storage.get_datapoint_data_tensor_by_name_and_index(pair["end"], permutation_index)
+        data_point1 = storage_raw.get_datapoint_data_tensor_by_name_and_index(pair["start"], permutation_index)
+        data_point2 = storage_raw.get_datapoint_data_tensor_by_name_and_index(pair["end"], permutation_index)
         batch_datapoint1.append(data_point1)
         batch_datapoint2.append(data_point2)
 
@@ -178,14 +178,14 @@ def non_adjacent_distance_handling(autoencoder: BaseAutoencoderModel, non_adjace
     """
     Keeps non-adjacent pairs far from each other
     """
-    sampled_pairs = storage.sample_datapoints_adjacencies(non_adjacent_sample_size)
+    sampled_pairs = storage_raw.sample_datapoints_adjacencies(non_adjacent_sample_size)
 
     batch_datapoint1 = []
     batch_datapoint2 = []
 
     for pair in sampled_pairs:
-        datapoint1 = storage.get_datapoint_data_tensor_by_name_and_index(pair["start"], ensemble_index)
-        datapoint2 = storage.get_datapoint_data_tensor_by_name_and_index(pair["end"], ensemble_index)
+        datapoint1 = storage_raw.get_datapoint_data_tensor_by_name_and_index(pair["start"], ensemble_index)
+        datapoint2 = storage_raw.get_datapoint_data_tensor_by_name_and_index(pair["end"], ensemble_index)
 
         batch_datapoint1.append(datapoint1)
         batch_datapoint2.append(datapoint2)
@@ -216,8 +216,8 @@ def train_autoencoder_ensemble(epochs: int):
     for i in range(ENSEMBLE_SIZE):
         target = i * 6
 
-        storage.build_permuted_data_random_rotations_rotation_N(target)
-        train_data = array_to_tensor(np.array(storage.get_pure_permuted_raw_env_data())).to(device)
+        storage_raw.build_permuted_data_random_rotations_rotation_N(target)
+        train_data = array_to_tensor(np.array(storage_raw.get_pure_permuted_raw_env_data())).to(device)
         train_data_tensors.append(train_data)
 
     num_epochs = epochs
@@ -318,24 +318,24 @@ def train_autoencoder_ensemble(epochs: int):
 
 
 def run_ai():
-    global storage
+    global storage_raw
     autoencoders = train_autoencoder_ensemble(epochs=5000)
     return autoencoders
 
 
 def run_tests_ensemble(models):
-    evaluate_reconstruction_error_super_ensemble(models, storage, scale_ens=6)
+    evaluate_reconstruction_error_super_ensemble(models, storage_raw, scale_ens=6)
     print("")
-    dist = evaluate_distances_between_pairs_super_ensemble(models, storage, verbose=False, scale_ens=6)
+    dist = evaluate_distances_between_pairs_super_ensemble(models, storage_raw, verbose=False, scale_ens=6)
     print("")
     # evaluate_adjacency_properties_ensemble_coordination(models, storage, dist)
 
-    evaluate_ensemble_difference_between_rotations_and_pos(models, storage, scale_en=6)
+    evaluate_ensemble_difference_between_rotations_and_pos(models, storage_raw, scale_en=6)
     # pass
 
 
 def run_tests(autoencoder):
-    global storage
+    global storage_raw
 
     evaluate_reconstruction_error_super(autoencoder, storage, rotations0=True)
     avg_distance_adj = evaluate_distances_between_pairs_super(autoencoder, storage, rotations0=True)
@@ -349,7 +349,7 @@ def run_loaded_ai():
         autoencoder = load_manually_saved_ai(f"autoencod_image_ensemble_{i * 6}_v2.pth")
         models.append(autoencoder)
 
-    global storage
+    global storage_raw
     run_tests_ensemble(models)
 
 
@@ -363,7 +363,7 @@ def run_new_ai() -> None:
 
 
 def run_autoencoder_ensemble_north() -> None:
-    global storage
+    global storage_raw
     global permutor
 
     storage.load_raw_data_from_others("data15x15_rotated24_image_embeddings.json")
@@ -374,7 +374,7 @@ def run_autoencoder_ensemble_north() -> None:
     run_loaded_ai()
 
 
-storage: StorageSuperset2 = StorageSuperset2()
+storage_raw: StorageSuperset2 = StorageSuperset2()
 permutor = None
 
 device = None

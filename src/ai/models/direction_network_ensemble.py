@@ -138,7 +138,7 @@ def embedding_policy(data, rotation: int, index: int):
 
 
 def direction_loss(direction_network, sample_rate=64):
-    global storage
+    global storage_raw
     loss = torch.tensor(0.0)
 
     # get connections
@@ -245,7 +245,7 @@ def train_direction_ai(direction_network, num_epochs):
     epoch_average_loss = 0
     epoch_print_rate = 100
 
-    storage.build_permuted_data_random_rotations_rotation0()
+    storage_raw.build_permuted_data_random_rotations_rotation0()
 
     set_pretty_display(epoch_print_rate, "Epochs progress")
     pretty_display_start(0)
@@ -254,7 +254,7 @@ def train_direction_ai(direction_network, num_epochs):
         if (epoch % 5 == 0):
             # randi = np.random.randint(0, 23)
             # storage.build_permuted_data_random_rotations_rotation_N(randi)
-            storage.build_permuted_data_random_rotations()
+            storage_raw.build_permuted_data_random_rotations()
 
         pretty_display(epoch % epoch_print_rate)
 
@@ -307,7 +307,7 @@ def thetas_to_degree(thetas):
 
 
 def run_tests_mini(direction_network):
-    global storage, autoencoder
+    global storage_raw, autoencoder
     global models
 
     direction_network = direction_network.to(device)
@@ -378,7 +378,7 @@ def run_tests_mini(direction_network):
 
 
 def run_tests(direction_network):
-    global storage, autoencoder
+    global storage_raw, autoencoder
     ITERATIONS = 10
 
     total_l1_loss = 0.0
@@ -475,7 +475,7 @@ def run_loaded_ai():
 
 
 def run_direction_network_ensemble():
-    global storage
+    global storage_raw
     global permutor
     global autoencoder
 
@@ -488,5 +488,5 @@ def run_direction_network_ensemble():
     # run_loaded_ai()
 
 
-storage: StorageSuperset2 = None
+storage_raw: StorageSuperset2 = None
 autoencoder: BaseAutoencoderModel = None

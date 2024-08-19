@@ -2,6 +2,7 @@ import time
 import math
 from typing import Dict, TypedDict, Generator, List
 from src.action_ai_controller import ActionAIController
+from src.ai.variants.exploration.utils import get_collected_data_distances, evaluate_direction_distance_validity
 from src.global_data_buffer import GlobalDataBuffer, empty_global_data_buffer
 from src.modules.save_load_handlers.data_handle import write_other_data_to_file
 from src.action_robot_controller import detach_robot_sample_distance, detach_robot_sample_image, \
@@ -88,7 +89,6 @@ def next_embedding_policy_search_closest(current_embedding, current_theta_percen
     # global THRESHOLD, prev_best_distance
     THRESHOLD = 0.5
     prev_best_distance = 100000
-    # print("target embedding", target_embedding_i, target_embedding_j)
 
     global storage
     # searches the closest embedding to current embedding at a minimum distance from target embedding ( distance recorded wise )
@@ -140,9 +140,6 @@ def next_embedding_policy_search_closest(current_embedding, current_theta_percen
 
         distance_left_embedding = torch.norm(potential_current_embedding_left - current_embedding, p=2, dim=0).item()
         distance_right_embedding = torch.norm(potential_current_embedding_right - current_embedding, p=2, dim=0).item()
-
-        # print(connection)
-        # print("distances", distance_left_embedding, distance_right_embedding)
 
         if current_distance <= best_distance and current_distance <= prev_best_distance:
             found_sol = False
@@ -199,7 +196,7 @@ def print_closest_known_position(current_embedding, angle_percent):
     print("Closest known position:", closest)
 
 
-def final_angle_policy_direction_testing(current_embedding, angle_percent, target_x, target_y):
+def final_angle_policy_direction_testing(current_embedding, angle_percent, target_x, target_y, distance_sensors):
     global storage, direction_network_SDirDistS
 
     current_manifold = autoencoder.encoder_inference(current_embedding.unsqueeze(0)).squeeze()
@@ -215,9 +212,11 @@ def final_angle_policy_direction_testing(current_embedding, angle_percent, targe
 
     directions = []
     distances = []
-    
+    directions_radians = []
+
     for angle in range(0, 360, 15):
         directions.append(generate_dxdy(math.radians(angle), STEP_DISTANCE))
+        directions_radians.append(math.radians(angle))
         distances.append(STEP_DISTANCE)
 
     directions_percent = [degrees_to_percent(direction_to_degrees_atan(direction)) for direction in directions]
@@ -234,15 +233,17 @@ def final_angle_policy_direction_testing(current_embedding, angle_percent, targe
         for
         idx, direction in enumerate(directions_thetas)]
 
-    # check to see which manifold is closest to target manifold
     best_distance = 100000
     best_direction = None
     best_next_manifold = None
     for i, predicted_manifold in enumerate(predicted_manifolds):
+        # check if direction is valid
+        if not evaluate_direction_distance_validity(distances[i], directions_radians[i], distance_sensors):
+            continue
+
         distance = torch.norm(predicted_manifold - target_manifold, p=2, dim=0).item()
         if distance < best_distance:
             best_distance = distance
-            best_direction = directions[i]
             best_next_manifold = predicted_manifold
 
     final_angle = policy_thetas_navigation_next_manifold(current_manifold, best_next_manifold)
@@ -310,7 +311,10 @@ def teleportation_exploring_inference(models_folder: str, autoencoder_name: str,
             current_embedding = process_webots_image_to_embedding(nd_array_data).to(get_device())
             current_embedding = squeeze_out_resnet_output(current_embedding)
 
-            final_angle = final_angle_policy_direction_testing(current_embedding, angle_percent, x, y)
+            detach_robot_sample_distance()
+            yield
+            distance_sensors, angle, coords = get_collected_data_distances()
+            final_angle = final_angle_policy_direction_testing(current_embedding, angle_percent, x, y, distance_sensors)
 
             if final_angle is None:
                 target_reached = True
@@ -326,9 +330,3 @@ storage: StorageSuperset2 = None
 direction_network_SSD: nn.Module = None
 direction_network_SDirDistS: nn.Module = None
 autoencoder: BaseAutoencoderModel = None
-
-DIRECTION_THETAS_SIZE = 36
-DISTANCE_THETAS_SIZE = 100
-MAX_DISTANCE = 3
-
-STEP_DISTANCE = 0.25

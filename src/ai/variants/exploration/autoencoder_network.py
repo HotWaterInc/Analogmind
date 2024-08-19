@@ -148,6 +148,7 @@ def train_autoencoder_with_distance_constraint(autoencoder: BaseAutoencoderModel
     set_pretty_display(epoch_print_rate, "Epoch batch")
     pretty_display_start(0)
 
+    SHUFFLE_RATE = 5
     for epoch in range(num_epochs):
 
         reconstruction_loss = torch.tensor(0.0)
@@ -197,13 +198,6 @@ def train_autoencoder_with_distance_constraint(autoencoder: BaseAutoencoderModel
             pretty_display_start(epoch)
 
     return autoencoder
-
-
-def run_tests(autoencoder: BaseAutoencoderModel, storage: StorageSuperset2):
-    # evaluate_reconstruction_error_super(autoencoder, storage, rotations0=True)
-    # avg_distance_adj = evaluate_distances_between_pairs_super(autoencoder, storage, rotations0=True)
-    # evaluate_adjacency_properties_super(autoencoder, storage, avg_distance_adj, rotation0=True)
-    pass
 
 
 def run_autoencoder_network(autoencoder: BaseAutoencoderModel, storage: StorageSuperset2):

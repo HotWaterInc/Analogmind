@@ -100,7 +100,7 @@ class Storage:
 
         self._convert_raw_data_to_map()
 
-    def get_connections_data(self) -> List[RawConnectionData]:
+    def get_all_connections_data(self) -> List[RawConnectionData]:
         return self.raw_connections_data
 
     def _generate_adjacency_data_sample(self, item: RawConnectionData, distance: int = 1) -> AdjacencyDataSample:
@@ -378,7 +378,7 @@ class Storage:
         Returns the adjacent connections of a datapoint ( the connections that start or end with the datapoint )
         """
         found_connections = []
-        connections_data = self.get_connections_data()
+        connections_data = self.get_all_connections_data()
         # if datapoint_name in self._connection_cache:
         #     return self._connection_cache[datapoint_name]
 
@@ -418,7 +418,7 @@ class Storage:
         if datapoint_name in self._connection_directed_cache:
             return self._connection_directed_cache[datapoint_name]
 
-        connections_data = self.get_connections_data()
+        connections_data = self.get_all_connections_data()
         for connection in connections_data:
             start = connection["start"]
             end = connection["end"]

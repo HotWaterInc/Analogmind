@@ -59,7 +59,7 @@ def embedding_policy(data):
 
 
 def SDS_loss(direction_network, sample_rate=25):
-    global storage
+    global storage_raw
     loss = torch.tensor(0.0)
 
     datapoints: List[str] = storage.sample_n_random_datapoints(sample_rate)
@@ -115,14 +115,14 @@ def train_direction_SDS(direction_network, num_epochs):
     epoch_average_loss = 0
     epoch_print_rate = 100
 
-    storage.build_permuted_data_random_rotations_rotation0()
+    storage_raw.build_permuted_data_random_rotations_rotation0()
 
     set_pretty_display(epoch_print_rate, "Epochs batch training")
     pretty_display_start(0)
 
     for epoch in range(num_epochs):
         if (epoch % 5 == 0):
-            storage.build_permuted_data_random_rotations()
+            storage_raw.build_permuted_data_random_rotations()
 
         pretty_display(epoch % epoch_print_rate)
 
@@ -158,7 +158,7 @@ def normalize_direction(direction):
 
 
 def run_tests_basic(direction_network_SDS):
-    global storage, autoencoder
+    global storage_raw, autoencoder
 
     direction_network_SDS = direction_network_SDS.to(device)
     direction_network_SDS.eval()
@@ -222,7 +222,7 @@ def run_loaded_ai():
 
 
 def storage_to_manifold():
-    global storage
+    global storage_raw
     global autoencoder
     autoencoder = load_custom_ai(AUTOENCODER_NAME, MODELS_FOLDER)
     autoencoder.eval()
@@ -233,7 +233,7 @@ def storage_to_manifold():
 
 
 def run_direction_post_autoencod_SDS():
-    global storage
+    global storage_raw
     global autoencoder
 
     storage = StorageSuperset2()

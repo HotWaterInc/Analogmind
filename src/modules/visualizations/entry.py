@@ -205,6 +205,24 @@ def build_scene_normal():
     return scene
 
 
+def build_scene_datapoints_topology():
+    scene = IntroScene()
+
+    global storage_superset2
+    storage_superset2.load_raw_data_from_others("datapoints_random_walks_50.json")
+    storage_superset2.load_raw_data_connections_from_others("datapoints_connections_randon_walks_50.json")
+
+    storage_superset2.build_datapoints_coordinates_map()
+    # storage_superset2.recenter_datapoints_coordinates_map()
+    datapoints_coordinates_map = storage_superset2.get_datapoints_coordinates_map()
+
+    distance_scale = 1
+    radius = 0.2
+
+    add_mobjects_datapoints(scene, datapoints_coordinates_map, distance_scale, radius)
+    return scene
+
+
 def build_scene_autoencoded_permuted():
     scene = IntroScene()
 
@@ -256,7 +274,7 @@ def run_opengl_scene(scene):
 
 def run_visualization():
     run_opengl_configs()
-    scene = build_scene_autoencoded_permuted()
+    scene = build_scene_datapoints_topology()
     run_opengl_scene(scene)
 
 
