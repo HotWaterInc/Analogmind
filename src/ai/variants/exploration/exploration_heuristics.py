@@ -2,6 +2,7 @@ import time
 import math
 from typing import Dict, TypedDict, Generator, List, Tuple, Any
 from src.action_ai_controller import ActionAIController
+from src.ai.models.permutor import build_thetas
 from src.ai.variants.exploration.SDirDistState_network import run_SDirDistState, SDirDistState
 from src.ai.variants.exploration.SSDir_network import run_SSDirection, SSDirNetwork, storage_to_manifold
 from src.ai.variants.exploration.abstraction_block import run_abstraction_block_exploration, \
@@ -53,14 +54,6 @@ from src.ai.variants.exploration.evaluation_exploration import print_distances_e
     eval_distances_threshold_averages_seen_network, eval_distances_threshold_averages_raw_data
 
 
-def build_find_adjacency_heursitic_neighborhood_network(
-        neighborhood_network: NeighborhoodDistanceNetwork):
-    def find_adjacency_heursitic_augmented(storage: StorageSuperset2, datapoint: Dict[str, any]):
-        return find_adjacency_heuristic_neighborhood_network(storage, neighborhood_network, datapoint)
-
-    return find_adjacency_heursitic_augmented
-
-
 def build_find_adjacency_heursitic_neighborhood_network_thetas(
         neighborhood_network: NeighborhoodNetworkThetas):
     def find_adjacency_heursitic_augmented(storage: StorageSuperset2, datapoint: Dict[str, any]):
@@ -73,61 +66,46 @@ def find_adjacency_heuristic_neighborhood_network_thetas(storage: StorageSuperse
                                                          neighborhood_network: NeighborhoodNetworkThetas,
                                                          datapoint: Dict[str, any]):
     current_name = datapoint["name"]
-    current_data = datapoint["data"]
-    current_data = torch.tensor(current_data).to(get_device())
+    current_data = storage.get_datapoint_data_selected_rotation_tensor_by_name(current_name, 0)
 
-    datapoints_names = storage.get_all_datapoints()
     neighborhood_network.eval()
     neighborhood_network = neighborhood_network.to(get_device())
 
-    found = 0
-    for name in datapoints_names:
-        if name == current_name:
-            continue
-
-        existing_data = storage.get_datapoint_data_tensor_by_name(name).to(get_device())
-
-        distance_thetas = neighborhood_network(current_data,
-                                               existing_data).squeeze()
-        distance_percent = distance_thetas_to_distance_percent(distance_thetas)
-        distance_percent *= MAX_DISTANCE
-
-        if distance_percent < 0.35:
-            found = 1
-
-    return found
-
-
-def find_adjacency_heuristic_neighborhood_network(storage: StorageSuperset2,
-                                                  neighborhood_network: NeighborhoodDistanceNetwork,
-                                                  datapoint: Dict[str, any]):
-    current_name = datapoint["name"]
-    current_data = datapoint["data"]
-    current_data = torch.tensor(current_data).to(get_device())
-
     datapoints_names = storage.get_all_datapoints()
-    neighborhood_network.eval()
-    neighborhood_network = neighborhood_network.to(get_device())
+    adjacent_names = storage.get_datapoint_adjacent_datapoints_at_most_n_deg(current_name, 1)
+    adjacent_names.append(current_name)
+
+    found_datapoints = []
 
     found = 0
     for name in datapoints_names:
-        if name == current_name:
+        if name == current_name or name in adjacent_names:
             continue
-        existing_data = storage.get_datapoint_data_tensor_by_name(name).to(get_device())
 
-        expected_distance = neighborhood_network(current_data,
-                                                 existing_data).squeeze()
+        # existing_data = storage.get_datapoint_data_random_rotation_tensor_by_name(name).to(get_device())
+        existing_data = storage.get_datapoint_data_by_name(name)
+        existing_data = torch.tensor(existing_data).to(get_device())
 
-        if expected_distance < 0.5:
-            found = 1
+        distance_thetas = neighborhood_network(current_data, existing_data)
+        # 24 distance thetas
+        distance_percents = [distance_thetas_to_distance_percent(distance_th) for distance_th in distance_thetas]
+        distance_percent = sum(distance_percents) / len(distance_percents)
+        distance_percents *= MAX_DISTANCE
 
-    return found
+        # print("Distance percent", distance_percent)
+        if distance_percent < STEP_DISTANCE:
+            found_datapoints.append(name)
+            found += 1
+
+    return found_datapoints
 
 
 def build_find_adjacency_heursitic_raw_data(storage: StorageSuperset2):
     distance_embeddings, distance_data = eval_distances_threshold_averages_raw_data(storage,
-                                                                                    real_distance_threshold=STEP_DISTANCE * 1.5)
-    distance_data *= 1
+                                                                                    real_distance_threshold=0.35)
+    # distance_data = 5
+    print("aVG disntaec in data", distance_data)
+    distance_data *= 0.85
 
     def find_adjacency_heursitic_augmented(storage: StorageSuperset2, datapoint: Dict[str, any]):
         return find_adjacency_heuristic_raw_data(storage, datapoint, distance_data)
@@ -138,36 +116,36 @@ def build_find_adjacency_heursitic_raw_data(storage: StorageSuperset2):
 def find_adjacency_heuristic_raw_data(storage: StorageSuperset2, datapoint: Dict[str, any],
                                       distance_data) -> List[str]:
     current_name = datapoint["name"]
-    current_data = datapoint["data"][0]
-    current_data = torch.tensor(current_data).to(get_device())
+    current_data = storage.get_datapoint_data_selected_rotation_tensor_by_name(current_name, 0)
 
     datapoints_names = storage.get_all_datapoints()
     adjacent_names = storage.get_datapoint_adjacent_datapoints_at_most_n_deg(current_name, 1)
     adjacent_names.append(current_name)
 
-    found = 0
-
     current_data_arr = []
     other_datapoints_data_arr = []
+    selected_names = []
 
     for name in datapoints_names:
         if name in adjacent_names or name == current_name:
             continue
 
-        existing_data = storage.get_datapoint_data_tensor_by_name_cached(name).squeeze()
-        other_datapoints_data_arr.append(existing_data)
+        existing_data = storage.get_datapoint_data_selected_rotation_tensor_by_name(name, 0)
+        selected_names.append(name)
         current_data_arr.append(current_data)
+        other_datapoints_data_arr.append(existing_data)
 
     current_data_arr = torch.stack(current_data_arr).to(get_device())
     other_datapoints_data_arr = torch.stack(other_datapoints_data_arr).to(get_device())
     norm_distance = torch.norm(current_data_arr - other_datapoints_data_arr, p=2, dim=1)
+
     length = len(norm_distance)
 
     found_additional_connections = []
     for i in range(length):
         distance_data_i = norm_distance[i]
-        if distance_data_i < distance_data:
-            found_additional_connections.append(datapoints_names[i])
+        if distance_data_i.item() < distance_data:
+            found_additional_connections.append(selected_names[i])
 
     return found_additional_connections
 
@@ -209,6 +187,23 @@ def fill_augmented_connections_distances(additional_connections: List[any], stor
     return additional_connections_augmented
 
 
+def check_coverage(datapoint_name: str, storage: StorageSuperset2):
+    """
+    A datapoint has coverage if it has neighbors on all its sides
+    """
+    neighbors = storage.get_datapoint_adjacent_connections(datapoint_name)
+    total_thetas = []
+    # for connection in neighbors:
+    #     angle_to_thetas()
+
+
 def filter_surplus_datapoints(storage: StorageSuperset2):
-    # TODO implement based on djakstra + same neighbors heuristic
+    """
+    A given datapoint is surplus or useless if:
+    - You can reach any neighbor from any other neighbor in at most 2 steps, without passing through the given datapoint ( meaning the datapoint adds no shape to the topology )
+        * We also check if the datapoint "coverage" ( has neighbors on all its sides )
+
+    - The datapoint has the same neighbors as another datapoint, excluding themselves
+    """
+
     pass

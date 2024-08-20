@@ -1,7 +1,10 @@
+import math
 import torch
 import torch.nn as nn
 import torch.optim as optim
 import numpy as np
+from triton.language import dtype
+import random
 from src.ai.runtime_data_storage.storage_superset2 import StorageSuperset2, RawConnectionData, calculate_coords_distance
 from src.modules.save_load_handlers.ai_models_handle import load_manually_saved_ai, save_ai_manually
 from src.ai.models.base_autoencoder_model import BaseAutoencoderModel
@@ -12,19 +15,14 @@ from src.modules.pretty_display import pretty_display, set_pretty_display, prett
 from src.ai.runtime_data_storage.storage_superset2 import thetas_to_radians, \
     angle_percent_to_thetas_normalized_cached, \
     radians_to_degrees, atan2_to_standard_radians, radians_to_percent, coordinate_pair_to_radians_cursed_tranform, \
-    direction_to_degrees_atan, distance_percent_to_distance_thetas, distance_thetas_to_distance_percent
-from src.ai.variants.blocks import ResidualBlockSmallBatchNorm
-
-DISTANCE_THETAS_SIZE = 100
-MAX_DISTANCE = 3
+    direction_to_degrees_atan
+from src.ai.variants.blocks import ResidualBlockSmallBatchNorm, _make_layer
 
 
-class NeighborhoodNetworkThetas(nn.Module):
-    def __init__(self, input_size=512, hidden_size=128, output_size=DISTANCE_THETAS_SIZE, dropout_rate=0.3,
-                 num_blocks=1):
-        super(NeighborhoodNetworkThetas, self).__init__()
-
-        self.input_layer = nn.Linear(input_size * 2, hidden_size)
+class AdjacencyDetector(nn.Module):
+    def __init__(self, input_size=512, hidden_size=256, output_size=2, dropout_rate=0.6, num_blocks=1):
+        super(AdjacencyDetector, self).__init__()
+        self.input_layer = _make_layer(input_size * 2, hidden_size)
         self.blocks = nn.ModuleList([ResidualBlockSmallBatchNorm(hidden_size, dropout_rate) for _ in range(num_blocks)])
         self.output_layer = nn.Linear(hidden_size, output_size)
         self.sigmoid = nn.Sigmoid()
@@ -37,16 +35,16 @@ class NeighborhoodNetworkThetas(nn.Module):
             out = block(out)
 
         output = self.output_layer(out)
+        output = F.softmax(output, dim=1)
+
         return output
 
     def forward_training(self, x, y):
         output = self._forward_pass(x, y)
-        log_softmax = F.log_softmax(output, dim=1)
-        return log_softmax
+        return output
 
     def forward(self, x, y):
         output = self._forward_pass(x, y)
-        output = F.softmax(output, dim=1)
         return output
 
 
@@ -57,19 +55,22 @@ def embedding_policy(data):
     return start_embedding
 
 
-def distance_loss(neighborgood_network, storage, sample_rate):
+def adjacency_detector_loss(direction_network, storage, sample_rate=None):
     loss = torch.tensor(0.0)
-
     raw_env = storage.get_raw_environment_data()
+
     if sample_rate == None:
         sample_rate = len(raw_env)
     sample_rate = min(sample_rate, len(raw_env))
 
     datapoints: List[str] = storage.sample_n_random_datapoints(sample_rate)
+
     start_embeddings_batch = []
     end_embeddings_batch = []
+    target_probabilities_batch = []
 
-    target_distances_batch = []
+    count09 = 0
+    count04 = 0
 
     for datapoint in datapoints:
         connections_to_point: List[RawConnectionData] = storage.get_datapoint_adjacent_connections(datapoint)
@@ -80,40 +81,74 @@ def distance_loss(neighborgood_network, storage, sample_rate):
             start_coords = storage.get_datapoint_metadata_coords(start)
             end_coords = storage.get_datapoint_metadata_coords(end)
             real_life_distance = calculate_coords_distance(start_coords, end_coords)
-            if real_life_distance > MAX_DISTANCE:
-                real_life_distance = MAX_DISTANCE - 0.01
-
-            thetas_target = distance_percent_to_distance_thetas(real_life_distance / MAX_DISTANCE,
-                                                                DISTANCE_THETAS_SIZE)
 
             start_data = storage.get_datapoint_data_tensor_by_name_permuted(start)
             end_data = storage.get_datapoint_data_tensor_by_name_permuted(end)
-            start_embedding = embedding_policy(start_data)
-            end_embedding = embedding_policy(end_data)
 
-            start_embeddings_batch.append(start_embedding)
-            end_embeddings_batch.append(end_embedding)
-            target_distances_batch.append(thetas_target)
+            if real_life_distance > 0.9:
+                # false
+                target_probabilities_batch.append([0, 1])
+                start_embeddings_batch.append(start_data)
+                end_embeddings_batch.append(end_data)
+                count09 += 1
+            elif real_life_distance < 0.4:
+                # true
+                # double close data to be very strong
+                target_probabilities_batch.append([1, 0])
+                target_probabilities_batch.append([1, 0])
+                target_probabilities_batch.append([1, 0])
+                start_embeddings_batch.append(start_data)
+                end_embeddings_batch.append(end_data)
+                start_embeddings_batch.append(start_data)
+                end_embeddings_batch.append(end_data)
+                start_embeddings_batch.append(start_data)
+                end_embeddings_batch.append(end_data)
+                count04 += 1
+            else:
+                continue
+
+    # selects 100 random pairs of datapoints
+    sample_size = 100 * 2
+    indices = torch.randperm(len(datapoints))[:sample_size]
+    pairs = [(datapoints[i], datapoints[j]) for i, j in indices.view(int(sample_size / 2), 2).tolist()]
+    sample_size = 100 * 2
+    indices = torch.randperm(len(datapoints))[:sample_size]
+    pairs = [(datapoints[i], datapoints[j]) for i, j in indices.view(int(sample_size / 2), 2).tolist()]
+
+    for pair in pairs:
+        start = pair[0]
+        end = pair[1]
+        start_data = storage.get_datapoint_data_tensor_by_name_permuted(start)
+        end_data = storage.get_datapoint_data_tensor_by_name_permuted(end)
+        start_embedding = embedding_policy(start_data)
+        end_embedding = embedding_policy(end_data)
+
+        start_embeddings_batch.append(start_embedding)
+        end_embeddings_batch.append(end_embedding)
+        # in 97% of cases, the distance will be more than 0.5
+        # false case
+        target_probabilities_batch.append([0, 1])
 
     start_embeddings_batch = torch.stack(start_embeddings_batch).to(get_device())
     end_embeddings_batch = torch.stack(end_embeddings_batch).to(get_device())
-    target_distances_batch = torch.stack(target_distances_batch).to(get_device())
+    target_probabilities_batch = torch.tensor(target_probabilities_batch, dtype=torch.float32).to(get_device())
+    predicted_distances = direction_network(start_embeddings_batch, end_embeddings_batch).squeeze(1)
 
-    predicted_distances = neighborgood_network.forward_training(start_embeddings_batch, end_embeddings_batch)
+    criterion = nn.BCELoss()
+    loss = criterion(predicted_distances, target_probabilities_batch)
 
-    criterion = torch.nn.KLDivLoss(reduction='batchmean')
-    loss = criterion(predicted_distances, target_distances_batch)
     return loss
 
 
-def _train_neighborhood_network(direction_network, storage, num_epochs, pretty_print=True) -> NeighborhoodNetworkThetas:
-    optimizer = optim.Adam(direction_network.parameters(), lr=0.0005, amsgrad=True)
+def _train_adjacency_network(adjacency_network, storage, num_epochs,
+                             pretty_print=True) -> AdjacencyDetector:
+    optimizer = optim.Adam(adjacency_network.parameters(), lr=0.0004, amsgrad=True)
 
-    scale_direction_loss = 1
     epoch_average_loss = 0
-    epoch_print_rate = 250
+    epoch_print_rate = 100
 
     storage.build_permuted_data_random_rotations_rotation0()
+
     set_pretty_display(epoch_print_rate, "Epochs batch training")
     pretty_display_start(0)
 
@@ -122,7 +157,7 @@ def _train_neighborhood_network(direction_network, storage, num_epochs, pretty_p
         epoch_loss = 0.0
         optimizer.zero_grad()
 
-        loss = distance_loss(direction_network, storage, sample_rate=None) * scale_direction_loss
+        loss = adjacency_detector_loss(adjacency_network, storage)
         loss.backward()
 
         optimizer.step()
@@ -139,25 +174,12 @@ def _train_neighborhood_network(direction_network, storage, num_epochs, pretty_p
             pretty_display_reset()
             pretty_display_start(epoch)
 
-    return direction_network
+    return adjacency_network
 
 
-def generate_new_ai_neighborhood_thetas() -> NeighborhoodNetworkThetas:
-    return NeighborhoodNetworkThetas().to(get_device())
-
-
-def run_neighborhood_network_thetas(neighborhood_network: NeighborhoodNetworkThetas,
-                                    storage: StorageSuperset2) -> NeighborhoodNetworkThetas:
+def run_adjacency_network(adjacency_network: AdjacencyDetector,
+                          storage: StorageSuperset2) -> AdjacencyDetector:
     storage.build_permuted_data_random_rotations_rotation0()
-    neighborhood_network = _train_neighborhood_network(neighborhood_network, storage, 2500, True)
-    print("")
-    return neighborhood_network
+    adjacency_network = _train_adjacency_network(adjacency_network, storage, 4000, True)
 
-
-def load_storage_data(storage: StorageSuperset2) -> StorageSuperset2:
-    dataset_grid = 5
-    storage.load_raw_data_from_others(f"data{dataset_grid}x{dataset_grid}_rotated24_image_embeddings.json")
-    storage.load_raw_data_connections_from_others(f"data{dataset_grid}x{dataset_grid}_connections.json")
-    # selects first rotation
-    storage.build_permuted_data_random_rotations_rotation0()
-    return storage
+    return adjacency_network

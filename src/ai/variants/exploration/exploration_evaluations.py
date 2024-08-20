@@ -17,6 +17,7 @@ from src.ai.variants.exploration.seen_network import SeenNetwork, run_seen_netwo
 from src.ai.variants.exploration.utils import get_collected_data_image, get_collected_data_distances, \
     evaluate_direction_distance_validity, check_min_distance
 from src.global_data_buffer import GlobalDataBuffer, empty_global_data_buffer
+from src.modules.pretty_display import pretty_display_start, set_pretty_display, pretty_display
 from src.modules.save_load_handlers.data_handle import write_other_data_to_file, serialize_object_other, \
     deserialize_object_other
 from src.action_robot_controller import detach_robot_sample_distance, detach_robot_sample_image, \
@@ -53,80 +54,71 @@ from src.ai.variants.exploration.evaluation_exploration import print_distances_e
 from src.ai.variants.exploration.autoencoder_network import run_autoencoder_network, AutoencoderExploration
 
 
-def evaluate_distance_metric(storage: StorageSuperset2, metric, new_datapoints: List[any],
-                             distance_threshold):
+def ground_truth_metric(storage: StorageSuperset2, new_datapoint: Dict[str, any], distance_threshold):
+    """
+    Find the closest datapoint in the storage
+    """
+    current_name = new_datapoint["name"]
+    datapoints_names = storage.get_all_datapoints()
+    adjacent_names = storage.get_datapoint_adjacent_datapoints_at_most_n_deg(current_name, 1)
+    adjacent_names.append(current_name)
+
+    current_data_arr = []
+    other_datapoints_data_arr = []
+    selected_names = []
+
+    for name in datapoints_names:
+        if name in adjacent_names or name == current_name:
+            continue
+
+        selected_names.append(name)
+
+    found_connections = []
+    for name in selected_names:
+        distance = storage.get_datapoints_real_distance(current_name, name)
+        if distance < distance_threshold:
+            found_connections.append(name)
+
+    return found_connections
+
+
+def evaluate_distance_metric(storage: StorageSuperset2, metric, new_datapoints: List[any]
+                             ):
     """
     Evaluate new datapoints and old datapoints with the distance metric
     """
-    check_min_distance()
+    true_positive = 0
+    false_positive = 0
+    really_bad_false_positive = 0
 
-    THRESHOLD = distance_threshold
-    should_be_found = []
-    should_not_be_found = []
+    new_datapoints = new_datapoints[:100]
 
-    print("Started evaluating metric")
-    # finds out what new datapoints should be found as adjacent
-    for new_datapoint in new_datapoints:
-        minimum_distance = check_min_distance(storage, new_datapoint)
-        if minimum_distance < THRESHOLD:
-            should_be_found.append(new_datapoint)
-        else:
-            should_not_be_found.append(new_datapoint)
-
-    print("calculated min distances")
-
-    # finds out datapoints by metric
-    found_datapoints = []
-    negative_datapoints = []
-
-    set_pretty_display(len(new_datapoints), "Distance metric evaluation")
+    set_pretty_display(len(new_datapoints))
     pretty_display_start()
+
+    all_found_datapoints = []
+    true_found_datapoints = []
+
     for idx, new_datapoint in enumerate(new_datapoints):
-        if metric(storage, new_datapoint) == 1:
-            found_datapoints.append(new_datapoint)
-        else:
-            negative_datapoints.append(new_datapoint)
+        pretty_display(idx)
 
-        if idx % 10 == 0:
-            pretty_display(idx)
+        found_datapoints = metric(storage, new_datapoint)
+        all_found_datapoints.extend(found_datapoints)
+        true_datapoints = ground_truth_metric(storage, new_datapoint, 0.5)
+        true_found_datapoints.extend(true_datapoints)
 
-    pretty_display_reset()
+        for founddp in found_datapoints:
+            distance = storage.get_datapoints_real_distance(new_datapoint["name"], founddp)
 
-    print("calculated metric results")
+            if distance < 0.5:
+                true_positive += 1
+            elif distance < 1:
+                false_positive += 1
+            else:
+                really_bad_false_positive += 1
 
-    true_positives = 0
-    false_positives = 0
-    false_negatives = 0
-    true_negatives = 0
-
-    false_positives_arr = []
-
-    for found_datapoint in found_datapoints:
-        if found_datapoint in should_be_found:
-            true_positives += 1
-        else:
-            false_positives += 1
-            false_positives_arr.append(found_datapoint)
-
-    for negative_datapoint in negative_datapoints:
-        if negative_datapoint in should_not_be_found:
-            true_negatives += 1
-        else:
-            false_negatives += 1
-
-    if len(found_datapoints) == 0:
-        print("No found datapoints for this metric")
-        return
-
-    print(f"True positives: {true_positives}")
-    print(f"False positives: {false_positives}")
-    print(f"True negatives: {true_negatives}")
-    print(f"False negatives: {false_negatives}")
-    print(f"Precision: {true_positives / (true_positives + false_positives)}")
-    print(f"Recall: {true_positives / (true_positives + false_negatives)}")
-    print(
-        f"Accuracy: {(true_positives + true_negatives) / (true_positives + true_negatives + false_positives + false_negatives)}")
-
-    for false_positive in false_positives_arr:
-        distance = check_min_distance(storage, false_positive)
-        print("false positive", distance)
+    print("")
+    print("True positive", true_positive)
+    print("Percent of true positive of actual positives", true_positive / len(true_found_datapoints))
+    print("False positive", false_positive)
+    print("Really bad false positive", really_bad_false_positive)

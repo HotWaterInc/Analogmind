@@ -12,8 +12,8 @@ from src.utils import array_to_tensor
 from typing import List
 import torch.nn.functional as F
 from src.modules.pretty_display import pretty_display, set_pretty_display, pretty_display_start, pretty_display_reset
-from src.ai.runtime_data_storage.storage_superset2 import angle_to_thetas, thetas_to_radians, \
-    angle_percent_to_thetas_normalized, \
+from src.ai.runtime_data_storage.storage_superset2 import thetas_to_radians, \
+    angle_percent_to_thetas_normalized_cached, \
     radians_to_degrees, atan2_to_standard_radians, radians_to_percent, coordinate_pair_to_radians_cursed_tranform, \
     direction_to_degrees_atan, degrees_to_percent
 from src.ai.variants.blocks import ResidualBlockSmallBatchNorm
@@ -80,7 +80,7 @@ def SDS_loss(direction_network, sample_rate=25):
 
             direction_angle = direction_to_degrees_atan(direction_normalized)
             direction_percent = degrees_to_percent(direction_angle)
-            theta_form = angle_percent_to_thetas_normalized(direction_percent, 36)
+            theta_form = angle_percent_to_thetas_normalized_cached(direction_percent, 36)
 
             start_data = storage.get_datapoint_data_tensor_by_name_permuted(start)
             end_data = storage.get_datapoint_data_tensor_by_name_permuted(end)
@@ -183,7 +183,8 @@ def run_tests_basic(direction_network_SDS):
 
                 direction = normalize_direction(direction)
                 direction_angle = direction_to_degrees_atan(direction)
-                direction_thetas = angle_percent_to_thetas_normalized(degrees_to_percent(direction_angle), THETAS_SIZE)
+                direction_thetas = angle_percent_to_thetas_normalized_cached(degrees_to_percent(direction_angle),
+                                                                             THETAS_SIZE)
 
                 start_data = storage.get_datapoint_data_tensor_by_name_permuted(start).to(device)
                 end_data = storage.get_datapoint_data_tensor_by_name_permuted(end).to(device)

@@ -157,9 +157,10 @@ STEP_DISTANCE = 0.25
 # number of sampled rotations for each datapoint ( at roughly equal intervals )
 ROTATIONS = 24
 # how many rotations are taken into account for each datapoint ( so how many cameras shot at once )
-ROTATIONS_PER_FULL = 1
+ROTATIONS_PER_FULL = 6
 # how many offsets are included in the training of the abstraction block
 OFFSETS_PER_DATAPOINT = 24
+THETAS_SIZE = 36
 
 # These are optimal parameters when the networks are continously trained
 # Need to be found empirically

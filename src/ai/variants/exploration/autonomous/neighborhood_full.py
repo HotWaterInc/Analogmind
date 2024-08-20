@@ -3,6 +3,7 @@ import torch.nn as nn
 import torch.optim as optim
 import numpy as np
 from src.ai.runtime_data_storage.storage_superset2 import StorageSuperset2, RawConnectionData, calculate_coords_distance
+from src.ai.variants.exploration.utils import DISTANCE_THETAS_SIZE, MAX_DISTANCE
 from src.modules.save_load_handlers.ai_models_handle import load_manually_saved_ai, save_ai_manually
 from src.ai.models.base_autoencoder_model import BaseAutoencoderModel
 from src.utils import array_to_tensor, get_device
@@ -15,14 +16,11 @@ from src.ai.runtime_data_storage.storage_superset2 import thetas_to_radians, \
     direction_to_degrees_atan, distance_percent_to_distance_thetas, distance_thetas_to_distance_percent
 from src.ai.variants.blocks import ResidualBlockSmallBatchNorm
 
-DISTANCE_THETAS_SIZE = 100
-MAX_DISTANCE = 3
 
-
-class NeighborhoodNetworkThetas(nn.Module):
-    def __init__(self, input_size=512, hidden_size=128, output_size=DISTANCE_THETAS_SIZE, dropout_rate=0.3,
+class NeighborhoodNetworkThetasFull(nn.Module):
+    def __init__(self, input_size=512, hidden_size=512, output_size=DISTANCE_THETAS_SIZE, dropout_rate=0.3,
                  num_blocks=1):
-        super(NeighborhoodNetworkThetas, self).__init__()
+        super(NeighborhoodNetworkThetasFull, self).__init__()
 
         self.input_layer = nn.Linear(input_size * 2, hidden_size)
         self.blocks = nn.ModuleList([ResidualBlockSmallBatchNorm(hidden_size, dropout_rate) for _ in range(num_blocks)])
@@ -48,13 +46,6 @@ class NeighborhoodNetworkThetas(nn.Module):
         output = self._forward_pass(x, y)
         output = F.softmax(output, dim=1)
         return output
-
-
-def embedding_policy(data):
-    global autoencoder
-    start_embedding = data
-    # start_embedding = autoencoder.encoder_inference(data)
-    return start_embedding
 
 
 def distance_loss(neighborgood_network, storage, sample_rate):
@@ -85,14 +76,11 @@ def distance_loss(neighborgood_network, storage, sample_rate):
 
             thetas_target = distance_percent_to_distance_thetas(real_life_distance / MAX_DISTANCE,
                                                                 DISTANCE_THETAS_SIZE)
-
             start_data = storage.get_datapoint_data_tensor_by_name_permuted(start)
             end_data = storage.get_datapoint_data_tensor_by_name_permuted(end)
-            start_embedding = embedding_policy(start_data)
-            end_embedding = embedding_policy(end_data)
 
-            start_embeddings_batch.append(start_embedding)
-            end_embeddings_batch.append(end_embedding)
+            start_embeddings_batch.append(start_data)
+            end_embeddings_batch.append(end_data)
             target_distances_batch.append(thetas_target)
 
     start_embeddings_batch = torch.stack(start_embeddings_batch).to(get_device())
@@ -106,18 +94,26 @@ def distance_loss(neighborgood_network, storage, sample_rate):
     return loss
 
 
-def _train_neighborhood_network(direction_network, storage, num_epochs, pretty_print=True) -> NeighborhoodNetworkThetas:
+def _train_neighborhood_network(direction_network, storage, num_epochs,
+                                pretty_print=True) -> NeighborhoodNetworkThetasFull:
     optimizer = optim.Adam(direction_network.parameters(), lr=0.0005, amsgrad=True)
+    # increase size or LR
 
     scale_direction_loss = 1
     epoch_average_loss = 0
-    epoch_print_rate = 250
+    epoch_print_rate = 500
 
     storage.build_permuted_data_random_rotations_rotation0()
     set_pretty_display(epoch_print_rate, "Epochs batch training")
     pretty_display_start(0)
 
+    SHUFFLE = 5
+
     for epoch in range(num_epochs):
+        if epoch % SHUFFLE == 0:
+            storage.build_permuted_data_random_rotations_rotation0()
+            # storage.build_permuted_data_random_rotations()
+
         pretty_display(epoch % epoch_print_rate)
         epoch_loss = 0.0
         optimizer.zero_grad()
@@ -142,22 +138,8 @@ def _train_neighborhood_network(direction_network, storage, num_epochs, pretty_p
     return direction_network
 
 
-def generate_new_ai_neighborhood_thetas() -> NeighborhoodNetworkThetas:
-    return NeighborhoodNetworkThetas().to(get_device())
-
-
-def run_neighborhood_network_thetas(neighborhood_network: NeighborhoodNetworkThetas,
-                                    storage: StorageSuperset2) -> NeighborhoodNetworkThetas:
+def run_neighborhood_network_thetas_full(neighborhood_network: NeighborhoodNetworkThetasFull,
+                                         storage: StorageSuperset2) -> NeighborhoodNetworkThetasFull:
     storage.build_permuted_data_random_rotations_rotation0()
-    neighborhood_network = _train_neighborhood_network(neighborhood_network, storage, 2500, True)
-    print("")
+    neighborhood_network = _train_neighborhood_network(neighborhood_network, storage, 1500, True)
     return neighborhood_network
-
-
-def load_storage_data(storage: StorageSuperset2) -> StorageSuperset2:
-    dataset_grid = 5
-    storage.load_raw_data_from_others(f"data{dataset_grid}x{dataset_grid}_rotated24_image_embeddings.json")
-    storage.load_raw_data_connections_from_others(f"data{dataset_grid}x{dataset_grid}_connections.json")
-    # selects first rotation
-    storage.build_permuted_data_random_rotations_rotation0()
-    return storage

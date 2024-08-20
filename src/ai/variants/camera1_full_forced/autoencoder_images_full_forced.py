@@ -19,7 +19,7 @@ from src.ai.evaluation.evaluation import evaluate_reconstruction_error, evaluate
 from src.modules.pretty_display import pretty_display_reset, pretty_display_start, pretty_display, set_pretty_display
 import torch
 import torch.nn as nn
-from src.ai.variants.blocks import ResidualBlockSmallBatchNorm, _make_layer
+from src.ai.variants.blocks import ResidualBlockSmallBatchNorm, _make_layer_no_batchnorm_leaky
 
 
 class AutoencoderImagesFullForced(BaseAutoencoderModel):
@@ -32,8 +32,8 @@ class AutoencoderImagesFullForced(BaseAutoencoderModel):
         self.encoding_blocks = nn.ModuleList(
             [ResidualBlockSmallBatchNorm(hidden_size, dropout_rate) for _ in range(num_blocks)])
 
-        self.manifold_encoder = _make_layer(hidden_size, embedding_size)
-        self.manifold_decoder = _make_layer(embedding_size, hidden_size)
+        self.manifold_encoder = _make_layer_no_batchnorm_leaky(hidden_size, embedding_size)
+        self.manifold_decoder = _make_layer_no_batchnorm_leaky(embedding_size, hidden_size)
 
         self.decoding_blocks = nn.ModuleList(
             [ResidualBlockSmallBatchNorm(hidden_size, dropout_rate) for _ in range(num_blocks)])

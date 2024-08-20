@@ -24,30 +24,6 @@ def calculate_coords_distance(coords1, coords2):
     return math.sqrt((coords1[0] - coords2[0]) ** 2 + (coords1[1] - coords2[1]) ** 2)
 
 
-def build_thetas_2(true_theta, thetas_length):
-    thetas = torch.zeros(thetas_length)
-    true_theta_index = true_theta * (thetas_length)
-
-    integer_index_left = int(true_theta_index)
-    integer_index_right = integer_index_left + 1
-
-    weight_left = 1 - (true_theta_index - integer_index_left)
-    weight_right = 1 - weight_left
-
-    FILL_DISTANCE = 1
-    for i in range(FILL_DISTANCE):
-        left_index = integer_index_left - i
-        right_index = integer_index_right + i
-
-        pdf_value = weight_left
-        thetas[left_index] = pdf_value
-
-        pdf_value = weight_right
-        thetas[right_index] = pdf_value
-
-    return thetas
-
-
 def direction_to_degrees_atan(direction):
     y = direction[1]
     x = direction[0]
@@ -63,35 +39,7 @@ def direction_to_degrees_atan(direction):
     # account for weird representation
     normalized_angle = (360 - angle_deg) % 360
 
-    # print(direction, normalized_angle)
-
     return normalized_angle
-
-
-def angle_to_thetas(true_theta, thetas_length):
-    thetas = torch.zeros(thetas_length)
-    true_theta_index = true_theta * (thetas_length)
-    integer_index_left = int(true_theta_index)
-    integer_index_right = integer_index_left + 1
-
-    FILL_DISTANCE = 5
-    SD = 1.5
-    for i in range(FILL_DISTANCE):
-        left_index = integer_index_left - i
-        right_index = integer_index_right + i
-
-        pdf_value = norm.pdf(left_index, loc=true_theta_index, scale=SD)
-        if left_index < 0:
-            left_index = len(thetas) + left_index
-
-        thetas[left_index] = pdf_value
-
-        pdf_value = norm.pdf(right_index, loc=true_theta_index, scale=SD)
-        if right_index >= len(thetas):
-            right_index = right_index - len(thetas)
-        thetas[right_index] = pdf_value
-
-    return thetas
 
 
 def radians_to_degrees(radians):
@@ -192,7 +140,7 @@ def angle_radians_to_percent(angle_radians):
     return angle_radians / (2 * np.pi)
 
 
-def angle_percent_to_thetas_normalized(true_theta_percent, thetas_length):
+def angle_percent_to_thetas_normalized_cached(true_theta_percent, thetas_length):
     thetas = torch.zeros(thetas_length)
     if true_theta_percent == 1:
         true_theta_percent = 0
@@ -241,7 +189,6 @@ def thetas_to_radians(thetas):
     for i in range(lng):
         degree = i * step
         radians = deg_to_rad(degree)
-        # print(degree, radians)
 
         real = math.cos(radians)
         imag = math.sin(radians)
@@ -254,7 +201,6 @@ def thetas_to_radians(thetas):
     for i in range(lng):
         real_sum += real_arr[i] * thetas[i]
         imag_sum += imag_arr[i] * thetas[i]
-        # print(f"Real: {real_arr[i]}, Imag: {imag_arr[i]}, Theta: {thetas[i]}")
 
     real_sum /= lng
     imag_sum /= lng

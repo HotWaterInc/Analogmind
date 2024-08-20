@@ -12,7 +12,7 @@ from src.ai.variants.tests.eval_vae_abstract_block import evaluate_confidence_va
 
 import torch
 import torch.nn as nn
-from src.ai.variants.blocks import ResidualBlockSmallBatchNorm, _make_layer, _make_layer_linear
+from src.ai.variants.blocks import ResidualBlockSmallBatchNorm, _make_layer_no_batchnorm_leaky, _make_layer_linear
 
 
 def reparameterization(mean, var):
@@ -33,12 +33,13 @@ class VAEAutoencoderAbstractionBlockImage(BaseAutoencoderModel):
             [ResidualBlockSmallBatchNorm(hidden_size, dropout_rate) for _ in range(num_blocks)])
 
         # Separate encoders for mean and log variance
-        self.position_mean_encoder = _make_layer(hidden_size, position_embedding_size)
+        self.position_mean_encoder = _make_layer_no_batchnorm_leaky(hidden_size, position_embedding_size)
         self.position_logvar_encoder = _make_layer_linear(hidden_size, position_embedding_size)
-        self.thetas_mean_encoder = _make_layer(hidden_size, thetas_embedding_size)
+        self.thetas_mean_encoder = _make_layer_no_batchnorm_leaky(hidden_size, thetas_embedding_size)
         self.thetas_logvar_encoder = _make_layer_linear(hidden_size, thetas_embedding_size)
 
-        self.decoder_initial_layer = _make_layer(position_embedding_size + thetas_embedding_size, hidden_size)
+        self.decoder_initial_layer = _make_layer_no_batchnorm_leaky(position_embedding_size + thetas_embedding_size,
+                                                                    hidden_size)
         self.decoding_blocks = nn.ModuleList(
             [ResidualBlockSmallBatchNorm(hidden_size, dropout_rate) for _ in range(num_blocks)])
         self.output_layer = nn.Linear(hidden_size, input_output_size)

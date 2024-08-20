@@ -11,8 +11,8 @@ from src.utils import array_to_tensor, get_device
 from typing import List
 import torch.nn.functional as F
 from src.modules.pretty_display import pretty_display, set_pretty_display, pretty_display_start, pretty_display_reset
-from src.ai.runtime_data_storage.storage_superset2 import angle_to_thetas, thetas_to_radians, \
-    angle_percent_to_thetas_normalized, \
+from src.ai.runtime_data_storage.storage_superset2 import thetas_to_radians, \
+    angle_percent_to_thetas_normalized_cached, \
     radians_to_degrees, atan2_to_standard_radians, radians_to_percent, coordinate_pair_to_radians_cursed_tranform, \
     direction_to_degrees_atan
 from src.ai.variants.blocks import ResidualBlockSmallBatchNorm
@@ -168,8 +168,8 @@ def run_tests_SDirDistState(direction_network_SDDS, storage):
             distance = connections_to_point[j]["distance"]
             distance_percent = distance / MAX_DISTANCE
 
-            direction_thetas = angle_percent_to_thetas_normalized(degrees_to_percent(direction_angle),
-                                                                  DIRECTION_THETAS_SIZE)
+            direction_thetas = angle_percent_to_thetas_normalized_cached(degrees_to_percent(direction_angle),
+                                                                         DIRECTION_THETAS_SIZE)
             distance_thetas = distance_percent_to_distance_thetas(distance_percent, DISTANCE_THETAS_SIZE)
             start_data = storage.get_datapoint_data_tensor_by_name_permuted(start).to(get_device())
             end_data = storage.get_datapoint_data_tensor_by_name_permuted(end).to(get_device())

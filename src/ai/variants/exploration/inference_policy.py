@@ -19,7 +19,7 @@ from src.modules.save_load_handlers.ai_models_handle import save_ai, save_ai_man
     load_manually_saved_ai, load_custom_ai, load_other_ai
 from src.modules.save_load_handlers.parameters import *
 from src.ai.runtime_data_storage.storage_superset2 import StorageSuperset2, thetas_to_radians, \
-    direction_to_degrees_atan, angle_percent_to_thetas_normalized, degrees_to_percent, \
+    direction_to_degrees_atan, angle_percent_to_thetas_normalized_cached, degrees_to_percent, \
     distance_percent_to_distance_thetas
 from src.ai.runtime_data_storage import Storage
 from typing import List, Dict, Union
@@ -220,7 +220,7 @@ def final_angle_policy_direction_testing(current_embedding, angle_percent, targe
         distances.append(STEP_DISTANCE)
 
     directions_percent = [degrees_to_percent(direction_to_degrees_atan(direction)) for direction in directions]
-    directions_thetas = [angle_percent_to_thetas_normalized(direction, DIRECTION_THETAS_SIZE) for direction in
+    directions_thetas = [angle_percent_to_thetas_normalized_cached(direction, DIRECTION_THETAS_SIZE) for direction in
                          directions_percent]
     distance_thetas = [distance_percent_to_distance_thetas(dist / MAX_DISTANCE, DISTANCE_THETAS_SIZE) for dist in
                        distances]

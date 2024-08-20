@@ -215,77 +215,6 @@ def relative_difference(a, b):
     return abs(a - b) / ((a + b) / 2)
 
 
-def build_find_adjacency_heursitic_neighborhood_network(
-        neighborhood_network: NeighborhoodDistanceNetwork):
-    def find_adjacency_heursitic_augmented(storage: StorageSuperset2, datapoint: Dict[str, any]):
-        return find_adjacency_heuristic_neighborhood_network(storage, neighborhood_network, datapoint)
-
-    return find_adjacency_heursitic_augmented
-
-
-def build_find_adjacency_heursitic_neighborhood_network_thetas(
-        neighborhood_network: NeighborhoodNetworkThetas):
-    def find_adjacency_heursitic_augmented(storage: StorageSuperset2, datapoint: Dict[str, any]):
-        return find_adjacency_heuristic_neighborhood_network_thetas(storage, neighborhood_network, datapoint)
-
-    return find_adjacency_heursitic_augmented
-
-
-def find_adjacency_heuristic_neighborhood_network_thetas(storage: StorageSuperset2,
-                                                         neighborhood_network: NeighborhoodNetworkThetas,
-                                                         datapoint: Dict[str, any]):
-    current_name = datapoint["name"]
-    current_data = datapoint["data"]
-    current_data = torch.tensor(current_data).to(get_device())
-
-    datapoints_names = storage.get_all_datapoints()
-    neighborhood_network.eval()
-    neighborhood_network = neighborhood_network.to(get_device())
-
-    found = 0
-    for name in datapoints_names:
-        if name == current_name:
-            continue
-
-        existing_data = storage.get_datapoint_data_tensor_by_name(name).to(get_device())
-
-        distance_thetas = neighborhood_network(current_data,
-                                               existing_data).squeeze()
-        distance_percent = distance_thetas_to_distance_percent(distance_thetas)
-        distance_percent *= MAX_DISTANCE
-
-        if distance_percent < 0.35:
-            found = 1
-
-    return found
-
-
-def find_adjacency_heuristic_neighborhood_network(storage: StorageSuperset2,
-                                                  neighborhood_network: NeighborhoodDistanceNetwork,
-                                                  datapoint: Dict[str, any]):
-    current_name = datapoint["name"]
-    current_data = datapoint["data"]
-    current_data = torch.tensor(current_data).to(get_device())
-
-    datapoints_names = storage.get_all_datapoints()
-    neighborhood_network.eval()
-    neighborhood_network = neighborhood_network.to(get_device())
-
-    found = 0
-    for name in datapoints_names:
-        if name == current_name:
-            continue
-        existing_data = storage.get_datapoint_data_tensor_by_name(name).to(get_device())
-
-        expected_distance = neighborhood_network(current_data,
-                                                 existing_data).squeeze()
-
-        if expected_distance < 0.5:
-            found = 1
-
-    return found
-
-
 def display_sensor_data():
     detach_robot_sample_distance()
     yield
@@ -489,6 +418,8 @@ def exploration_policy() -> Generator[None, None, None]:
 
         # train neighborhood network on abstracted data
         train_neighborhood_network()
+
+        # augmentation and filtering
         find_adjacency_heuristic = build_find_adjacency_heursitic_raw_data(storage_abstracted)
         additional_connections = build_augmented_connections(storage_abstracted, find_adjacency_heuristic,
                                                              STEP_DISTANCE * 1.5)
@@ -496,6 +427,7 @@ def exploration_policy() -> Generator[None, None, None]:
                                                                      neighborhood_distance_network)
         storage_abstracted.incorporate_new_data([], augmented_connections)
         filter_surplus_datapoints(storage_abstracted)
+
         train_manifold_network()
         # transform storage again into manifold
         train_navigation_networks()

@@ -12,7 +12,8 @@ from src.ai.variants.camera1_full_forced.policy_images_simple import navigation_
 from src.ai.variants.camera1_full_forced.direction_network_SS import run_direction_post_autoencod_SS
 from src.ai.variants.camera1_full_forced.direction_network_SDS import run_direction_post_autoencod_SDS
 from src.ai.variants.camera1_full_forced.vae_abstract_block_image import run_vae_abstract_block
-from src.ai.variants.exploration.exploration_policy import exploration_policy
+from src.ai.variants.exploration.exploration_policy import exploration_policy, exploration_policy_train_only, \
+    exploration_policy_augment_data
 
 from src.ai.variants.exploration.inference_policy import teleportation_exploring_inference
 from src.modules.save_load_handlers.data_handle import read_other_data_from_file
@@ -84,7 +85,9 @@ def inference_north_pipeline():
 
 
 if __name__ == "__main__":
-    exploration_pipeline()
+    # exploration_pipeline()
+    exploration_policy_train_only()
+    # exploration_policy_augment_data()
     # inference_north_pipeline()
 
     pass

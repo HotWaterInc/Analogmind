@@ -4,7 +4,7 @@ from typing import Tuple
 import torch.nn as nn
 import torch.optim as optim
 import numpy as np
-from src.ai.variants.blocks import ResidualBlockSmallBatchNorm, _make_layer
+from src.ai.variants.blocks import ResidualBlockSmallBatchNorm, _make_layer_no_batchnorm_leaky
 from src.ai.variants.exploration.utils import ROTATIONS, ROTATIONS_PER_FULL, ROTATIONS, OFFSETS_PER_DATAPOINT
 from src.modules.save_load_handlers.ai_models_handle import save_ai, save_ai_manually, load_latest_ai, \
     load_manually_saved_ai
@@ -27,7 +27,7 @@ import torch.nn as nn
 
 class AbstractionBlockImage(BaseAutoencoderModel):
     def __init__(self, dropout_rate: float = 0.2, position_embedding_size: int = 256, thetas_embedding_size: int = 256,
-                 hidden_size: int = 1024, num_blocks: int = 2, input_output_size=512,
+                 hidden_size: int = 1024 * 2, num_blocks: int = 2, input_output_size=512,
                  concatenated_instances: int = ROTATIONS_PER_FULL):
         super(AbstractionBlockImage, self).__init__()
 
@@ -37,10 +37,11 @@ class AbstractionBlockImage(BaseAutoencoderModel):
         self.encoding_blocks = nn.ModuleList(
             [ResidualBlockSmallBatchNorm(hidden_size, dropout_rate) for _ in range(num_blocks)])
 
-        self.positional_encoder = _make_layer(hidden_size, position_embedding_size)
-        self.thetas_encoder = _make_layer(hidden_size, thetas_embedding_size)
+        self.positional_encoder = _make_layer_no_batchnorm_leaky(hidden_size, position_embedding_size)
+        self.thetas_encoder = _make_layer_no_batchnorm_leaky(hidden_size, thetas_embedding_size)
 
-        self.decoder_initial_layer = _make_layer(position_embedding_size + thetas_embedding_size, hidden_size)
+        self.decoder_initial_layer = _make_layer_no_batchnorm_leaky(position_embedding_size + thetas_embedding_size,
+                                                                    hidden_size)
         self.decoding_blocks = nn.ModuleList(
             [ResidualBlockSmallBatchNorm(hidden_size, dropout_rate) for _ in range(num_blocks)])
 
@@ -109,6 +110,7 @@ def reconstruction_handling_raw(autoencoder: BaseAutoencoderModel,
             sampled_full_rotation = array_to_tensor(
                 storage.get_point_rotations_with_full_info_random_offset_concatenated(point, ROTATIONS_PER_FULL))
             data.append(sampled_full_rotation)
+            print(sampled_full_rotation.shape)
 
     data = torch.stack(data).to(device=get_device())
     positional_encoding, thetas_encoding = autoencoder.encoder_training(data)
@@ -235,27 +237,69 @@ def reconstruction_handling_with_freezing(autoencoder: BaseAutoencoderModel, sto
     }
 
 
+def linearity_distance_handling(autoencoder: BaseAutoencoderModel, storage: StorageSuperset2,
+                                non_adjacent_sample_size: int,
+                                scale_non_adjacent_distance_loss: float, distance_per_neuron: float) -> torch.Tensor:
+    """
+    Makes first degree connections be linearly distant from each other
+    """
+    # sampled_pairs = storage.sample_datapoints_adjacencies(non_adjacent_sample_size)
+    non_adjacent_sample_size = min(non_adjacent_sample_size, len(storage.get_all_connections_data()))
+    sampled_pairs = storage.sample_adjacent_datapoints_connections_raw_data(non_adjacent_sample_size)
+
+    batch_datapoint1 = []
+    batch_datapoint2 = []
+
+    for pair in sampled_pairs:
+        datapoint1 = storage.get_datapoint_data_tensor_by_name_permuted(pair["start"])
+        datapoint2 = storage.get_datapoint_data_tensor_by_name_permuted(pair["end"])
+
+        batch_datapoint1.append(datapoint1)
+        batch_datapoint2.append(datapoint2)
+
+    batch_datapoint1 = torch.stack(batch_datapoint1).to(get_device())
+    batch_datapoint2 = torch.stack(batch_datapoint2).to(get_device())
+
+    encoded_i, thetas_i = autoencoder.encoder_training(batch_datapoint1)
+    encoded_j, thetas_j = autoencoder.encoder_training(batch_datapoint2)
+
+    embedding_size = encoded_i.shape[1]
+
+    distance = torch.norm(encoded_i - encoded_j, p=2, dim=1)
+    expected_distance = [pair["distance"] for pair in sampled_pairs]
+    expected_distance = torch.tensor(expected_distance, dtype=torch.float32).to(get_device())
+
+    criterion = nn.MSELoss()
+
+    non_adjacent_distance_loss = criterion(distance, expected_distance) * scale_non_adjacent_distance_loss
+    return non_adjacent_distance_loss
+
+
 def _train_autoencoder_abstraction_block(abstraction_block: AbstractionBlockImage, storage: StorageSuperset2,
                                          epochs: int,
                                          pretty_print: bool = False) -> AbstractionBlockImage:
     # PARAMETERS
-    optimizer = optim.Adam(abstraction_block.parameters(), lr=0.00030, amsgrad=True)
+    optimizer = optim.Adam(abstraction_block.parameters(), lr=0.00015, amsgrad=True)
     abstraction_block = abstraction_block.to(device=get_device())
 
     num_epochs = epochs
-    scale_reconstruction_loss = 5
+    scale_reconstruction_loss = 2
     scale_ratio_loss = 1.5
+    scale_linearity_loss = 1
 
     epoch_average_loss = 0
+    linearity_sample_size = 100
+    DISTANCE_PER_NEURON = 0.005
 
     loss_same_position_average_loss = 0
     loss_same_rotation_average_loss = 0
     loss_ratio_position_average_loss = 0
     loss_ratio_rotation_average_loss = 0
+    loss_linearity_average_loss = 0
 
     reconstruction_average_loss = 0
 
-    epoch_print_rate = 500
+    epoch_print_rate = 250
 
     if pretty_print:
         set_pretty_display(epoch_print_rate, "Epoch batch")
@@ -267,7 +311,11 @@ def _train_autoencoder_abstraction_block(abstraction_block: AbstractionBlockImag
     position_encoding_change_on_position_avg = 0
     position_encoding_change_on_rotation_avg = 0
 
+    SHUFFLE = 5
     for epoch in range(num_epochs):
+        if epoch % SHUFFLE == 0:
+            storage.build_permuted_data_random_rotations()
+
         epoch_loss = 0.0
         optimizer.zero_grad()
 
@@ -275,6 +323,8 @@ def _train_autoencoder_abstraction_block(abstraction_block: AbstractionBlockImag
         losses_json = reconstruction_handling_with_freezing(
             abstraction_block,
             storage)
+        linearity_loss = linearity_distance_handling(abstraction_block, storage, linearity_sample_size,
+                                                     scale_linearity_loss, DISTANCE_PER_NEURON)
 
         reconstruction_loss = losses_json["loss_reconstruction"]
 
@@ -288,8 +338,10 @@ def _train_autoencoder_abstraction_block(abstraction_block: AbstractionBlockImag
         reconstruction_loss *= scale_reconstruction_loss
         ratio_loss_position *= scale_ratio_loss
         ratio_loss_rotation *= scale_ratio_loss
+        linearity_loss *= scale_linearity_loss
 
         reconstruction_loss.backward(retain_graph=True)
+        linearity_loss.backward()
 
         position_encoding_change_on_rotation.backward(retain_graph=True)
         rotation_encoding_change_on_position.backward(retain_graph=True)
@@ -302,8 +354,9 @@ def _train_autoencoder_abstraction_block(abstraction_block: AbstractionBlockImag
         reconstruction_loss /= scale_reconstruction_loss
         ratio_loss_position /= scale_ratio_loss
         ratio_loss_rotation /= scale_ratio_loss
+        linearity_loss /= scale_linearity_loss
 
-        epoch_loss += reconstruction_loss.item() + position_encoding_change_on_rotation.item() + rotation_encoding_change_on_position.item() + ratio_loss_position.item() + ratio_loss_rotation.item()
+        epoch_loss += reconstruction_loss.item() + position_encoding_change_on_rotation.item() + rotation_encoding_change_on_position.item() + ratio_loss_position.item() + ratio_loss_rotation.item() + linearity_loss.item()
         epoch_average_loss += epoch_loss
 
         reconstruction_average_loss += reconstruction_loss.item()
@@ -311,6 +364,7 @@ def _train_autoencoder_abstraction_block(abstraction_block: AbstractionBlockImag
         loss_same_rotation_average_loss += rotation_encoding_change_on_position.item()
         loss_ratio_position_average_loss += ratio_loss_position.item()
         loss_ratio_rotation_average_loss += ratio_loss_rotation.item()
+        loss_linearity_average_loss += linearity_loss.item()
 
         rotation_encoding_change_on_position_avg += rotation_encoding_change_on_position.item()
         rotation_encoding_change_on_rotation_avg += rotation_encoding_change_on_rotation.item()
@@ -329,6 +383,7 @@ def _train_autoencoder_abstraction_block(abstraction_block: AbstractionBlockImag
             loss_same_rotation_average_loss /= epoch_print_rate
             loss_ratio_position_average_loss /= epoch_print_rate
             loss_ratio_rotation_average_loss /= epoch_print_rate
+            loss_linearity_average_loss /= epoch_print_rate
 
             rotation_encoding_change_on_position_avg /= epoch_print_rate
             rotation_encoding_change_on_rotation_avg /= epoch_print_rate
@@ -340,7 +395,7 @@ def _train_autoencoder_abstraction_block(abstraction_block: AbstractionBlockImag
             print("")
             print(f"EPOCH:{epoch}/{num_epochs} ")
             print(
-                f"RECONSTRUCTION LOSS:{reconstruction_average_loss} | LOSS SAME POSITION:{loss_same_position_average_loss} | LOSS SAME ROTATION:{loss_same_rotation_average_loss} | RATIO LOSS POSITION:{loss_ratio_position_average_loss} | RATIO LOSS ROTATION:{loss_ratio_rotation_average_loss}")
+                f"RECONSTRUCTION LOSS:{reconstruction_average_loss} | LOSS SAME POSITION:{loss_same_position_average_loss} | LOSS SAME ROTATION:{loss_same_rotation_average_loss} | RATIO LOSS POSITION:{loss_ratio_position_average_loss} | RATIO LOSS ROTATION:{loss_ratio_rotation_average_loss} | LINEARITY LOSS:{loss_linearity_average_loss}")
             print(
                 f"Changes of rotation encoding on position: {rotation_encoding_change_on_position_avg} | Changes of rotation encoding on rotation: {rotation_encoding_change_on_rotation_avg}")
             print(
@@ -355,6 +410,7 @@ def _train_autoencoder_abstraction_block(abstraction_block: AbstractionBlockImag
             loss_same_rotation_average_loss = 0
             loss_ratio_position_average_loss = 0
             loss_ratio_rotation_average_loss = 0
+            loss_linearity_average_loss = 0
 
             if pretty_print:
                 pretty_display_reset()
@@ -373,5 +429,5 @@ def run_abstraction_block_exploration_until_threshold(abstraction_network: Abstr
 
 def run_abstraction_block_exploration(abstraction_network: AbstractionBlockImage,
                                       storage: StorageSuperset2) -> AbstractionBlockImage:
-    abstraction_network = _train_autoencoder_abstraction_block(abstraction_network, storage, 20000, True)
+    abstraction_network = _train_autoencoder_abstraction_block(abstraction_network, storage, 7500, True)
     return abstraction_network

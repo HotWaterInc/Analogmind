@@ -12,7 +12,7 @@ from src.modules.pretty_display import pretty_display_reset, pretty_display_star
 from src.ai.variants.exploration.utils import check_min_distance
 
 
-def _get_connection_distances_raw_data(storage: StorageSuperset2) -> any:
+def _get_connection_distances_raw_data_north(storage: StorageSuperset2) -> any:
     connections = storage.get_all_connections_data()
     SAMPLES = min(200, len(connections))
 
@@ -26,8 +26,12 @@ def _get_connection_distances_raw_data(storage: StorageSuperset2) -> any:
         start_name = connection["start"]
         end_name = connection["end"]
 
-        start_data = storage.get_datapoint_data_random_rotation_tensor_by_name(start_name)
-        end_data = storage.get_datapoint_data_random_rotation_tensor_by_name(end_name)
+        # start_data = storage.get_datapoint_data_random_rotation_tensor_by_name(start_name)
+        # end_data = storage.get_datapoint_data_random_rotation_tensor_by_name(end_name)
+
+        start_data = storage.get_datapoint_data_selected_rotation_tensor_by_name(start_name, 0)
+        end_data = storage.get_datapoint_data_selected_rotation_tensor_by_name(end_name, 0)
+
         start_data_arr.append(start_data)
         end_data_arr.append(end_data)
 
@@ -38,7 +42,7 @@ def _get_connection_distances_raw_data(storage: StorageSuperset2) -> any:
     end_embedding = end_data_arr
 
     distance_data = torch.norm(start_data_arr - end_data_arr, p=2, dim=1)
-    distance_embeddings = torch.norm(start_embedding - end_embedding, p=2, dim=1)
+    distance_embeddings = distance_data
 
     length = len(distance_embeddings)
 
@@ -123,7 +127,7 @@ def print_distances_embeddings_inputs(storage: StorageSuperset2, seen_network: S
 
 def eval_distances_threshold_averages_raw_data(storage: StorageSuperset2,
                                                real_distance_threshold):
-    connections_distances_data = _get_connection_distances_raw_data(storage)
+    connections_distances_data = _get_connection_distances_raw_data_north(storage)
 
     REAL_DISTANCE_THRESHOLD = real_distance_threshold
     average_distance_embeddings = 0

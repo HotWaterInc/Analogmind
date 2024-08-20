@@ -5,19 +5,18 @@ import torch.nn as nn
 import torch.optim as optim
 import numpy as np
 from src.ai.runtime_data_storage.storage_superset2 import StorageSuperset2, RawConnectionData
+from src.ai.variants.exploration.utils import THETAS_SIZE
 from src.modules.save_load_handlers.ai_models_handle import load_manually_saved_ai, save_ai_manually
 from src.ai.models.base_autoencoder_model import BaseAutoencoderModel
 from src.utils import array_to_tensor
 from typing import List
 import torch.nn.functional as F
 from src.modules.pretty_display import pretty_display, set_pretty_display, pretty_display_start, pretty_display_reset
-from src.ai.runtime_data_storage.storage_superset2 import angle_to_thetas, thetas_to_radians, \
-    angle_percent_to_thetas_normalized, \
+from src.ai.runtime_data_storage.storage_superset2 import thetas_to_radians, \
+    angle_percent_to_thetas_normalized_cached, \
     radians_to_degrees, atan2_to_standard_radians, radians_to_percent, coordinate_pair_to_radians_cursed_tranform, \
     direction_to_degrees_atan
 from src.ai.variants.blocks import ResidualBlockSmallBatchNorm
-
-THETAS_SIZE = 36
 
 
 class DirectionNetworkThetas(nn.Module):
@@ -78,7 +77,7 @@ def direction_loss(direction_network, sample_rate=25):
 
             final_radian = coordinate_pair_to_radians_cursed_tranform(direction[0], direction[1])
             radian_percent = radians_to_percent(final_radian)
-            thetas_target = angle_percent_to_thetas_normalized(radian_percent, 36)
+            thetas_target = angle_percent_to_thetas_normalized_cached(radian_percent, 36)
 
             start_data = storage.get_datapoint_data_tensor_by_name_permuted(start)
             end_data = storage.get_datapoint_data_tensor_by_name_permuted(end)

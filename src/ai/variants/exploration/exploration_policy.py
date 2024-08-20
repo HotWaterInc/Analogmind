@@ -6,17 +6,25 @@ from src.ai.variants.exploration.SDirDistState_network import run_SDirDistState,
 from src.ai.variants.exploration.SSDir_network import run_SSDirection, SSDirNetwork, storage_to_manifold
 from src.ai.variants.exploration.abstraction_block import run_abstraction_block_exploration, \
     AbstractionBlockImage
+from src.ai.variants.exploration.autonomous.adjacency_detector import AdjacencyDetector, run_adjacency_network
+from src.ai.variants.exploration.autonomous.exploration_autonomous_policy import abstraction_block
+from src.ai.variants.exploration.autonomous.neighborhood_full import NeighborhoodNetworkThetasFull, \
+    run_neighborhood_network_thetas_full
 from src.ai.variants.exploration.evaluation_misc import run_tests_SSDir, run_tests_SSDir_unseen, \
     run_tests_SDirDistState
 from src.ai.variants.exploration.exploration_evaluations import evaluate_distance_metric
+from src.ai.variants.exploration.exploration_heuristics import build_find_adjacency_heursitic_raw_data, \
+    find_adjacency_heuristic_neighborhood_network_thetas, build_find_adjacency_heursitic_neighborhood_network_thetas
 from src.ai.variants.exploration.mutations import build_missing_connections_with_cheating
 from src.ai.variants.exploration.neighborhood_network import NeighborhoodDistanceNetwork, \
     run_neighborhood_network
 from src.ai.variants.exploration.neighborhood_network_thetas import NeighborhoodNetworkThetas, \
     run_neighborhood_network_thetas, generate_new_ai_neighborhood_thetas, DISTANCE_THETAS_SIZE, MAX_DISTANCE
 from src.ai.variants.exploration.seen_network import SeenNetwork, run_seen_network
+from src.ai.variants.exploration.simplified_abstract_block import run_abstraction_block_exploration_simplified, \
+    AbstractionBlockSimplified
 from src.ai.variants.exploration.utils import get_collected_data_image, get_collected_data_distances, \
-    evaluate_direction_distance_validity
+    evaluate_direction_distance_validity, STEP_DISTANCE
 from src.global_data_buffer import GlobalDataBuffer, empty_global_data_buffer
 from src.modules.save_load_handlers.data_handle import write_other_data_to_file, serialize_object_other, \
     deserialize_object_other
@@ -282,6 +290,57 @@ def random_walk_policy(random_walk_datapoints, random_walk_connections):
     yield from move
 
 
+def build_abstracted_data_in_storage(storage: StorageSuperset2, abstraction_block: AbstractionBlockImage):
+    abstraction_block.eval()
+    abstraction_block = abstraction_block.to(get_device())
+
+    storage.set_permutor(abstraction_block)
+    storage.build_permuted_data_raw_abstraction_autoencoder_manifold()
+
+
+def exploration_policy_augment_data() -> any:
+    initial_setup()
+    global storage, seen_network, neighborhood_distance_network, autoencoder, SSDir_network, SDirDistState_network
+
+    while True:
+        random_walk_datapoints = []
+        random_walk_connections = []
+
+        random_walk_datapoints = read_other_data_from_file(f"datapoints_random_walks_250_24rot.json")
+        random_walk_connections = read_other_data_from_file(f"datapoints_connections_randon_walks_250_24rot.json")
+
+        storage.incorporate_new_data(random_walk_datapoints, random_walk_connections)
+        neighborhood_distance_network = load_manually_saved_ai("neigh_full_0.25.pth")
+
+        distance_metric = build_find_adjacency_heursitic_neighborhood_network_thetas(neighborhood_distance_network)
+        # distance_metric = build_find_adjacency_heursitic_raw_data(storage)
+        evaluate_distance_metric(storage, distance_metric, random_walk_datapoints)
+
+        break
+
+
+def exploration_policy_train_only() -> any:
+    initial_setup()
+    global storage, seen_network, neighborhood_distance_network, autoencoder, SSDir_network, SDirDistState_network
+
+    while True:
+        random_walk_datapoints = []
+        random_walk_connections = []
+        random_walk_distances = []
+
+        random_walk_datapoints = read_other_data_from_file(f"datapoints_random_walks_250_24rot.json")
+        random_walk_connections = read_other_data_from_file(f"datapoints_connections_randon_walks_250_24rot.json")
+        storage.incorporate_new_data(random_walk_datapoints, random_walk_connections)
+
+        adjacency_network = AdjacencyDetector().to(get_device())
+        adjacency_network = run_adjacency_network(adjacency_network, storage)
+        save_ai_manually("adjacency_network", adjacency_network)
+        # neighborhood_distance_network = NeighborhoodNetworkThetasFull().to(get_device())
+        # run_neighborhood_network_thetas_full(neighborhood_distance_network, storage)
+        # save_ai_manually("neigh_network", neighborhood_distance_network)
+        break
+
+
 def exploration_policy() -> Generator[None, None, None]:
     initial_setup()
     global storage, seen_network, neighborhood_distance_network, autoencoder, SSDir_network, SDirDistState_network
@@ -312,7 +371,7 @@ def exploration_policy() -> Generator[None, None, None]:
         storage.incorporate_new_data(random_walk_datapoints, random_walk_connections)
         abstraction_network = AbstractionBlockImage().to(get_device())
         run_abstraction_block_exploration(abstraction_network, storage)
-        save_ai_manually("abstraction_network_from_exploration250", abstraction_network)
+        save_ai_manually("abstraction_network_simplified", abstraction_network)
 
         # neighborhood_network = generate_new_ai_neighborhood_thetas()
         # neighborhood_network = run_neighborhood_network_thetas(neighborhood_network, storage)

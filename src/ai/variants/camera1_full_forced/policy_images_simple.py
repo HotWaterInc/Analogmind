@@ -19,7 +19,7 @@ from src.modules.save_load_handlers.ai_models_handle import save_ai, save_ai_man
     load_manually_saved_ai, load_custom_ai, load_other_ai
 from src.modules.save_load_handlers.parameters import *
 from src.ai.runtime_data_storage.storage_superset2 import StorageSuperset2, thetas_to_radians, \
-    direction_to_degrees_atan, angle_percent_to_thetas_normalized, degrees_to_percent
+    direction_to_degrees_atan, angle_percent_to_thetas_normalized_cached, degrees_to_percent
 from src.ai.runtime_data_storage import Storage
 from typing import List, Dict, Union
 from src.utils import array_to_tensor
@@ -341,7 +341,8 @@ def final_angle_policy_direction_testing(current_embedding, angle_percent, targe
     # test 8 directions with SDS
     directions = [[1, 0], [1, 1], [0, 1], [-1, 1], [-1, 0], [-1, -1], [0, -1], [1, -1]]
     directions_percent = [degrees_to_percent(direction_to_degrees_atan(direction)) for direction in directions]
-    directions_thetas = [angle_percent_to_thetas_normalized(direction, THETAS_SIZE) for direction in directions_percent]
+    directions_thetas = [angle_percent_to_thetas_normalized_cached(direction, THETAS_SIZE) for direction in
+                         directions_percent]
     directions_thetas = torch.stack(directions_thetas).to(device)
 
     # get predicted directions
