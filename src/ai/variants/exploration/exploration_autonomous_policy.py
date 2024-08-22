@@ -1,11 +1,9 @@
-import time
-from typing import TypedDict, Generator
-from src.action_ai_controller import ActionAIController
+from typing import Generator
 from src.ai.variants.exploration.networks.SDirDistState_network import SDirDistState
 from src.ai.variants.exploration.networks.SSDir_network import SSDirNetwork
 from src.ai.variants.exploration.networks.adjacency_detector import AdjacencyDetector, \
     train_adjacency_network_until_threshold
-from src.ai.variants.exploration.others.exploration_heuristics import build_find_adjacency_heursitic_adjacency_network, \
+from src.ai.variants.exploration.heuristics import build_find_adjacency_heursitic_adjacency_network, \
     build_find_adjacency_heursitic_raw_data
 from src.ai.variants.exploration.others.neighborhood_network import NeighborhoodDistanceNetwork
 from src.ai.variants.exploration.params import STEP_DISTANCE, ROTATIONS
@@ -15,13 +13,12 @@ from src.modules.save_load_handlers.data_handle import write_other_data_to_file
 from src.action_robot_controller import detach_robot_sample_distance, detach_robot_teleport_relative, \
     detach_robot_rotate_absolute, detach_robot_teleport_absolute, \
     detach_robot_sample_image_inference
-import torch
 import time
 import torch.nn as nn
 from src.ai.runtime_data_storage.storage_superset2 import *
-from typing import List, Dict, Union
+from typing import List, Dict
 from src.utils import get_device
-from src.ai.variants.exploration.networks.autoencoder_network import run_autoencoder_network, AutoencoderExploration
+from src.ai.variants.exploration.networks.autoencoder_network import AutoencoderExploration
 from src.ai.variants.exploration.exploration_evaluations import evaluate_distance_metric, \
     evaluate_distance_metric_on_already_found_connections
 
