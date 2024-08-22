@@ -27,7 +27,7 @@ import torch.nn as nn
 
 class AbstractionBlockImage(BaseAutoencoderModel):
     def __init__(self, dropout_rate: float = 0.2, position_embedding_size: int = 256, thetas_embedding_size: int = 256,
-                 hidden_size: int = 1024 * 2, num_blocks: int = 2, input_output_size=512,
+                 hidden_size: int = 1024, num_blocks: int = 2, input_output_size=512,
                  concatenated_instances: int = ROTATIONS_PER_FULL):
         super(AbstractionBlockImage, self).__init__()
 
@@ -95,31 +95,6 @@ class AbstractionBlockImage(BaseAutoencoderModel):
 
     def get_embedding_size(self) -> int:
         return self.embedding_size
-
-
-def reconstruction_handling_raw(autoencoder: BaseAutoencoderModel,
-                                scale_reconstruction_loss: int = 1) -> torch.Tensor:
-    global storage
-    sampled_count = 25
-    sampled_points = storage.sample_n_random_datapoints(sampled_count)
-    data = []
-    accumulated_loss = torch.tensor(0.0)
-
-    for point in sampled_points:
-        for i in range(OFFSETS_PER_DATAPOINT):
-            sampled_full_rotation = array_to_tensor(
-                storage.get_point_rotations_with_full_info_random_offset_concatenated(point, ROTATIONS_PER_FULL))
-            data.append(sampled_full_rotation)
-            print(sampled_full_rotation.shape)
-
-    data = torch.stack(data).to(device=get_device())
-    positional_encoding, thetas_encoding = autoencoder.encoder_training(data)
-    dec = autoencoder.decoder_training(positional_encoding, thetas_encoding)
-
-    criterion_reconstruction = nn.MSELoss()
-
-    accumulated_loss += criterion_reconstruction(dec, data)
-    return accumulated_loss * scale_reconstruction_loss
 
 
 _cache_reconstruction_loss = {}

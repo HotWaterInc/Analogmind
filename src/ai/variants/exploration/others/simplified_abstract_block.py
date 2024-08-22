@@ -31,7 +31,7 @@ import torch.nn as nn
 class AbstractionBlockSimplified(BaseAutoencoderModel):
     def __init__(self, dropout_rate: float = 0.2, position_embedding_size: int = 96,
                  thetas_embedding_size: int = THETAS_SIZE,
-                 hidden_size: int = 1024, num_blocks: int = 1, input_output_size=512 * ROTATIONS_PER_FULL):
+                 hidden_size: int = 512, num_blocks: int = 1, input_output_size=512 * ROTATIONS_PER_FULL):
         super(AbstractionBlockSimplified, self).__init__()
 
         self.input_layer = _make_layer(input_output_size, hidden_size)

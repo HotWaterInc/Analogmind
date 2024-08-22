@@ -47,6 +47,20 @@ class StorageSuperset(Storage):
             name = self.raw_env_data[i]["name"]
             self.raw_env_data_map[name]["data"] = data_normalized
 
+    def get_datapoint_data_selected_rotation_tensor_by_name_with_noise(self, name: str, index: int) -> torch.Tensor:
+        """
+        Returns a random rotation from a datapoint as
+        """
+        deviation = random.randint(-1, 1)
+        index += deviation
+        lng = len(self.raw_env_data_map[name]["data"])
+        if index < 0:
+            index = lng
+        if index >= lng:
+            index = 0
+            
+        return torch.tensor(self.raw_env_data_map[name]["data"][index])
+
     def get_datapoint_data_selected_rotation_tensor_by_name(self, name: str, index: int) -> torch.Tensor:
         """
         Returns a random rotation from a datapoint as

@@ -2,7 +2,7 @@ import time
 import math
 from typing import Dict, TypedDict, Generator, List
 from src.action_ai_controller import ActionAIController
-from src.ai.variants.exploration.utils import get_collected_data_distances, evaluate_direction_distance_validity
+from src.ai.variants.exploration.utils import get_collected_data_distances, check_direction_distance_validity
 from src.global_data_buffer import GlobalDataBuffer, empty_global_data_buffer
 from src.modules.save_load_handlers.data_handle import write_other_data_to_file
 from src.action_robot_controller import detach_robot_sample_distance, detach_robot_sample_image, \
@@ -238,7 +238,7 @@ def final_angle_policy_direction_testing(current_embedding, angle_percent, targe
     best_next_manifold = None
     for i, predicted_manifold in enumerate(predicted_manifolds):
         # check if direction is valid
-        if not evaluate_direction_distance_validity(distances[i], directions_radians[i], distance_sensors):
+        if not check_direction_distance_validity(distances[i], directions_radians[i], distance_sensors):
             continue
 
         distance = torch.norm(predicted_manifold - target_manifold, p=2, dim=0).item()

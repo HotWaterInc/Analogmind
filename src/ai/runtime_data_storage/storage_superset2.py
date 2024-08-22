@@ -24,6 +24,31 @@ def calculate_coords_distance(coords1, coords2):
     return math.sqrt((coords1[0] - coords2[0]) ** 2 + (coords1[1] - coords2[1]) ** 2)
 
 
+def flag_data_authenticity(new_connections):
+    """
+    Flags whether data is synthetically generated or authentic
+    """
+    marked_connections = []
+    for connection in new_connections:
+        start = connection["start"]
+        end = connection["end"]
+        direction = connection["direction"]
+        distance = connection["distance"]
+        markings = {
+            "direction": "authentic",
+            "distance": "authentic"
+        }
+        if direction is None:
+            markings["direction"] = "synthetic"
+        if distance is None:
+            markings["distance"] = "synthetic"
+
+        connection["markings"] = markings
+        marked_connections.append(connection)
+
+    return marked_connections
+
+
 def direction_to_degrees_atan(direction):
     y = direction[1]
     x = direction[0]
@@ -342,6 +367,51 @@ class StorageSuperset2(StorageSuperset):
             if datapoint["name"] == name:
                 self._index_cache[name] = index
                 return index
+
+    def mutate_random_pick(self, rnd, upper_bound):
+        offset = random.randint(-1, 1)
+        rnd = rnd + offset
+        if rnd < 0:
+            rnd = rnd + upper_bound
+        if rnd >= upper_bound:
+            rnd = rnd % upper_bound
+
+        return rnd
+
+    _cache_permuted_data = {}
+
+    def build_permuted_data_random_rotations_rotation_N_with_noise(self, N: int) -> None:
+        """
+        Returns the data point by its name
+        """
+        self.raw_env_data_permuted_choice = []
+        self._permutation_metadata = {}
+        self._permutation_metadata_array = []
+
+        random_pick = N
+        rand_skip_cache = random.randint(0, 5)
+        if random_pick in self._cache_permuted_data and rand_skip_cache != 0:
+            self.raw_env_data_permuted_choice = self._cache_permuted_data[random_pick]
+            # print("Cache hit")
+            return
+
+        for datapoint in self.raw_env_data:
+            datapoint_copy = datapoint.copy()
+
+            name = datapoint["name"]
+            data_raw: List[List[float]] = datapoint["data"]
+            random_index = self.mutate_random_pick(random_pick, len(data_raw))
+
+            datapoint_copy["data"] = data_raw[random_index]
+            self.raw_env_data_permuted_choice.append(datapoint_copy)
+            self._permutation_metadata[name] = random_index
+            self._permutation_metadata_array.append(random_index)
+
+        for datapoint in self.raw_env_data_permuted_choice:
+            name: str = datapoint["name"]
+            self.raw_env_data_permuted_choice_map[name] = datapoint
+
+        self._cache_permuted_data[random_pick] = self.raw_env_data_permuted_choice
 
     def build_permuted_data_random_rotations_rotation_N(self, N: int) -> None:
         """

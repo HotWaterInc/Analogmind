@@ -143,13 +143,13 @@ def eval_data_changes(storage: StorageSuperset2, seen_network: any) -> any:
         start_embeddings = seen_network.encoder_inference(torch.stack(start_rotations_arr).to(get_device()))
         end_embeddings = seen_network.encoder_inference(torch.stack(end_rotations_arr).to(get_device()))
 
-        same_position_difference += torch.norm(start_embeddings[0] - start_embeddings[12], p=2, dim=0).mean().item()
+        same_position_difference += torch.norm(start_embeddings[0] - start_embeddings[2], p=2, dim=0).mean().item()
+        raw_diff = torch.norm(start_embeddings[0] - end_embeddings[2], p=2, dim=0).item()
 
-        raw_diff = torch.norm(start_embeddings[0] - end_embeddings[12], p=2, dim=0).item()
         different_position_difference += raw_diff
 
-        # if raw_diff > 1:
-        #     different_position_difference -= raw_diff
+        if raw_diff > 1:
+            different_position_difference -= raw_diff
 
     same_position_difference /= SAMPLES
     different_position_difference /= SAMPLES
@@ -174,11 +174,11 @@ def _get_connection_distances_seen_network(storage: StorageSuperset2, seen_netwo
         start_name = connection["start"]
         end_name = connection["end"]
 
-        start_data = storage.get_datapoint_data_selected_rotation_tensor_by_name(start_name, 0)
-        end_data = storage.get_datapoint_data_selected_rotation_tensor_by_name(end_name, 0)
+        # start_data = storage.get_datapoint_data_selected_rotation_tensor_by_name(start_name, 17)
+        # end_data = storage.get_datapoint_data_selected_rotation_tensor_by_name(end_name, 17)
 
-        # start_data = storage.get_datapoint_data_random_rotation_tensor_by_name(start_name)
-        # end_data = storage.get_datapoint_data_random_rotation_tensor_by_name(end_name)
+        start_data = storage.get_datapoint_data_random_rotation_tensor_by_name(start_name)
+        end_data = storage.get_datapoint_data_random_rotation_tensor_by_name(end_name)
 
         start_data_arr.append(start_data)
         end_data_arr.append(end_data)
@@ -348,6 +348,79 @@ def standard_error(y_true, y_pred):
     return se
 
 
+def _get_connection_distances_seen_network_on_unknown_dataset(storage: StorageSuperset2,
+                                                              seen_network: any) -> any:
+    seen_network.eval()
+    seen_network = seen_network.to(get_device())
+
+    datapoints = storage.get_all_datapoints()
+
+    distances_arr = []
+    start_data_arr = []
+    end_data_arr = []
+
+    set_pretty_display(len(datapoints), "Calculating distances")
+    pretty_display_start()
+
+    lng = len(datapoints)
+
+    for i in range(lng):
+        pretty_display(i)
+        for j in range(i + 1, min(i + 20, lng)):
+            start_name = datapoints[i]
+            end_name = datapoints[j]
+            distance = storage.get_datapoints_real_distance(start_name, end_name)
+
+            start_data = storage.get_datapoint_data_selected_rotation_tensor_by_name(start_name, 0)
+            end_data = storage.get_datapoint_data_selected_rotation_tensor_by_name(end_name, 0)
+            # start_data = storage.get_datapoint_data_random_rotation_tensor_by_name(start_name)
+            # end_data = storage.get_datapoint_data_random_rotation_tensor_by_name(end_name)
+
+            start_data_arr.append(start_data)
+            end_data_arr.append(end_data)
+            distances_arr.append(distance)
+
+    print("")
+    print("finished first loop")
+    start_data_arr = torch.stack(start_data_arr).to(get_device())
+    end_data_arr = torch.stack(end_data_arr).to(get_device())
+    distance_data = torch.norm(start_data_arr - end_data_arr, p=2, dim=1)
+
+    start_embeddings = seen_network.encoder_inference(start_data_arr).to(get_device())
+    end_embeddings = seen_network.encoder_inference(end_data_arr).to(get_device())
+
+    raw_diff_data = torch.norm(start_data_arr - end_data_arr, p=2, dim=1)
+    raw_diff_embeddings = torch.norm(start_embeddings - end_embeddings, p=2, dim=1)
+
+    final_connections = []
+    cnt = 0
+    for i in range(lng):
+        for j in range(i + 1, min(i + 20, lng)):
+            start_name = datapoints[i]
+            end_name = datapoints[j]
+
+            distance_real = storage.get_datapoints_real_distance(start_name, end_name)
+            distance_data = raw_diff_data[cnt].item()
+            distance_embeddings = raw_diff_embeddings[cnt].item()
+
+            # if distance_real > 1:
+            #     # cnt += 1
+            #     continue
+
+            final_connections.append({
+                "start": start_name,
+                "end": end_name,
+                "distance_real": distance_real,
+                "distance_data": distance_data,
+                "distance_embeddings": distance_embeddings
+            })
+            cnt += 1
+
+    print("finished second loop")
+
+    return final_connections
+
+
 def _get_connection_distances_neigh_network_on_unknown_dataset(storage: StorageSuperset2,
                                                                neighborhood_network: any) -> any:
     neighborhood_network.eval()
@@ -446,21 +519,11 @@ def _get_connection_distances_neigh_network_on_training_dataset(storage: Storage
     start_data_arr = []
     end_data_arr = []
 
-    cnt_bigger1 = 0
-    cnt_smaller05 = 0
-
     for connection in sampled_connections:
         start_name = connection["start"]
         end_name = connection["end"]
 
         distance = storage.get_datapoints_real_distance(start_name, end_name)
-        if distance > 1:
-            cnt_bigger1 += 1
-            continue
-        elif distance < 0.5:
-            cnt_smaller05 += 1
-            continue
-
         start_data = storage.get_datapoint_data_selected_rotation_tensor_by_name(start_name, 0)
         end_data = storage.get_datapoint_data_selected_rotation_tensor_by_name(end_name, 0)
 
@@ -469,9 +532,6 @@ def _get_connection_distances_neigh_network_on_training_dataset(storage: Storage
 
         start_data_arr.append(start_data)
         end_data_arr.append(end_data)
-
-    print(f"Connections bigger than 1: {cnt_bigger1}")
-    print(f"Connections smaller than 0.5: {cnt_smaller05}")
 
     start_data_arr = torch.stack(start_data_arr).to(get_device())
     end_data_arr = torch.stack(end_data_arr).to(get_device())
@@ -531,56 +591,60 @@ if __name__ == "__main__":
     storage: StorageSuperset2 = StorageSuperset2()
     storage.incorporate_new_data(random_walk_datapoints, random_walk_connections)
     # neighborhood_distance_network = load_manually_saved_ai("adjacency_network_north.pth")
-    neighborhood_distance_network = load_manually_saved_ai("adjacency_network_north_contrasted.pth")
+    # adjacency = load_manually_saved_ai("adjacency_network_north_contrasted.pth")
+    abs_network = load_manually_saved_ai("abstraction_network_trial2_linearity.pth")
 
-    _get_connection_distances_adjacency_network_on_unknown_dataset(storage, neighborhood_distance_network)
-    # connections = _get_connection_distances_neigh_network_on_training_dataset(storage, neighborhood_distance_network)
-    # connections = _get_connection_distances_neigh_network_on_unknown_dataset(storage, neighborhood_distance_network)
+    # _get_connection_distances_adjacency_network_on_unknown_dataset(storage, adjacency)
+    # connections = _get_connection_distances_neigh_network_on_training_dataset(storage, abs_network)
+    eval_data_changes(storage, abs_network)
+    # connections = _get_connection_distances_seen_network(storage, abs_network)
+    connections = _get_connection_distances_seen_network_on_unknown_dataset(storage, abs_network)
+    # connections = _get_connection_distances_neigh_network_on_unknown_dataset(storage, abs_network)
 
-    # Extract the data we need
-    # filtered_connections = [
-    #     connection for connection in connections
-    # ]
-    #
-    # data_arr = [[connection["distance_real"], connection["distance_data"], connection["distance_embeddings"]] for
-    #             connection in filtered_connections]
-    #
-    # # Convert to numpy array for easier manipulation
-    # data_array = np.array(data_arr)
-    #
-    #
-    # # Define a function to calculate relative difference
-    # def relative_difference(a, b):
-    #     return abs(a - b) / ((a + b) / 2)
-    #
-    #
-    # # Set a threshold for what we consider a "big discrepancy"
-    # threshold = 0.1
-    #
-    # filtered_data = data_array
-    #
-    # # Create the plot
-    # plt.figure(figsize=(12, 4))
-    #
-    # # Plot Input vs Second Number
-    # plt.subplot(131)
-    # plt.scatter(filtered_data[:, 0], filtered_data[:, 1], color='blue', alpha=0.7)
-    # plt.title('Input vs Second Number')
-    # plt.xlabel('Input')
-    # plt.ylabel('Second Number')
-    #
-    # # Plot Input vs Third Number
-    # plt.subplot(132)
-    # plt.scatter(filtered_data[:, 0], filtered_data[:, 2], color='red', alpha=0.7)
-    # plt.title('Input vs Third Number')
-    # plt.xlabel('Input')
-    # plt.ylabel('Third Number')
-    #
-    # plt.tight_layout()
-    # plt.show()
-    #
-    # # Print the number of points remaining after filtering
-    # print(f"Before filtering: {len(data)}")
-    # print(f"Number of points after filtering: {len(filtered_data)}")
-    #
-    # calculate_pearson_correlations(data_arr)
+    filtered_connections = [
+        connection for connection in connections
+        if connection["distance_real"] < 2
+    ]
+
+    data_arr = [[connection["distance_real"], connection["distance_data"], connection["distance_embeddings"]] for
+                connection in filtered_connections]
+
+    # Convert to numpy array for easier manipulation
+    data_array = np.array(data_arr)
+
+
+    # Define a function to calculate relative difference
+    def relative_difference(a, b):
+        return abs(a - b) / ((a + b) / 2)
+
+
+    # Set a threshold for what we consider a "big discrepancy"
+    threshold = 0.1
+
+    filtered_data = data_array
+
+    # Create the plot
+    plt.figure(figsize=(12, 4))
+
+    # Plot Input vs Second Number
+    plt.subplot(131)
+    plt.scatter(filtered_data[:, 0], filtered_data[:, 1], color='blue', alpha=0.7)
+    plt.title('Input vs Second Number')
+    plt.xlabel('Input')
+    plt.ylabel('Second Number')
+
+    # Plot Input vs Third Number
+    plt.subplot(132)
+    plt.scatter(filtered_data[:, 0], filtered_data[:, 2], color='red', alpha=0.7)
+    plt.title('Input vs Third Number')
+    plt.xlabel('Input')
+    plt.ylabel('Third Number')
+
+    plt.tight_layout()
+    plt.show()
+
+    # Print the number of points remaining after filtering
+    print(f"Before filtering: {len(data)}")
+    print(f"Number of points after filtering: {len(filtered_data)}")
+
+    calculate_pearson_correlations(data_arr)

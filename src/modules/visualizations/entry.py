@@ -66,6 +66,8 @@ def add_mobjects_connections(scene: Scene, connections_data: List[RawConnectionD
     for connection in connections_data:
         start = connection["start"]
         end = connection["end"]
+        if start not in mapped_data or end not in mapped_data:
+            continue
 
         x_start, y_start = mapped_data[start]["x"], mapped_data[start]["y"]
         x_end, y_end = mapped_data[end]["x"], mapped_data[end]["y"]
@@ -166,10 +168,10 @@ def add_mobjects_datapoints(scene: Scene, mapped_data: Dict, distance_scale: flo
         circ.move_to(x * distance_scale * RIGHT + y * distance_scale * UP)
 
         # adds a text with the name of the post in the circle
-        text = Text(key, font_size=8)
-        text.move_to(circ.get_center())
+        # text = Text(key, font_size=8)
+        # text.move_to(circ.get_center())
 
-        scene.add(text)
+        # scene.add(text)
         scene.add(circ)
 
 
@@ -209,17 +211,22 @@ def build_scene_datapoints_topology():
     scene = IntroScene()
 
     global storage_superset2
-    storage_superset2.load_raw_data_from_others("datapoints_random_walks_50.json")
-    storage_superset2.load_raw_data_connections_from_others("datapoints_connections_randon_walks_50.json")
+    storage_superset2.load_raw_data_from_others("datapoints_random_walks_300_24rot.json")
+    storage_superset2.load_raw_data_connections_from_others("datapoints_connections_random_walks_300_24rot.json")
 
-    storage_superset2.build_datapoints_coordinates_map()
-    # storage_superset2.recenter_datapoints_coordinates_map()
+    storage_superset2.build_sparse_datapoints_coordinates_map_based_on_xy(percent=0.4)
     datapoints_coordinates_map = storage_superset2.get_datapoints_coordinates_map()
 
     distance_scale = 1
     radius = 0.2
 
+    augmented_connections = read_other_data_from_file("additional_found_connections_random_walks_300.json")
+    storage_superset2.incorporate_new_data([], augmented_connections)
+
     add_mobjects_datapoints(scene, datapoints_coordinates_map, distance_scale, radius)
+    connections = storage_superset2.get_all_only_datapoints_connections_data()
+    add_mobjects_connections(scene, connections, datapoints_coordinates_map,
+                             distance_scale)
     return scene
 
 

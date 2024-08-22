@@ -112,7 +112,6 @@ def _train_neighborhood_network(direction_network, storage, num_epochs,
     for epoch in range(num_epochs):
         if epoch % SHUFFLE == 0:
             storage.build_permuted_data_random_rotations_rotation0()
-            # storage.build_permuted_data_random_rotations()
 
         pretty_display(epoch % epoch_print_rate)
         epoch_loss = 0.0

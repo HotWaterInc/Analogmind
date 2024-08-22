@@ -100,6 +100,15 @@ class Storage:
 
         self._convert_raw_data_to_map()
 
+    _cache_only_datapoints_connections = None
+
+    def get_all_only_datapoints_connections_data(self) -> List[RawConnectionData]:
+        if self._cache_only_datapoints_connections != None:
+            return self._cache_only_datapoints_connections
+        datapoints_connections_data = [conn for conn in self.raw_connections_data if conn["end"] != None]
+        self._cache_only_datapoints_connections = datapoints_connections_data
+        return datapoints_connections_data
+
     def get_all_connections_data(self) -> List[RawConnectionData]:
         return self.raw_connections_data
 
@@ -373,12 +382,46 @@ class Storage:
 
     _connection_cache: Dict[str, List[RawConnectionData]] = {}
 
+    def get_datapoint_adjacent_connections_cached(self, datapoint_name: str) -> List[RawConnectionData]:
+        """
+        Returns the adjacent connections of a datapoint ( the connections that start or end with the datapoint )
+        """
+        found_connections = []
+        connections_data = self.get_all_only_datapoints_connections_data()
+        if datapoint_name in self._connection_cache:
+            return self._connection_cache[datapoint_name]
+
+        for connection in connections_data:
+            connection_copy = connection.copy()
+            start = connection_copy["start"]
+            end = connection_copy["end"]
+            distance = connection_copy["distance"]
+            if connection_copy["direction"] == None:
+                continue
+            direction = connection_copy["direction"].copy()
+            if start == datapoint_name:
+                found_connections.append(connection_copy)
+            if end == datapoint_name:
+                # swap them
+                direction[0] = -direction[0]
+                direction[1] = -direction[1]
+
+                aux = connection_copy["start"]
+                connection_copy["start"] = connection_copy["end"]
+                connection_copy["end"] = aux
+                connection_copy["direction"] = direction
+
+                found_connections.append(connection_copy)
+
+        self._connection_cache[datapoint_name] = found_connections
+        return found_connections
+
     def get_datapoint_adjacent_connections(self, datapoint_name: str) -> List[RawConnectionData]:
         """
         Returns the adjacent connections of a datapoint ( the connections that start or end with the datapoint )
         """
         found_connections = []
-        connections_data = self.get_all_connections_data()
+        connections_data = self.get_all_only_datapoints_connections_data()
         # if datapoint_name in self._connection_cache:
         #     return self._connection_cache[datapoint_name]
 
@@ -540,6 +583,25 @@ class Storage:
 
     _datapoints_coordinates_map: Dict[str, Coords] = {}
 
+    def build_sparse_datapoints_coordinates_map_based_on_xy(self, percent):
+        raw_env = self.raw_env_data
+        # sample only a percent of raw env data
+        raw_env = np.random.choice(raw_env, int(len(raw_env) * percent), replace=False)
+
+        for datapoint in raw_env:
+            name = datapoint["name"]
+            x = datapoint["params"]["x"]
+            y = datapoint["params"]["y"]
+            self._datapoints_coordinates_map[name] = Coords(x=x, y=y)
+
+    def build_datapoints_coordinates_map_based_on_xy(self):
+        raw_env = self.raw_env_data
+        for datapoint in raw_env:
+            name = datapoint["name"]
+            x = datapoint["params"]["x"]
+            y = datapoint["params"]["y"]
+            self._datapoints_coordinates_map[name] = Coords(x=x, y=y)
+
     def build_datapoints_coordinates_map(self):
         """
         Gets a map of datapoints names and their coordinates in a 2d space, based on connections data
@@ -568,6 +630,8 @@ class Storage:
 
             for connection in connections:
                 end_name = connection["end"]
+                if end_name == None:
+                    continue
 
                 # if position already found, we double-check if the calculated position matches the new calculated
                 # position (they should be identical)

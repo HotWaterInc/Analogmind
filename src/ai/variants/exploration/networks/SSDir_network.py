@@ -176,6 +176,17 @@ def storage_to_manifold(storage: StorageSuperset2, autoencoder: BaseAutoencoderM
     storage.build_permuted_data_raw_abstraction_autoencoder_manifold()
 
 
+def datapoints_to_manifold(datapoints, autoencoder: BaseAutoencoderModel):
+    autoencoder.eval()
+    autoencoder = autoencoder.to(get_device())
+
+    for datapoint in datapoints:
+        data = array_to_tensor(datapoint["data"]).to(get_device())
+        datapoint["data"] = autoencoder.encoder_inference(data).tolist()
+
+    return datapoints
+
+
 def run_SSDirection(SSDir_network: SSDirNetwork, storage: StorageSuperset2):
     direction_network = train_direction_ai(SSDir_network, storage, num_epochs=2500)
     return direction_network

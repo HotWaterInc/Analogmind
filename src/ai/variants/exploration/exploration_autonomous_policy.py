@@ -1,60 +1,29 @@
 import time
-import math
-from typing import Dict, TypedDict, Generator, List, Tuple, Any
+from typing import TypedDict, Generator
 from src.action_ai_controller import ActionAIController
-from src.ai.variants.exploration.SDirDistState_network import run_SDirDistState, SDirDistState
-from src.ai.variants.exploration.SSDir_network import run_SSDirection, SSDirNetwork, storage_to_manifold
-from src.ai.variants.exploration.abstraction_block import run_abstraction_block_exploration, \
-    AbstractionBlockImage, run_abstraction_block_exploration_until_threshold
-from src.ai.variants.exploration.evaluation_misc import run_tests_SSDir, run_tests_SSDir_unseen, \
-    run_tests_SDirDistState
-from src.ai.variants.exploration.exploration_heuristics import build_find_adjacency_heursitic_raw_data, \
-    build_augmented_connections, fill_augmented_connections_distances, filter_surplus_datapoints
-from src.ai.variants.exploration.mutations import build_missing_connections_with_cheating
-from src.ai.variants.exploration.neighborhood_network import NeighborhoodDistanceNetwork, \
-    run_neighborhood_network, run_neighborhood_network_until_threshold
-from src.ai.variants.exploration.neighborhood_network_thetas import NeighborhoodNetworkThetas, \
-    run_neighborhood_network_thetas, generate_new_ai_neighborhood_thetas
-from src.ai.variants.exploration.seen_network import SeenNetwork, run_seen_network
+from src.ai.variants.exploration.networks.SDirDistState_network import SDirDistState
+from src.ai.variants.exploration.networks.SSDir_network import SSDirNetwork
+from src.ai.variants.exploration.networks.adjacency_detector import AdjacencyDetector, \
+    train_adjacency_network_until_threshold
+from src.ai.variants.exploration.others.exploration_heuristics import build_find_adjacency_heursitic_adjacency_network, \
+    build_find_adjacency_heursitic_raw_data
+from src.ai.variants.exploration.others.neighborhood_network import NeighborhoodDistanceNetwork
+from src.ai.variants.exploration.params import STEP_DISTANCE, ROTATIONS
 from src.ai.variants.exploration.utils import get_collected_data_image, get_collected_data_distances, \
-    evaluate_direction_distance_validity, ROTATIONS, STEP_DISTANCE, THRESHOLD_RECONSTRUCTION_ABSTRACTION_NETWORK, \
-    THRESHOLD_NEIGHBORHOOD_NETWORK
-from src.global_data_buffer import GlobalDataBuffer, empty_global_data_buffer
-from src.modules.save_load_handlers.data_handle import write_other_data_to_file, serialize_object_other, \
-    deserialize_object_other
-from src.action_robot_controller import detach_robot_sample_distance, detach_robot_sample_image, \
-    detach_robot_teleport_relative, \
-    detach_robot_rotate_absolute, detach_robot_rotate_relative, detach_robot_teleport_absolute, \
-    detach_robot_rotate_continuous_absolute, detach_robot_forward_continuous, detach_robot_sample_image_inference
-import threading
+    check_direction_distance_validity, get_real_distance_between_datapoints, get_direction_between_datapoints
+from src.modules.save_load_handlers.data_handle import write_other_data_to_file
+from src.action_robot_controller import detach_robot_sample_distance, detach_robot_teleport_relative, \
+    detach_robot_rotate_absolute, detach_robot_teleport_absolute, \
+    detach_robot_sample_image_inference
 import torch
 import time
 import torch.nn as nn
-import torch.optim as optim
-import numpy as np
-from src.modules.save_load_handlers.ai_models_handle import save_ai, save_ai_manually, load_latest_ai, \
-    load_manually_saved_ai, load_custom_ai, load_other_ai
-from src.modules.save_load_handlers.parameters import *
 from src.ai.runtime_data_storage.storage_superset2 import *
-from src.ai.runtime_data_storage import Storage
 from typing import List, Dict, Union
-from src.utils import array_to_tensor
-from src.ai.models.base_autoencoder_model import BaseAutoencoderModel
-from src.ai.evaluation.evaluation import evaluate_reconstruction_error, evaluate_distances_between_pairs, \
-    evaluate_adjacency_properties
-from src.ai.evaluation.evaluation import evaluate_reconstruction_error, evaluate_distances_between_pairs, \
-    evaluate_adjacency_properties, evaluate_reconstruction_error_super, evaluate_distances_between_pairs_super, \
-    evaluate_adjacency_properties_super
-from src.modules.policies.data_collection import get_position, get_angle
-from src.modules.policies.testing_image_data import test_images_accuracy, process_webots_image_to_embedding, \
-    squeeze_out_resnet_output
-from src.modules.policies.utils_lib import webots_radians_to_normal, radians_to_degrees
-import torch
 from src.utils import get_device
-from src.ai.variants.exploration.evaluation_exploration import print_distances_embeddings_inputs, \
-    eval_distances_threshold_averages_seen_network, eval_distances_threshold_averages_raw_data
-from src.ai.variants.exploration.autoencoder_network import run_autoencoder_network, AutoencoderExploration
-from src.ai.variants.exploration.exploration_evaluations import evaluate_distance_metric
+from src.ai.variants.exploration.networks.autoencoder_network import run_autoencoder_network, AutoencoderExploration
+from src.ai.variants.exploration.exploration_evaluations import evaluate_distance_metric, \
+    evaluate_distance_metric_on_already_found_connections
 
 
 def initial_setup():
@@ -72,9 +41,19 @@ def collect_data_generator():
     yield
 
 
+def collect_distance_data_generator_without_sleep():
+    detach_robot_sample_distance()
+    yield
+
+
 def collect_distance_data_generator_with_sleep():
     time.sleep(0.05)
     detach_robot_sample_distance()
+    yield
+
+
+def collect_image_data_generator_without_sleep():
+    detach_robot_sample_image_inference()
     yield
 
 
@@ -110,9 +89,13 @@ def create_datapoint(name: str, data: List[any], coords: List[float]) -> Dict[st
 
 movement_type = 0
 
+movement_distances = np.random.uniform(0.1, 1, 500)
+index = 0
+
 
 def get_random_movement():
-    distance = np.random.uniform(0.05, 1)
+    # distance = np.random.uniform(0.1, 2)
+    distance = movement_distances[index]
     direction = np.random.uniform(0, 2 * math.pi)
 
     return distance, direction
@@ -148,30 +131,14 @@ def random_move_policy():
     distance, direction = 0, 0
     while not valid:
         distance, direction = get_random_movement()
-        valid = evaluate_direction_distance_validity(distance, direction, distance_sensors)
+        valid = check_direction_distance_validity(distance, direction, distance_sensors)
+        if valid:
+            global index
+            index += 1
 
     dx, dy = generate_dxdy(direction, distance)
     detach_robot_teleport_relative(dx, dy)
     yield
-
-
-def _get_distance(coords1: any, coords2: any) -> float:
-    x1, y1 = coords1
-    x2, y2 = coords2
-    return math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2)
-
-
-def _get_distance_datapoints(datapoint1: Dict[str, any], datapoint2: Dict[str, any]) -> float:
-    coords1 = datapoint1["params"]["x"], datapoint1["params"]["y"]
-    coords2 = datapoint2["params"]["x"], datapoint2["params"]["y"]
-    return _get_distance(coords1, coords2)
-
-
-def _get_direction_datapoints(datapoint1: Dict[str, any], datapoint2: Dict[str, any]) -> tuple[float, float]:
-    coords1 = datapoint1["params"]["x"], datapoint1["params"]["y"]
-    coords2 = datapoint2["params"]["x"], datapoint2["params"]["y"]
-    direction_vector = (coords2[0] - coords1[0], coords2[1] - coords1[1])
-    return direction_vector
 
 
 def add_connections_to_last_datapoint(random_walk_datapoints, random_walk_connections):
@@ -183,8 +150,8 @@ def add_connections_to_last_datapoint(random_walk_datapoints, random_walk_connec
         prev_datapoint = random_walk_datapoints[-2]
         start_name = prev_datapoint["name"]
         end_name = last_datapoint["name"]
-        distance = _get_distance_datapoints(prev_datapoint, last_datapoint)
-        direction = _get_direction_datapoints(prev_datapoint, last_datapoint)
+        distance = get_real_distance_between_datapoints(prev_datapoint, last_datapoint)
+        direction = get_direction_between_datapoints(prev_datapoint, last_datapoint)
 
         connection = {
             "start": start_name,
@@ -199,8 +166,8 @@ def add_connections_to_last_datapoint(random_walk_datapoints, random_walk_connec
         prev_datapoint = random_walk_datapoints[-3]
         start_name = prev_datapoint["name"]
         end_name = last_datapoint["name"]
-        distance = _get_distance_datapoints(prev_datapoint, last_datapoint)
-        direction = _get_direction_datapoints(prev_datapoint, last_datapoint)
+        distance = get_real_distance_between_datapoints(prev_datapoint, last_datapoint)
+        direction = get_direction_between_datapoints(prev_datapoint, last_datapoint)
 
         connection = {
             "start": start_name,
@@ -224,7 +191,7 @@ def display_sensor_data():
     distance, direction = get_random_movement()
     distance = 0.5
     direction = 3.14
-    valid = evaluate_direction_distance_validity(distance, direction, distance_sensors)
+    valid = check_direction_distance_validity(distance, direction, distance_sensors)
     print(valid)
 
 
@@ -259,19 +226,19 @@ def collect_data_rotations_and_create_datapoint():
         detach_robot_rotate_absolute(angle)
         yield
 
-        collect_data = collect_image_data_generator_with_sleep()
+        collect_data = collect_image_data_generator_without_sleep()
         yield from collect_data
         image_embedding, angle, coords = get_collected_data_image()
         data_arr.append(image_embedding.tolist())
 
-        collect_distance_generator = collect_distance_data_generator_with_sleep()
+        collect_distance_generator = collect_distance_data_generator_without_sleep()
         yield from collect_distance_generator
         distances, angle, coords = get_collected_data_distances()
 
         # sensors oriented in the direction of the robot, so we can only check the north assuming it is rotated in the direction we want
         distance = STEP_DISTANCE * 2
         direction = 0
-        valid = evaluate_direction_distance_validity(distance, direction, distances)
+        valid = check_direction_distance_validity(distance, direction, distances)
         print("At rotation", angle, " the valid param is", valid)
         null_connections_tests.append({
             "angle": angle,
@@ -309,13 +276,8 @@ def collect_current_data_and_add_connections(random_walk_datapoints, random_walk
 
     random_walk_datapoints.append(datapoint)
     non_valid_connections = null_connections_to_raw_connections_data(datapoint["name"], null_connections_test)
-    print("Appended non valid connections numbergin", len(non_valid_connections))
     add_connections_to_last_datapoint(random_walk_datapoints, random_walk_connections)
     random_walk_connections.extend(non_valid_connections)
-
-
-def walk_random_unconstrained_policy_with_rotations():
-    pass
 
 
 def random_walk_policy(random_walk_datapoints, random_walk_connections):
@@ -334,8 +296,8 @@ def random_walk_policy(random_walk_datapoints, random_walk_connections):
     yield from move
 
 
-def phase_explore(random_walk_datapoints, random_walk_connections, first_walk=False):
-    for step in range(20):
+def phase_explore(random_walk_datapoints, random_walk_connections, first_walk, max_steps):
+    for step in range(max_steps):
         collect_data = collect_current_data_and_add_connections(random_walk_datapoints, random_walk_connections)
         yield from collect_data
         move_randomly = random_move_policy()
@@ -347,43 +309,6 @@ def phase_explore(random_walk_datapoints, random_walk_connections, first_walk=Fa
                 break
 
 
-def train_abstraction_block():
-    """
-    Train abstraction block, the most important part. It gives the basis on which all other networks build upon
-    That means the filtered position from the data
-    """
-    global abstraction_block, storage_raw
-    abstraction_block = run_abstraction_block_exploration_until_threshold(abstraction_block, storage_raw,
-                                                                          THRESHOLD_RECONSTRUCTION_ABSTRACTION_NETWORK)
-
-
-def train_neighborhood_network():
-    global neighborhood_distance_network, storage_abstracted
-    neighborhood_distance_network = run_neighborhood_network_until_threshold(neighborhood_distance_network,
-                                                                             storage_abstracted,
-                                                                             THRESHOLD_NEIGHBORHOOD_NETWORK)
-
-
-def train_manifold_network():
-    global storage_manifold, autoencoder, storage_abstracted
-    autoencoder = run_autoencoder_network(autoencoder, storage_manifold)
-
-
-def train_navigation_networks():
-    global SSDir_network, SDirDistState_network, storage_abstracted
-
-    SSDir_network = run_SSDirection(SSDir_network, storage_abstracted)
-    SDirDistState_network = run_SDirDistState(SDirDistState_network, storage_abstracted)
-
-
-def build_abstracted_data_in_storage(storage: StorageSuperset2, abstraction_block: AbstractionBlockImage):
-    abstraction_block.eval()
-    abstraction_block = abstraction_block.to(get_device())
-
-    storage.set_permutor(autoencoder)
-    storage.build_permuted_data_raw_abstraction_autoencoder_manifold()
-
-
 def copy_storage(storage_to_copy: StorageSuperset2, storage_to_copy_into: StorageSuperset2):
     datapoints = storage_to_copy.get_all_datapoints()
     connections = storage_to_copy.get_all_connections_data()
@@ -391,59 +316,80 @@ def copy_storage(storage_to_copy: StorageSuperset2, storage_to_copy_into: Storag
     return storage_to_copy_into
 
 
-def exploration_policy() -> Generator[None, None, None]:
+def augment_data_raw_heuristic(storage: StorageSuperset2, random_walk_datapoints) -> any:
+    distance_metric = build_find_adjacency_heursitic_raw_data(storage)
+    new_connections = evaluate_distance_metric(storage, distance_metric, random_walk_datapoints)
+    return new_connections
+
+
+def augment_data_network_heuristic(storage: StorageSuperset2, random_walk_datapoints, adjacency_network) -> any:
+    adjacency_network = adjacency_network.to(get_device())
+    adjacency_network.eval()
+
+    distance_metric = build_find_adjacency_heursitic_adjacency_network(adjacency_network)
+    new_connections = evaluate_distance_metric(storage, distance_metric, storage.get_all_datapoints())
+    return new_connections
+
+
+def exploration_policy_autonomous() -> Generator[None, None, None]:
     initial_setup()
-    global storage_raw, storage_abstracted, abstraction_block, neighborhood_distance_network, autoencoder, SSDir_network, SDirDistState_network
+    global storage_raw, adjacency_network
+    global first_walk
 
     detach_robot_teleport_absolute(0, 0)
     yield
 
     exploring = True
     first_walk = True
+    iter = 0
 
     while exploring:
+        iter += 1
         random_walk_datapoints = []
         random_walk_connections = []
 
-        yield from phase_explore(random_walk_datapoints, random_walk_connections, first_walk)
+        print(f"EXPLORING RANDOM WALK ITER {iter}")
+        if first_walk:
+            print("FIRST TIME")
+
+        yield from phase_explore(random_walk_datapoints, random_walk_connections, first_walk, max_steps=200)
         first_walk = False
+        flag_data_authenticity(random_walk_connections)
         storage_raw.incorporate_new_data(random_walk_datapoints, random_walk_connections)
-        # trains basis of all other networks
-        train_abstraction_block()
+        print("FINISHED RANDOM WALK")
 
-        # builds abstracted data in storage
-        storage_abstracted = StorageSuperset2()
-        storage_abstracted = copy_storage(storage_raw, storage_abstracted)
-        build_abstracted_data_in_storage(storage_abstracted, abstraction_block)
+        write_other_data_to_file(f"datapoints_random_walks_iter{iter}.json", random_walk_datapoints)
+        write_other_data_to_file(f"datapoints_connections_random_walks_iter{iter}.json", random_walk_connections)
 
-        # train neighborhood network on abstracted data
-        train_neighborhood_network()
+        print("TRAINING ADJACENCY NETWORK")
+        adjacency_network = train_adjacency_network_until_threshold(adjacency_network, storage_raw)
+        print("AUGMENTING DATA")
+        new_connections_raw = augment_data_raw_heuristic(storage_raw, random_walk_datapoints)
+        new_connections_adjacency_network = augment_data_network_heuristic(storage_raw, random_walk_datapoints,
+                                                                           neighborhood_distance_network)
 
-        # augmentation and filtering
-        find_adjacency_heuristic = build_find_adjacency_heursitic_raw_data(storage_abstracted)
-        additional_connections = build_augmented_connections(storage_abstracted, find_adjacency_heuristic,
-                                                             STEP_DISTANCE * 1.5)
-        augmented_connections = fill_augmented_connections_distances(additional_connections, storage_abstracted,
-                                                                     neighborhood_distance_network)
-        storage_abstracted.incorporate_new_data([], augmented_connections)
-        filter_surplus_datapoints(storage_abstracted)
+        total_connections_found = []
+        total_connections_found.extend(new_connections_raw)
+        total_connections_found.extend(new_connections_adjacency_network)
+        flag_data_authenticity(total_connections_found)
 
-        train_manifold_network()
-        # transform storage again into manifold
-        train_navigation_networks()
+        write_other_data_to_file(f"additional_found_connections_rawh_random_walks_iter{iter}.json", new_connections_raw)
+        write_other_data_to_file(f"additional_found_connections_networkh_random_walks_iter{iter}.json",
+                                 new_connections_adjacency_network)
 
-        # find best place to explore next
-        # navigate to that place
-        # start all over again
+        evaluate_distance_metric_on_already_found_connections(storage_raw, random_walk_datapoints,
+                                                              total_connections_found)
+        print("FINISHING AUGMENTING CONNECTIONS")
+        print("STARTING DATA PURGING")
 
         break
     yield
 
 
 storage_raw: StorageSuperset2 = None
-storage_abstracted: StorageSuperset2 = None
 storage_manifold: StorageSuperset2 = None
-abstraction_block: AbstractionBlockImage = None
+
+adjacency_network: AdjacencyDetector = None
 neighborhood_distance_network: NeighborhoodDistanceNetwork = None
 
 autoencoder: AutoencoderExploration = None
@@ -452,3 +398,5 @@ direction_network_SDirDistS: nn.Module = None
 
 global_register1 = None
 global_register2 = None
+
+first_walk = True
