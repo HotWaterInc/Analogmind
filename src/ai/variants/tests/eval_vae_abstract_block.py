@@ -1,13 +1,14 @@
 import numpy as np
 import torch
-from src.ai.models.base_autoencoder_model import BaseAutoencoderModel
+
+from src.ai.variants.exploration.networks.abstract_base_autoencoder_model import BaseAutoencoderModel
 from src.ai.runtime_data_storage import Storage
 from src.ai.runtime_data_storage.storage_superset2 import StorageSuperset2
 from src.utils import array_to_tensor
 from src.modules.time_profiler import start_profiler, profiler_checkpoint
 from typing import List
 from src.modules.time_profiler import start_profiler, profiler_checkpoint, profiler_checkpoint_blank
-from src.modules.pretty_display import pretty_display_reset, pretty_display_start, pretty_display, set_pretty_display
+from src.modules.pretty_display import pretty_display_reset, pretty_display_start, pretty_display, pretty_display_set
 
 
 def evaluate_distances_between_pairs_vae_abstract(model: BaseAutoencoderModel, storage: StorageSuperset2,

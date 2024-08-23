@@ -18,7 +18,7 @@ from src.ai.evaluation.evaluation import evaluate_reconstruction_error, evaluate
 from src.ai.evaluation.evaluation import evaluate_reconstruction_error, evaluate_distances_between_pairs, \
     evaluate_adjacency_properties, evaluate_reconstruction_error_super, evaluate_distances_between_pairs_super, \
     evaluate_adjacency_properties_super
-from src.modules.pretty_display import pretty_display_reset, pretty_display_start, pretty_display, set_pretty_display
+from src.modules.pretty_display import pretty_display_reset, pretty_display_start, pretty_display, pretty_display_set
 
 import torch
 import torch.nn as nn
@@ -210,7 +210,7 @@ def non_adjacent_distance_handling(autoencoder: BaseAutoencoderModel, non_adjace
     """
     Keeps non-adjacent pairs far from each other
     """
-    sampled_pairs = storage.sample_datapoints_adjacencies(non_adjacent_sample_size)
+    sampled_pairs = storage.sample_datapoints_adjacencies_cheated(non_adjacent_sample_size)
 
     batch_datapoint1 = []
     batch_datapoint2 = []
@@ -292,7 +292,7 @@ def train_autoencoder_stacked_thetas(autoencoder: BaseAutoencoderModel, epochs: 
     SHUFFLE_RATE = 5
 
     if pretty_print:
-        set_pretty_display(epoch_print_rate, "Epoch batch")
+        pretty_display_set(epoch_print_rate, "Epoch batch")
         pretty_display_start(0)
 
     for epoch in range(num_epochs):

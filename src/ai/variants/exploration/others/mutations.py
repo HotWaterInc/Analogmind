@@ -8,7 +8,7 @@ from src.utils import array_to_tensor, get_device
 from src.modules.time_profiler import start_profiler, profiler_checkpoint
 from typing import List
 from src.modules.time_profiler import start_profiler, profiler_checkpoint, profiler_checkpoint_blank
-from src.modules.pretty_display import pretty_display_reset, pretty_display_start, pretty_display, set_pretty_display
+from src.modules.pretty_display import pretty_display_reset, pretty_display_start, pretty_display, pretty_display_set
 from src.ai.variants.exploration.utils import get_missing_connections_based_on_distance
 
 
@@ -48,7 +48,7 @@ def build_missing_connections_with_metric(storage: StorageSuperset2, metric, new
     found_datapoints = []
     negative_datapoints = []
 
-    set_pretty_display(len(new_datapoints), "Distance metric evaluation")
+    pretty_display_set(len(new_datapoints), "Distance metric evaluation")
     pretty_display_start()
     for idx, new_datapoint in enumerate(new_datapoints):
         if metric(storage, new_datapoint) == 1:

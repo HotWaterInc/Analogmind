@@ -3,6 +3,8 @@ import time
 import torch.nn as nn
 import torch.optim as optim
 import numpy as np
+
+from src.ai.variants.exploration.networks.abstract_base_autoencoder_model import BaseAutoencoderModel
 from src.modules.save_load_handlers.ai_models_handle import save_ai, save_ai_manually, load_latest_ai, \
     load_manually_saved_ai
 from src.modules.save_load_handlers.parameters import *
@@ -10,13 +12,7 @@ from src.ai.runtime_data_storage.storage_superset2 import StorageSuperset2
 from src.ai.runtime_data_storage import Storage
 from typing import List, Dict, Union
 from src.utils import array_to_tensor
-from src.ai.models.base_autoencoder_model import BaseAutoencoderModel
-from src.ai.evaluation.evaluation import evaluate_reconstruction_error, evaluate_distances_between_pairs, \
-    evaluate_adjacency_properties
-from src.ai.evaluation.evaluation import evaluate_reconstruction_error, evaluate_distances_between_pairs, \
-    evaluate_adjacency_properties, evaluate_reconstruction_error_super, evaluate_distances_between_pairs_super, \
-    evaluate_adjacency_properties_super
-from src.modules.pretty_display import pretty_display_reset, pretty_display_start, pretty_display, set_pretty_display
+from src.modules.pretty_display import pretty_display_reset, pretty_display_start, pretty_display, pretty_display_set
 import torch
 import torch.nn as nn
 from src.ai.variants.blocks import ResidualBlockSmallBatchNorm, _make_layer_no_batchnorm_leaky
@@ -122,7 +118,7 @@ def non_adjacent_distance_handling(autoencoder: BaseAutoencoderModel, non_adjace
     """
     Keeps non-adjacent pairs far from each other
     """
-    sampled_pairs = storage_raw.sample_datapoints_adjacencies(non_adjacent_sample_size)
+    sampled_pairs = storage_raw.sample_datapoints_adjacencies_cheated(non_adjacent_sample_size)
 
     batch_datapoint1 = []
     batch_datapoint2 = []
@@ -202,7 +198,7 @@ def train_autoencoder_with_distance_constraint(autoencoder: BaseAutoencoderModel
     SHUFFLE_RATE = 5
 
     if pretty_print:
-        set_pretty_display(epoch_print_rate, "Epoch batch")
+        pretty_display_set(epoch_print_rate, "Epoch batch")
         pretty_display_start(0)
 
     for epoch in range(num_epochs):

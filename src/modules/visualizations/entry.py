@@ -2,19 +2,15 @@ from manim import *
 import torch
 import logging
 import manim
+
+from src.ai.variants.exploration.networks.abstract_base_autoencoder_model import BaseAutoencoderModel
 from src.modules.save_load_handlers.data_handle import read_data_from_file, read_other_data_from_file, \
     CollectedDataType
-from src.ai.models.autoencoder import Autoencoder
 from src.modules.save_load_handlers.ai_models_handle import load_latest_ai, load_manually_saved_ai, AIType
 from src.ai.runtime_data_storage.storage import Storage, Coords
 from src.ai.runtime_data_storage.storage_superset2 import StorageSuperset2
-from src.ai.evaluation.pathfinding_known import pathfinding_step, pathfinding_step_super, pathfinding_step_super_ab
-from src.ai.models.base_autoencoder_model import BaseAutoencoderModel
 from src.ai.runtime_data_storage.storage import RawConnectionData, RawEnvironmentData
 from src.utils import array_to_tensor
-from src.ai.evaluation.evaluation import evaluate_adjacency_properties, evaluate_reconstruction_error, \
-    evaluate_distances_between_pairs
-from src.ai.evaluation.other_operations import get_model_distance_degree1
 
 RENDERER = manim.RendererType.OPENGL
 storage: Storage = Storage()
@@ -224,7 +220,7 @@ def build_scene_datapoints_topology():
     storage_superset2.incorporate_new_data([], augmented_connections)
 
     add_mobjects_datapoints(scene, datapoints_coordinates_map, distance_scale, radius)
-    connections = storage_superset2.get_all_only_datapoints_connections_data()
+    connections = storage_superset2.get_all_connections_only_datapoints()
     add_mobjects_connections(scene, connections, datapoints_coordinates_map,
                              distance_scale)
     return scene

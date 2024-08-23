@@ -23,7 +23,7 @@ from src.ai.evaluation.evaluation import evaluate_reconstruction_error, evaluate
 from src.ai.evaluation.evaluation import evaluate_reconstruction_error, evaluate_distances_between_pairs, \
     evaluate_adjacency_properties, evaluate_reconstruction_error_super, evaluate_distances_between_pairs_super, \
     evaluate_adjacency_properties_super, evaluate_reconstruction_error_super_fist_rotation
-from src.modules.pretty_display import pretty_display_reset, pretty_display_start, pretty_display, set_pretty_display
+from src.modules.pretty_display import pretty_display_reset, pretty_display_start, pretty_display, pretty_display_set
 import torch
 import torch.nn as nn
 
@@ -285,7 +285,7 @@ def _train_autoencoder_abstraction_block(abstraction_block: AbstractionBlockSeco
     epoch_print_rate = 250
 
     if pretty_print:
-        set_pretty_display(epoch_print_rate, "Epoch batch")
+        pretty_display_set(epoch_print_rate, "Epoch batch")
         pretty_display_start(0)
 
     SHUFFLE = 5

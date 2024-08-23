@@ -4,21 +4,18 @@ import torch.nn as nn
 import torch.optim as optim
 import numpy as np
 from src.ai.runtime_data_storage.storage_superset2 import StorageSuperset2, RawConnectionData
-from src.ai.variants.exploration.evaluation_misc import run_tests_SSDir, run_tests_SSDir_unseen
+from src.ai.variants.exploration.networks.abstract_base_autoencoder_model import BaseAutoencoderModel
+from src.ai.variants.exploration.params import MANIFOLD_SIZE, THETAS_SIZE
 from src.modules.save_load_handlers.ai_models_handle import load_manually_saved_ai, save_ai_manually
-from src.ai.models.base_autoencoder_model import BaseAutoencoderModel
 from src.utils import array_to_tensor, get_device
 from typing import List
 import torch.nn.functional as F
-from src.modules.pretty_display import pretty_display, set_pretty_display, pretty_display_start, pretty_display_reset
+from src.modules.pretty_display import pretty_display, pretty_display_set, pretty_display_start, pretty_display_reset
 from src.ai.runtime_data_storage.storage_superset2 import thetas_to_radians, \
     angle_percent_to_thetas_normalized_cached, \
     radians_to_degrees, atan2_to_standard_radians, radians_to_percent, coordinate_pair_to_radians_cursed_tranform, \
     direction_to_degrees_atan
 from src.ai.variants.blocks import ResidualBlockSmallBatchNorm
-
-THETAS_SIZE = 36
-MANIFOLD_SIZE = 128
 
 
 class SSDirNetwork(nn.Module):
@@ -61,10 +58,8 @@ def direction_loss(direction_network, storage: StorageSuperset2, sample_rate):
     start_embeddings_batch = []
     end_embeddings_batch = []
 
-    # expected_directions_batch = []
     target_thetas_batch = []
 
-    counter = 0
     for datapoint in datapoints:
         if datapoint in datapoint_embeddings_cache:
             start_data = datapoint_embeddings_cache[datapoint]["start_data"]
@@ -90,7 +85,7 @@ def direction_loss(direction_network, storage: StorageSuperset2, sample_rate):
 
             final_radian = coordinate_pair_to_radians_cursed_tranform(direction[0], direction[1])
             radian_percent = radians_to_percent(final_radian)
-            thetas_target = angle_percent_to_thetas_normalized_cached(radian_percent, 36)
+            thetas_target = angle_percent_to_thetas_normalized_cached(radian_percent, THETAS_SIZE)
 
             start_data = storage.get_datapoint_data_tensor_by_name_permuted(start)
             end_data = storage.get_datapoint_data_tensor_by_name_permuted(end)
@@ -121,7 +116,7 @@ def direction_loss(direction_network, storage: StorageSuperset2, sample_rate):
     return loss
 
 
-def train_direction_ai(direction_network, storage: StorageSuperset2, num_epochs: int):
+def _train_SSDir_network(direction_network, storage: StorageSuperset2, num_epochs: int):
     optimizer = optim.Adam(direction_network.parameters(), lr=0.0005, amsgrad=True)
 
     scale_direction_loss = 1
@@ -132,17 +127,23 @@ def train_direction_ai(direction_network, storage: StorageSuperset2, num_epochs:
     epoch_print_rate = 250
     storage.build_permuted_data_random_rotations_rotation0()
 
-    set_pretty_display(epoch_print_rate, "Epochs batch training")
+    pretty_display_set(epoch_print_rate, "Epochs batch training")
     pretty_display_start(0)
 
+    SHUFFLE = 2
     for epoch in range(num_epochs):
+        if epoch % SHUFFLE == 0:
+            storage.build_permuted_data_random_rotations()
+
         pretty_display(epoch % epoch_print_rate)
 
         epoch_loss = 0.0
 
         optimizer.zero_grad()
 
-        loss = direction_loss(direction_network, storage, sample_rate) * scale_direction_loss
+        loss = direction_loss(direction_network, storage, sample_rate)
+        # loss = direction_loss_v2(direction_network, storage, sample_rate)
+        loss = loss * scale_direction_loss
         loss.backward()
 
         optimizer.step()
@@ -162,20 +163,6 @@ def train_direction_ai(direction_network, storage: StorageSuperset2, num_epochs:
     return direction_network
 
 
-def run_tests(direction_network, storage):
-    run_tests_SSDir(direction_network, storage)
-    run_tests_SSDir_unseen(direction_network, storage)
-    pass
-
-
-def storage_to_manifold(storage: StorageSuperset2, autoencoder: BaseAutoencoderModel):
-    autoencoder.eval()
-    autoencoder = autoencoder.to(get_device())
-
-    storage.set_permutor(autoencoder)
-    storage.build_permuted_data_raw_abstraction_autoencoder_manifold()
-
-
 def datapoints_to_manifold(datapoints, autoencoder: BaseAutoencoderModel):
     autoencoder.eval()
     autoencoder = autoencoder.to(get_device())
@@ -187,6 +174,7 @@ def datapoints_to_manifold(datapoints, autoencoder: BaseAutoencoderModel):
     return datapoints
 
 
-def run_SSDirection(SSDir_network: SSDirNetwork, storage: StorageSuperset2):
-    direction_network = train_direction_ai(SSDir_network, storage, num_epochs=2500)
+def train_SSDirection(SSDir_network: SSDirNetwork, storage: StorageSuperset2):
+    SSDir_network = SSDir_network.to(get_device())
+    direction_network = _train_SSDir_network(SSDir_network, storage, num_epochs=5000)
     return direction_network

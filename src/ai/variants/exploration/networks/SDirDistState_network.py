@@ -5,23 +5,18 @@ import torch.optim as optim
 import numpy as np
 from src.ai.runtime_data_storage.storage_superset2 import StorageSuperset2, RawConnectionData, \
     distance_percent_to_distance_thetas
+from src.ai.variants.exploration.networks.abstract_base_autoencoder_model import BaseAutoencoderModel
+from src.ai.variants.exploration.params import MANIFOLD_SIZE, DIRECTION_THETAS_SIZE, DISTANCE_THETAS_SIZE, MAX_DISTANCE
 from src.modules.save_load_handlers.ai_models_handle import load_manually_saved_ai, save_ai_manually, load_custom_ai, \
     load_other_ai
-from src.ai.models.base_autoencoder_model import BaseAutoencoderModel
 from src.utils import array_to_tensor, get_device
 from typing import List
-import torch.nn.functional as F
-from src.modules.pretty_display import pretty_display, set_pretty_display, pretty_display_start, pretty_display_reset
+from src.modules.pretty_display import pretty_display, pretty_display_set, pretty_display_start, pretty_display_reset
 from src.ai.runtime_data_storage.storage_superset2 import thetas_to_radians, \
     angle_percent_to_thetas_normalized_cached, \
     radians_to_degrees, atan2_to_standard_radians, radians_to_percent, coordinate_pair_to_radians_cursed_tranform, \
     direction_to_degrees_atan, degrees_to_percent, normalize_direction
 from src.ai.variants.blocks import ResidualBlockSmallBatchNorm
-
-DIRECTION_THETAS_SIZE = 36
-DISTANCE_THETAS_SIZE = 100
-MANIFOLD_SIZE = 128
-MAX_DISTANCE = 3
 
 
 class SDirDistState(nn.Module):
@@ -60,6 +55,9 @@ datapoint_embeddings_cache = {}
 
 def SDirDistState_loss(direction_network, storage: StorageSuperset2, sample_rate):
     loss = torch.tensor(0.0)
+
+    dp = storage.get_all_datapoints()
+    sample_rate = min(sample_rate, len(dp))
 
     datapoints: List[str] = storage.sample_n_random_datapoints(sample_rate)
 
@@ -137,21 +135,25 @@ def SDirDistState_loss(direction_network, storage: StorageSuperset2, sample_rate
     return loss
 
 
-def train_SDirDistState(SDDS: SDirDistState, storage: StorageSuperset2, num_epochs):
+def _train_SDirDistState(SDDS: SDirDistState, storage: StorageSuperset2, num_epochs):
     optimizer = optim.Adam(SDDS.parameters(), lr=0.001, amsgrad=True)
 
     scale_direction_loss = 10
 
     epoch_average_loss = 0
-    sample_rate = 500
+    sample_rate = 300
 
     epoch_print_rate = 100
 
     storage.build_permuted_data_random_rotations_rotation0()
-    set_pretty_display(epoch_print_rate, "Epochs batch training")
+    pretty_display_set(epoch_print_rate, "Epochs batch training")
     pretty_display_start(0)
 
+    SHUFFLE = 2
     for epoch in range(num_epochs):
+        if epoch % SHUFFLE == 0:
+            storage.build_permuted_data_random_rotations()
+
         pretty_display(epoch % epoch_print_rate)
 
         epoch_loss = 0.0
@@ -187,7 +189,8 @@ def storage_to_manifold(storage: StorageSuperset2, autoencoder: BaseAutoencoderM
     storage.build_permuted_data_raw_abstraction_autoencoder_manifold()
 
 
-def run_SDirDistState(SDisDistState_network: SDirDistState,
-                      storage: StorageSuperset2):
-    direction_network = train_SDirDistState(SDisDistState_network, storage, num_epochs=2000)
+def train_Sdirdiststate(sdisdiststate_network: SDirDistState,
+                        storage: StorageSuperset2):
+    sdisdiststate_network = sdisdiststate_network.to(get_device())
+    direction_network = _train_SDirDistState(sdisdiststate_network, storage, num_epochs=1000)
     return direction_network

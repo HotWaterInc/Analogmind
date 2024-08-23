@@ -10,6 +10,12 @@ from src.ai.data_processing.ai_data_processing import normalize_data_min_max_sup
 import math
 from scipy.stats import norm
 
+from ..variants.exploration.algorithms import build_connections_hashmap, floyd_warshall_algorithm, \
+    find_minimum_distance_between_datapoints_on_graph_bfs, find_minimum_distance_between_datapoints_on_graph_djakstra
+from ..variants.exploration.params import ROTATIONS
+from ..variants.exploration.utils_pure_functions import get_real_distance_between_datapoints
+from ...modules.time_profiler import start_profiler, profiler_checkpoint
+
 from ...utils import get_device
 
 
@@ -251,30 +257,6 @@ class StorageSuperset2(StorageSuperset):
 
     def set_permutor(self, permutor):
         self.permutor = permutor
-
-    def build_permuted_data_raw_with_thetas(self) -> None:
-        """
-        Returns the data point by its name
-        """
-        for index, datapoint in enumerate(self.raw_env_data):
-            name = datapoint["name"]
-            data_tensor = torch.tensor(np.array(datapoint["data"]), dtype=torch.float32, device=get_device())
-            thetas_batch = []
-            rotations_count = len(data_tensor)
-            for index_rot in range(rotations_count):
-                theta = index_rot / rotations_count
-                thetas = build_thetas(theta, 36)
-                thetas_batch.append(thetas)
-
-            thetas_batch = torch.stack(thetas_batch).to(get_device())
-
-            permuted_data: torch.Tensor = self.permutor(data_tensor, thetas_batch)
-
-            permuted_data_raw = permuted_data.tolist()
-            self.raw_env_data[index]["data"] = permuted_data_raw
-
-            # rebuilds map with new values
-        self._convert_raw_data_to_map()
 
     def build_permuted_data_12images(self) -> None:
         """
@@ -593,6 +575,7 @@ class StorageSuperset2(StorageSuperset):
         return len(self.raw_env_data[0]["data"])
 
     def get_datapoint_data_tensor_by_name_permuted(self, name: str) -> torch.Tensor:
+
         """
         Returns the data point by its name
         """
@@ -606,3 +589,117 @@ class StorageSuperset2(StorageSuperset):
             self.raw_connections_data.append(connection)
 
         self._convert_raw_data_to_map()
+
+    def connection_fill_synthetic_distances(self, distance_network, debug: bool = False):
+        """
+        Augments all synthetic or non-authentic connections with distances
+        """
+        distance_network = distance_network.to(get_device())
+        distance_network.eval()
+
+        connections = self.raw_connections_data
+        SELECTIONS = 4
+        err = 0
+
+        start_data_arr = []
+        end_data_arr = []
+        real_distances = []  # for debugging
+        indexes = []
+
+        for idx, connection in enumerate(connections):
+            if connection["distance"] is not None:
+                continue
+
+            start = connection["start"]
+            end = connection["end"]
+            direction = connection["direction"]
+            distance = connection["distance"]
+            real_distance = None
+
+            for i in range(SELECTIONS):
+                i = random.randint(0, ROTATIONS - 1)
+                start_data = self.get_datapoint_data_selected_rotation_tensor_by_name_with_noise(start, i)
+                end_data = self.get_datapoint_data_selected_rotation_tensor_by_name_with_noise(end, i)
+                index = idx
+
+                start_data_arr.append(start_data)
+                end_data_arr.append(end_data)
+                indexes.append(index)
+
+        start_data_tensor = torch.stack(start_data_arr).to(get_device())
+        end_data_tensor = torch.stack(end_data_arr).to(get_device())
+        synthetic_distances = distance_network(start_data_tensor, end_data_tensor)
+        synthetic_distances_hashmap = {}
+
+        for idx, synthetic_distance in enumerate(synthetic_distances):
+            index = indexes[idx]
+            if index not in synthetic_distances_hashmap:
+                synthetic_distances_hashmap[index] = 0
+
+            synthetic_distances_hashmap[index] += synthetic_distance
+
+        pred_dist = []
+        for hash_index in synthetic_distances_hashmap:
+            synthetic_distances_hashmap[hash_index] /= SELECTIONS
+
+            connection = connections[hash_index]
+            connection["distance"] = synthetic_distances_hashmap[hash_index]
+            pred_dist.append(synthetic_distances_hashmap[hash_index])
+
+            if debug:
+                real_distance = get_real_distance_between_datapoints(self.get_datapoint_by_name(connection["start"]),
+                                                                     self.get_datapoint_by_name(connection["end"]))
+                real_distances.append(real_distance)
+
+        if debug:
+            # debugging purposes again
+            pred_dist = torch.tensor(pred_dist)
+            real_distances = torch.tensor(real_distances)
+            mse_loss = torch.nn.MSELoss()
+            err = mse_loss(pred_dist, real_distances)
+            print("Error for synthetically generated distances", err.item())
+
+    def build_non_adjacent_numpy_array_from_connections(self, debug: bool = False):
+        """
+        Builds the numpy array for non-adjacent data
+        """
+        print("STARTED BUILDING NON ADJCENT FLOYD CONNECTIONS")
+        print("NUMBER OF EDGES, ", len(self.raw_connections_data))
+
+        connections_only_datapoints = self.get_all_connections_only_datapoints_authenticity_filter(
+            authentic_distance=True)
+        connection_hashmap = build_connections_hashmap(connections_only_datapoints, [])
+        distances = floyd_warshall_algorithm(connection_hashmap)
+        # iterates all datapoints
+        datapoints = self.get_all_datapoints()
+        length = len(datapoints)
+        array = []
+        for start in range(length):
+            for end in range(start + 1, length):
+                start_name = datapoints[start]
+                end_name = datapoints[end]
+                distance = distances[start_name][end_name]
+                adjacency_sample = AdjacencyDataSample(start=start_name, end=end_name, distance=distance)
+                array.append(adjacency_sample)
+                # additional checks
+                if debug and random.randint(0, 100) == 0:
+                    print(f"Floyd warshall Distance between {start_name} and {end_name} is {distance}")
+                    distance_found = find_minimum_distance_between_datapoints_on_graph_djakstra(start_name, end_name,
+                                                                                                connection_hashmap)
+                    print("Alternative distance", distance_found)
+                    real_distance = self.get_datapoints_real_distance(start_name, end_name)
+                    print("Real distance", real_distance)
+
+        self._non_adjacent_numpy_array = np.array(array, dtype=AdjacencyDataSample)
+
+    def sample_datapoints_adjacencies(self, sample_size: int) -> List[AdjacencyDataSample]:
+        """
+        Samples a number of non-adjacent datapoints
+
+        :param sample_size: the number of datapoints to sample
+        """
+        if self._non_adjacent_numpy_array is None:
+            self.build_non_adjacent_numpy_array_from_connections(debug=False)
+
+        sampled_connections = np.random.choice(self._non_adjacent_numpy_array, sample_size, replace=False)
+        return sampled_connections

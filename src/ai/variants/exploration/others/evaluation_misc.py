@@ -6,18 +6,15 @@ import numpy as np
 from src.ai.runtime_data_storage.storage_superset2 import StorageSuperset2, RawConnectionData, normalize_direction, \
     degrees_to_percent, distance_percent_to_distance_thetas
 from src.modules.save_load_handlers.ai_models_handle import load_manually_saved_ai, save_ai_manually
-from src.ai.models.base_autoencoder_model import BaseAutoencoderModel
 from src.utils import array_to_tensor, get_device
 from typing import List
 import torch.nn.functional as F
-from src.modules.pretty_display import pretty_display, set_pretty_display, pretty_display_start, pretty_display_reset
+from src.modules.pretty_display import pretty_display, pretty_display_set, pretty_display_start, pretty_display_reset
 from src.ai.runtime_data_storage.storage_superset2 import thetas_to_radians, \
     angle_percent_to_thetas_normalized_cached, \
     radians_to_degrees, atan2_to_standard_radians, radians_to_percent, coordinate_pair_to_radians_cursed_tranform, \
     direction_to_degrees_atan
 from src.ai.variants.blocks import ResidualBlockSmallBatchNorm
-
-THETAS_SIZE = 36
 
 
 def run_tests_SSDir_unseen(direction_network, storage: StorageSuperset2):
@@ -32,7 +29,7 @@ def run_tests_SSDir_unseen(direction_network, storage: StorageSuperset2):
 
     error_arr = []
 
-    set_pretty_display(ITERATIONS * len(datapoints), "Iterations")
+    pretty_display_set(ITERATIONS * len(datapoints), "Iterations")
     pretty_display_start()
 
     for iter in range(ITERATIONS):
@@ -87,7 +84,7 @@ def run_tests_SSDir(direction_network, storage: StorageSuperset2):
     lose = 0
 
     print("")
-    set_pretty_display(len(datapoints), "Iterations")
+    pretty_display_set(len(datapoints), "Iterations")
     pretty_display_start()
 
     start_data_arr = []
@@ -190,8 +187,3 @@ def run_tests_SDirDistState(direction_network_SDDS, storage):
                                  keepdim=True).mean().item()
 
     print(f"Average error: {error_datapoint}")
-
-
-DIRECTION_THETAS_SIZE = 36
-DISTANCE_THETAS_SIZE = 100
-MAX_DISTANCE = 3

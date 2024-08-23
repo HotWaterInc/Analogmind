@@ -7,7 +7,7 @@ from src.utils import array_to_tensor
 from src.modules.time_profiler import start_profiler, profiler_checkpoint
 from typing import List
 from src.modules.time_profiler import start_profiler, profiler_checkpoint, profiler_checkpoint_blank
-from src.modules.pretty_display import pretty_display_reset, pretty_display_start, pretty_display, set_pretty_display
+from src.modules.pretty_display import pretty_display_reset, pretty_display_start, pretty_display, pretty_display_set
 
 
 def evaluate_reconstruction_error_super_ensemble(models: List[any], storage: StorageSuperset2,
@@ -507,7 +507,7 @@ def evaluate_adjacency_properties_ensemble_coordination(models: List[any], stora
         embeddings_end = []
         distances = []
 
-        set_pretty_display(len(all_data), "Evaluating adjacency properties")
+        pretty_display_set(len(all_data), "Evaluating adjacency properties")
         pretty_display_start(0)
         for idx, connection in enumerate(all_data):
             if idx % 100 == 0:

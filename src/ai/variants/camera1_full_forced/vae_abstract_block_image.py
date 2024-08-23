@@ -1,11 +1,12 @@
 import torch.optim as optim
 import numpy as np
+
+from src.ai.variants.exploration.networks.abstract_base_autoencoder_model import BaseAutoencoderModel
 from src.modules.save_load_handlers.ai_models_handle import save_ai_manually, load_manually_saved_ai
 from src.ai.runtime_data_storage.storage_superset2 import StorageSuperset2
 from typing import List, Tuple
 from src.utils import array_to_tensor
-from src.ai.models.base_autoencoder_model import BaseAutoencoderModel
-from src.modules.pretty_display import pretty_display_reset, pretty_display_start, pretty_display, set_pretty_display
+from src.modules.pretty_display import pretty_display_reset, pretty_display_start, pretty_display, pretty_display_set
 from src.ai.variants.tests.eval_vae_abstract_block import evaluate_confidence_vae_abstract, \
     evaluate_reconstruct_vae_abstract, evaluate_adjacency_properties_vae_abstract, \
     evaluate_distances_between_pairs_vae_abstract
@@ -167,7 +168,7 @@ def non_adjacent_distance_handling(autoencoder: BaseAutoencoderModel, non_adjace
     """
     Keeps non-adjacent pairs far from each other
     """
-    sampled_pairs = storage_raw.sample_datapoints_adjacencies(non_adjacent_sample_size)
+    sampled_pairs = storage_raw.sample_datapoints_adjacencies_cheated(non_adjacent_sample_size)
 
     batch_datapoint1 = []
     batch_datapoint2 = []
@@ -353,7 +354,7 @@ def train_vae_abstract_block(autoencoder: BaseAutoencoderModel, epochs: int,
     scale_reconstruction_loss = 1
 
     if pretty_print:
-        set_pretty_display(epoch_print_rate, "Epoch batch")
+        pretty_display_set(epoch_print_rate, "Epoch batch")
         pretty_display_start(0)
 
     for epoch in range(num_epochs):

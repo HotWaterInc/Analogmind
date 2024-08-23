@@ -6,7 +6,17 @@ current_line = None
 last_percentage = None
 
 
-def set_pretty_display(total_number_per_line_value, name=""):
+def pretty_display_set_and_start(total_number_per_line_value, name=""):
+    global total_number_per_line \
+        , pretty_display_name, current_line, last_percentage
+
+    total_number_per_line = total_number_per_line_value
+    pretty_display_name = name
+    current_line = False
+    last_percentage = 0
+
+
+def pretty_display_set(total_number_per_line_value, name=""):
     global total_number_per_line \
         , pretty_display_name, current_line, last_percentage
 

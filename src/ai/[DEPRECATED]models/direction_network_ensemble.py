@@ -10,7 +10,7 @@ from src.ai.models.base_autoencoder_model import BaseAutoencoderModel
 from src.utils import array_to_tensor
 from typing import List
 import torch.nn.functional as F
-from src.modules.pretty_display import set_pretty_display, pretty_display_start, pretty_display_reset, pretty_display
+from src.modules.pretty_display import pretty_display_set, pretty_display_start, pretty_display_reset, pretty_display
 
 if torch.cuda.is_available():
     device = torch.device("cuda")
@@ -247,7 +247,7 @@ def train_direction_ai(direction_network, num_epochs):
 
     storage_raw.build_permuted_data_random_rotations_rotation0()
 
-    set_pretty_display(epoch_print_rate, "Epochs progress")
+    pretty_display_set(epoch_print_rate, "Epochs progress")
     pretty_display_start(0)
 
     for epoch in range(num_epochs):

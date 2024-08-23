@@ -2,8 +2,8 @@ import time
 import math
 from typing import Dict, TypedDict, Generator, List, Tuple, Any
 from src.action_ai_controller import ActionAIController
-from src.ai.variants.exploration.heuristics import find_adjacency_heuristic_neighborhood_network_thetas, \
-    find_adjacency_heuristic_raw_data, find_adjacency_heuristic_adjacency_network
+from src.ai.variants.exploration.heuristics import find_adjacency_heuristic_raw_data, \
+    find_adjacency_heuristic_adjacency_network
 from src.ai.variants.exploration.networks.adjacency_detector import AdjacencyDetector
 from src.ai.variants.exploration.exploration_evaluations import evaluate_distance_metric, \
     eval_distances_threshold_averages_raw_data

@@ -7,6 +7,7 @@ and the data that flows from the environment
 """
 import enum
 from typing import List, Dict, Union, Tuple
+import random
 from typing_extensions import TypedDict
 from src.modules.save_load_handlers.data_handle import read_data_from_file, CollectedDataType, \
     read_other_data_from_file
@@ -42,6 +43,7 @@ class RawConnectionData(TypedDict):
     end: str
     distance: float
     direction: List[float]
+    markings: Dict[str, str]
 
 
 class AdjacencyDataSample(TypedDict):
@@ -102,10 +104,32 @@ class Storage:
 
     _cache_only_datapoints_connections = None
 
-    def get_all_only_datapoints_connections_data(self) -> List[RawConnectionData]:
+    def get_all_connections_only_datapoints_authenticity_filter(self, authentic_distance: bool = False,
+                                                                authentic_direction: bool = False) -> List[
+        RawConnectionData]:
         if self._cache_only_datapoints_connections != None:
             return self._cache_only_datapoints_connections
+
+        returned_connections = []
+        for connection in self.raw_connections_data:
+            if connection["end"] == None:
+                continue
+            if authentic_distance and connection["distance"] == None:
+                continue
+            if authentic_direction and connection["direction"] == None:
+                continue
+
+            returned_connections.append(connection)
+
+        self._cache_only_datapoints_connections = returned_connections
+        return returned_connections
+
+    def get_all_connections_only_datapoints(self) -> List[RawConnectionData]:
+        if self._cache_only_datapoints_connections != None:
+            return self._cache_only_datapoints_connections
+
         datapoints_connections_data = [conn for conn in self.raw_connections_data if conn["end"] != None]
+
         self._cache_only_datapoints_connections = datapoints_connections_data
         return datapoints_connections_data
 
@@ -143,7 +167,9 @@ class Storage:
         :param sample_size: the number of datapoints to sample
         """
         # samples from connections since they are adjacent
-        sampled_connections = np.random.choice(np.array(self.raw_connections_data), sample_size, replace=False)
+        only_datapoints_connections = self.get_all_connections_only_datapoints()
+
+        sampled_connections = np.random.choice(np.array(only_datapoints_connections), sample_size, replace=False)
         sampled_adjacencies = [self._generate_adjacency_data_sample(item) for item in sampled_connections]
 
         return sampled_adjacencies
@@ -225,7 +251,7 @@ class Storage:
 
         self._non_adjacent_numpy_array = np.array(array, dtype=AdjacencyDataSample)
 
-    def sample_datapoints_adjacencies(self, sample_size: int) -> List[AdjacencyDataSample]:
+    def sample_datapoints_adjacencies_cheated(self, sample_size: int) -> List[AdjacencyDataSample]:
         """
         Samples a number of non-adjacent datapoints
 
@@ -234,7 +260,6 @@ class Storage:
         if self._non_adjacent_numpy_array is None:
             self.build_non_adjacent_numpy_array_from_metadata()
 
-        # print(len(self._non_adjacent_numpy_array))
         sampled_connections = np.random.choice(self._non_adjacent_numpy_array, sample_size, replace=False)
         return sampled_connections
 
@@ -387,7 +412,7 @@ class Storage:
         Returns the adjacent connections of a datapoint ( the connections that start or end with the datapoint )
         """
         found_connections = []
-        connections_data = self.get_all_only_datapoints_connections_data()
+        connections_data = self.get_all_connections_only_datapoints()
         if datapoint_name in self._connection_cache:
             return self._connection_cache[datapoint_name]
 
@@ -421,7 +446,7 @@ class Storage:
         Returns the adjacent connections of a datapoint ( the connections that start or end with the datapoint )
         """
         found_connections = []
-        connections_data = self.get_all_only_datapoints_connections_data()
+        connections_data = self.get_all_connections_only_datapoints()
         # if datapoint_name in self._connection_cache:
         #     return self._connection_cache[datapoint_name]
 

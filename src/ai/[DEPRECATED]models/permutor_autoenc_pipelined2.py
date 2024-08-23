@@ -140,7 +140,7 @@ def non_adjacent_distance_handling(autoencoder: BaseAutoencoderModel, non_adjace
     Keeps non-adjacent pairs far from each other
     """
     global count
-    sampled_pairs = storage_raw.sample_datapoints_adjacencies(non_adjacent_sample_size)
+    sampled_pairs = storage_raw.sample_datapoints_adjacencies_cheated(non_adjacent_sample_size)
 
     batch_datapoint1 = []
     batch_datapoint2 = []

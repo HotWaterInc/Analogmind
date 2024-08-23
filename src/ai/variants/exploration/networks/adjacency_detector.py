@@ -1,4 +1,6 @@
 import math
+from random import sample
+
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -6,13 +8,15 @@ import numpy as np
 from triton.language import dtype
 import random
 from src.ai.runtime_data_storage.storage_superset2 import StorageSuperset2, RawConnectionData, calculate_coords_distance
-from src.ai.variants.exploration.params import THRESHOLD_ADJACENCY_DETECTOR
+from src.ai.variants.exploration.networks.abstract_base_autoencoder_model import BaseAutoencoderModel
+from src.ai.variants.exploration.params import THRESHOLD_ADJACENCY_DETECTOR, ROTATIONS
+from src.ai.variants.exploration.utils_pure_functions import sample_n_elements
 from src.modules.save_load_handlers.ai_models_handle import load_manually_saved_ai, save_ai_manually
-from src.ai.models.base_autoencoder_model import BaseAutoencoderModel
+from src.modules.time_profiler import start_profiler, profiler_checkpoint
 from src.utils import array_to_tensor, get_device
 from typing import List
 import torch.nn.functional as F
-from src.modules.pretty_display import pretty_display, set_pretty_display, pretty_display_start, pretty_display_reset
+from src.modules.pretty_display import pretty_display, pretty_display_set, pretty_display_start, pretty_display_reset
 from src.ai.runtime_data_storage.storage_superset2 import thetas_to_radians, \
     angle_percent_to_thetas_normalized_cached, \
     radians_to_degrees, atan2_to_standard_radians, radians_to_percent, coordinate_pair_to_radians_cursed_tranform, \
@@ -57,51 +61,49 @@ def embedding_policy(data):
 
 
 def adjacency_detector_loss(direction_network, storage, sample_rate=None):
-    loss = torch.tensor(0.0)
-    raw_env = storage.get_raw_environment_data()
-
+    connections: RawConnectionData = storage.get_all_connections_only_datapoints_authenticity_filter(
+        authentic_distance=True)
     if sample_rate == None:
-        sample_rate = len(raw_env)
-    sample_rate = min(sample_rate, len(raw_env))
+        sample_rate = len(connections)
+    sample_rate = min(sample_rate, len(connections))
 
-    datapoints: List[str] = storage.sample_n_random_datapoints(sample_rate)
+    connections: List[RawConnectionData] = sample_n_elements(connections, sample_rate)
 
     start_embeddings_batch = []
     end_embeddings_batch = []
     target_probabilities_batch = []
 
-    for datapoint in datapoints:
-        connections_to_point: List[RawConnectionData] = storage.get_datapoint_adjacent_connections_cached(datapoint)
-        for j in range(len(connections_to_point)):
-            start = connections_to_point[j]["start"]
-            end = connections_to_point[j]["end"]
+    for connection in connections:
+        start = connection["start"]
+        end = connection["end"]
+        distance = connection["distance"]
 
-            start_coords = storage.get_datapoint_metadata_coords(start)
-            end_coords = storage.get_datapoint_metadata_coords(end)
-            real_life_distance = calculate_coords_distance(start_coords, end_coords)
+        start_data = storage.get_datapoint_data_tensor_by_name_permuted(start)
+        end_data = storage.get_datapoint_data_tensor_by_name_permuted(end)
 
-            start_data = storage.get_datapoint_data_tensor_by_name_permuted(start)
-            end_data = storage.get_datapoint_data_tensor_by_name_permuted(end)
+        if distance > 0.9:
+            # false
+            target_probabilities_batch.append([0, 1])
+            start_embeddings_batch.append(start_data)
+            end_embeddings_batch.append(end_data)
+        elif distance < 0.4:
+            # true
+            # Doubling explained in the next comment
+            target_probabilities_batch.append([1, 0])
+            target_probabilities_batch.append([1, 0])
+            start_embeddings_batch.append(start_data)
+            end_embeddings_batch.append(end_data)
+            start_embeddings_batch.append(start_data)
+            end_embeddings_batch.append(end_data)
+        else:
+            continue
 
-            if real_life_distance > 0.9:
-                # false
-                target_probabilities_batch.append([0, 1])
-                start_embeddings_batch.append(start_data)
-                end_embeddings_batch.append(end_data)
-            elif real_life_distance < 0.4:
-                # true
-                # double close data to be very strong
-                target_probabilities_batch.append([1, 0])
-                target_probabilities_batch.append([1, 0])
-                start_embeddings_batch.append(start_data)
-                end_embeddings_batch.append(end_data)
-                start_embeddings_batch.append(start_data)
-                end_embeddings_batch.append(end_data)
-            else:
-                continue
-
-    # selects 100 random pairs of datapoints
-    sample_size = 100 * 2
+    # select random sets of datapoints as counter example of far away non adjacent points
+    # There is always the possiblity of selecting 2 datapoints which are actually adjacent, but the probability is really low
+    # We can double the number of true cases to compensate for the eventual false cases we select here which are actually adjacecnt
+    datapoints: List[str] = storage.get_all_datapoints()
+    sample_size = 300
+    sample_size = min(sample_size, len(datapoints))
     indices = torch.randperm(len(datapoints))[:sample_size]
     pairs = [(datapoints[i], datapoints[j]) for i, j in indices.view(int(sample_size / 2), 2).tolist()]
 
@@ -115,18 +117,16 @@ def adjacency_detector_loss(direction_network, storage, sample_rate=None):
 
         start_embeddings_batch.append(start_embedding)
         end_embeddings_batch.append(end_embedding)
-        # in 97% of cases, the distance will be more than 0.5
         # false case
         target_probabilities_batch.append([0, 1])
 
     start_embeddings_batch = torch.stack(start_embeddings_batch).to(get_device())
     end_embeddings_batch = torch.stack(end_embeddings_batch).to(get_device())
     target_probabilities_batch = torch.tensor(target_probabilities_batch, dtype=torch.float32).to(get_device())
-    predicted_distances = direction_network(start_embeddings_batch, end_embeddings_batch).squeeze(1)
+    predicted_adjacencies = direction_network(start_embeddings_batch, end_embeddings_batch)
 
     criterion = nn.BCELoss()
-    loss = criterion(predicted_distances, target_probabilities_batch)
-
+    loss = criterion(predicted_adjacencies, target_probabilities_batch)
     return loss
 
 
@@ -139,14 +139,13 @@ def _train_adjacency_network(adjacency_network, storage, num_epochs,
 
     storage.build_permuted_data_random_rotations_rotation0()
 
-    set_pretty_display(epoch_print_rate, "Epochs batch training")
+    pretty_display_set(epoch_print_rate, "Epochs batch training")
     pretty_display_start(0)
 
     if stop_at_threshold:
         num_epochs = 1e7
 
     for epoch in range(num_epochs):
-
         pretty_display(epoch % epoch_print_rate)
 
         loss = torch.tensor(0.0, device=get_device())
@@ -154,16 +153,17 @@ def _train_adjacency_network(adjacency_network, storage, num_epochs,
 
         optimizer.zero_grad()
 
-        DIRS = 24
-        for i in range(DIRS):
-            rand_dir = i
+        ITERATIONS = 1
+        for i in range(ITERATIONS):
+            rand_dir = random.randint(0, ROTATIONS - 1)
             storage.build_permuted_data_random_rotations_rotation_N_with_noise(rand_dir)
+
             loss += adjacency_detector_loss(adjacency_network, storage)
 
         loss.backward()
         optimizer.step()
 
-        epoch_loss += loss.item() / DIRS
+        epoch_loss += loss.item() / ITERATIONS
         epoch_average_loss += epoch_loss
 
         if epoch % epoch_print_rate == 0 and epoch != 0:

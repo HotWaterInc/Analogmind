@@ -11,7 +11,7 @@ from src.ai.runtime_data_storage.storage_superset2 import StorageSuperset2, dist
     distance_percent_to_distance_thetas
 from src.ai.variants.exploration.evaluation_exploration import eval_distances_threshold_averages_seen_network
 from src.ai.variants.exploration.utils import MAX_DISTANCE
-from src.modules.pretty_display import pretty_display_start, set_pretty_display, pretty_display, pretty_display_reset
+from src.modules.pretty_display import pretty_display_start, pretty_display_set, pretty_display, pretty_display_reset
 from src.modules.save_load_handlers.ai_models_handle import load_ai_version, load_other_ai, load_manually_saved_ai
 from src.modules.save_load_handlers.data_handle import read_other_data_from_file
 from src.utils import get_device
@@ -222,7 +222,7 @@ def _get_connection_distances_adjacency_network_on_unknown_dataset(storage: Stor
     start_data_arr = []
     end_data_arr = []
 
-    set_pretty_display(len(datapoints), "Calculating distances")
+    pretty_display_set(len(datapoints), "Calculating distances")
     pretty_display_start()
 
     lng = len(datapoints)
@@ -255,7 +255,7 @@ def _get_connection_distances_adjacency_network_on_unknown_dataset(storage: Stor
     adjacency_probabilities = adjacency_network(start_data_arr, end_data_arr)
     print("finished forwarding")
 
-    set_pretty_display(len(adjacency_probabilities), "Calculating distances from thetas")
+    pretty_display_set(len(adjacency_probabilities), "Calculating distances from thetas")
     pretty_display_start()
 
     predicted_adjacencies = []
@@ -359,7 +359,7 @@ def _get_connection_distances_seen_network_on_unknown_dataset(storage: StorageSu
     start_data_arr = []
     end_data_arr = []
 
-    set_pretty_display(len(datapoints), "Calculating distances")
+    pretty_display_set(len(datapoints), "Calculating distances")
     pretty_display_start()
 
     lng = len(datapoints)
@@ -432,7 +432,7 @@ def _get_connection_distances_neigh_network_on_unknown_dataset(storage: StorageS
     start_data_arr = []
     end_data_arr = []
 
-    set_pretty_display(len(datapoints), "Calculating distances")
+    pretty_display_set(len(datapoints), "Calculating distances")
     pretty_display_start()
 
     lng = len(datapoints)
@@ -462,7 +462,7 @@ def _get_connection_distances_neigh_network_on_unknown_dataset(storage: StorageS
     distances_thetas = neighborhood_network(start_data_arr, end_data_arr)
     print("finished forwarding")
 
-    set_pretty_display(len(distances_thetas), "Calculating distances from thetas")
+    pretty_display_set(len(distances_thetas), "Calculating distances from thetas")
     pretty_display_start()
 
     predicted_distances = []

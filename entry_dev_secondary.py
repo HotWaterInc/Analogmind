@@ -1,5 +1,7 @@
 from src.ai.runtime_data_storage.storage_superset2 import StorageSuperset2
+from src.ai.variants.exploration.exploration_autonomous_policy import augment_data_raw_heuristic
 from src.ai.variants.exploration.exploration_evaluations import evaluate_distance_metric_on_already_found_connections
+from src.ai.variants.exploration.pipelines import test_pipeline2
 from src.modules.external_communication import start_server
 from src.configs_setup import configs_communication, config_data_collection_pipeline
 import threading
@@ -44,5 +46,6 @@ from src.modules.save_load_handlers.data_handle import read_other_data_from_file
 if __name__ == "__main__":
     # run_visualization()
     # augment_data_raw_heuristic()
+    test_pipeline2()
 
     pass

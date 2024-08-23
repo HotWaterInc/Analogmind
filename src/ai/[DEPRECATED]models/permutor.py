@@ -144,7 +144,7 @@ def rotations_distance_loss(permutor, batch_size) -> torch.Tensor:
 
 
 def datapoint_distance_loss(permutor, non_adjacent_sample_size: int, distance_factor: float) -> torch.Tensor:
-    sampled_pairs = storage.sample_datapoints_adjacencies(non_adjacent_sample_size)
+    sampled_pairs = storage.sample_datapoints_adjacencies_cheated(non_adjacent_sample_size)
 
     batch_datapoint1 = []
     batch_datapoint2 = []

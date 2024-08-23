@@ -1,6 +1,5 @@
-from pyparsing import empty
-from typing import Dict
-from src.modules.policies.testing_image_data import test_images_accuracy, process_webots_image_to_embedding, \
+from src.ai.variants.exploration.networks.abstract_base_autoencoder_model import BaseAutoencoderModel
+from src.modules.policies.testing_image_data import process_webots_image_to_embedding, \
     squeeze_out_resnet_output
 
 from src.ai.runtime_data_storage.storage_superset2 import StorageSuperset2
@@ -120,20 +119,9 @@ def get_collected_data_image() -> tuple[torch.Tensor, float, list[float]]:
     return current_embedding, angle, coords
 
 
-def get_distance_coords_pair(coords1: any, coords2: any) -> float:
-    x1, y1 = coords1
-    x2, y2 = coords2
-    return math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2)
+def storage_to_manifold(storage: StorageSuperset2, autoencoder: BaseAutoencoderModel):
+    autoencoder.eval()
+    autoencoder = autoencoder.to(get_device())
 
-
-def get_real_distance_between_datapoints(datapoint1: Dict[str, any], datapoint2: Dict[str, any]) -> float:
-    coords1 = datapoint1["params"]["x"], datapoint1["params"]["y"]
-    coords2 = datapoint2["params"]["x"], datapoint2["params"]["y"]
-    return get_distance_coords_pair(coords1, coords2)
-
-
-def get_direction_between_datapoints(datapoint1: Dict[str, any], datapoint2: Dict[str, any]) -> tuple[float, float]:
-    coords1 = datapoint1["params"]["x"], datapoint1["params"]["y"]
-    coords2 = datapoint2["params"]["x"], datapoint2["params"]["y"]
-    direction_vector = (coords2[0] - coords1[0], coords2[1] - coords1[1])
-    return direction_vector
+    storage.set_permutor(autoencoder)
+    storage.build_permuted_data_raw_abstraction_autoencoder_manifold()

@@ -18,7 +18,7 @@ from src.ai.evaluation.evaluation import evaluate_reconstruction_error, evaluate
     evaluate_adjacency_properties_super, evaluate_reconstruction_error_super_ensemble, \
     evaluate_distances_between_pairs_super_ensemble, evaluate_adjacency_properties_ensemble_coordination, \
     evaluate_ensemble_difference_between_rotations_and_pos
-from src.modules.pretty_display import pretty_display_reset, pretty_display_start, pretty_display, set_pretty_display
+from src.modules.pretty_display import pretty_display_reset, pretty_display_start, pretty_display, pretty_display_set
 
 import torch
 import torch.nn as nn
@@ -178,7 +178,7 @@ def non_adjacent_distance_handling(autoencoder: BaseAutoencoderModel, non_adjace
     """
     Keeps non-adjacent pairs far from each other
     """
-    sampled_pairs = storage_raw.sample_datapoints_adjacencies(non_adjacent_sample_size)
+    sampled_pairs = storage_raw.sample_datapoints_adjacencies_cheated(non_adjacent_sample_size)
 
     batch_datapoint1 = []
     batch_datapoint2 = []
@@ -238,7 +238,7 @@ def train_autoencoder_ensemble(epochs: int):
     epoch_print_rate = 250
     DISTANCE_CONSTANT_PER_NEURON = 0.01
 
-    set_pretty_display(epoch_print_rate, "Epoch batch")
+    pretty_display_set(epoch_print_rate, "Epoch batch")
     pretty_display_start(0)
 
     avg_global_loss = 0

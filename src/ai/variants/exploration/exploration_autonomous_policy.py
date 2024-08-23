@@ -1,14 +1,17 @@
 from typing import Generator
+from src.ai.variants.exploration.metric_builders import build_find_adjacency_heursitic_raw_data, \
+    build_find_adjacency_heursitic_adjacency_network
 from src.ai.variants.exploration.networks.SDirDistState_network import SDirDistState
 from src.ai.variants.exploration.networks.SSDir_network import SSDirNetwork
 from src.ai.variants.exploration.networks.adjacency_detector import AdjacencyDetector, \
     train_adjacency_network_until_threshold
-from src.ai.variants.exploration.heuristics import build_find_adjacency_heursitic_adjacency_network, \
-    build_find_adjacency_heursitic_raw_data
+from src.ai.variants.exploration.networks.images_raw_distance_predictor import ImagesRawDistancePredictor
+from src.ai.variants.exploration.others.images_distance_predictor import train_images_distance_predictor_until_threshold
 from src.ai.variants.exploration.others.neighborhood_network import NeighborhoodDistanceNetwork
 from src.ai.variants.exploration.params import STEP_DISTANCE, ROTATIONS
 from src.ai.variants.exploration.utils import get_collected_data_image, get_collected_data_distances, \
-    check_direction_distance_validity, get_real_distance_between_datapoints, get_direction_between_datapoints
+    check_direction_distance_validity
+from src.ai.variants.exploration.utils_pure_functions import get_direction_between_datapoints
 from src.modules.save_load_handlers.data_handle import write_other_data_to_file
 from src.action_robot_controller import detach_robot_sample_distance, detach_robot_teleport_relative, \
     detach_robot_rotate_absolute, detach_robot_teleport_absolute, \
@@ -18,17 +21,17 @@ import torch.nn as nn
 from src.ai.runtime_data_storage.storage_superset2 import *
 from typing import List, Dict
 from src.utils import get_device
-from src.ai.variants.exploration.networks.autoencoder_network import AutoencoderExploration
+from src.ai.variants.exploration.networks.manifold_network import ManifoldNetwork
 from src.ai.variants.exploration.exploration_evaluations import evaluate_distance_metric, \
     evaluate_distance_metric_on_already_found_connections
 
 
 def initial_setup():
-    global storage_raw, neighborhood_distance_network, autoencoder, SSDir_network, SDirDistState_network
+    global storage_raw, autoencoder, SSDir_network, SDirDistState_network, image_distance_network
 
     storage_raw = StorageSuperset2()
-    neighborhood_distance_network = NeighborhoodDistanceNetwork().to(get_device())
-    autoencoder = AutoencoderExploration().to(get_device())
+    image_distance_network = ImagesRawDistancePredictor().to(get_device())
+    autoencoder = ManifoldNetwork().to(get_device())
     SSDir_network = SSDirNetwork().to(get_device())
     SDirDistState_network = SDirDistState().to(get_device())
 
@@ -330,7 +333,7 @@ def augment_data_network_heuristic(storage: StorageSuperset2, random_walk_datapo
 
 def exploration_policy_autonomous() -> Generator[None, None, None]:
     initial_setup()
-    global storage_raw, adjacency_network
+    global storage_raw, adjacency_network, image_distance_network
     global first_walk
 
     detach_robot_teleport_absolute(0, 0)
@@ -363,7 +366,7 @@ def exploration_policy_autonomous() -> Generator[None, None, None]:
         print("AUGMENTING DATA")
         new_connections_raw = augment_data_raw_heuristic(storage_raw, random_walk_datapoints)
         new_connections_adjacency_network = augment_data_network_heuristic(storage_raw, random_walk_datapoints,
-                                                                           neighborhood_distance_network)
+                                                                           adjacency_network)
 
         total_connections_found = []
         total_connections_found.extend(new_connections_raw)
@@ -377,7 +380,11 @@ def exploration_policy_autonomous() -> Generator[None, None, None]:
         evaluate_distance_metric_on_already_found_connections(storage_raw, random_walk_datapoints,
                                                               total_connections_found)
         print("FINISHING AUGMENTING CONNECTIONS")
-        print("STARTING DATA PURGING")
+        print("TRAINING DISTANCES NETWORK")
+        image_distance_network = train_images_distance_predictor_until_threshold(image_distance_network, storage_raw)
+        print("ADDING SYNTHETIC DISTANCES")
+
+        print("SKIPPING DATA PURGING")
 
         break
     yield
@@ -387,9 +394,9 @@ storage_raw: StorageSuperset2 = None
 storage_manifold: StorageSuperset2 = None
 
 adjacency_network: AdjacencyDetector = None
-neighborhood_distance_network: NeighborhoodDistanceNetwork = None
+image_distance_network: ImagesRawDistancePredictor = None
 
-autoencoder: AutoencoderExploration = None
+autoencoder: ManifoldNetwork = None
 direction_network_SSD: nn.Module = None
 direction_network_SDirDistS: nn.Module = None
 

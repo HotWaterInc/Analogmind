@@ -1,5 +1,6 @@
 # representation details, could be anything
 DIRECTION_THETAS_SIZE = 36
+# The larger thetas size, the more sparse the distance representation will be
 DISTANCE_THETAS_SIZE = 100
 # max distance that can go int SDDS network
 MAX_DISTANCE = 3
@@ -13,9 +14,16 @@ ROTATIONS_PER_FULL = 1
 # how many offsets are included in the training of the abstraction block
 OFFSETS_PER_DATAPOINT = 24
 THETAS_SIZE = 36
+MANIFOLD_SIZE = 128
 
-# These are optimal parameters when the networks are continously trained
+# These are optimal parameters when the networks are trained during exploration
 # Need to be found empirically
 THRESHOLD_RECONSTRUCTION_ABSTRACTION_NETWORK = 0.020
-THRESHOLD_NEIGHBORHOOD_NETWORK = 0.020
+THRESHOLD_IMAGE_DISTANCE_NETWORK = 0.020
 THRESHOLD_ADJACENCY_DETECTOR = 0.040
+
+THRESHOLD_MANIFOLD_NON_ADJACENT_LOSS = 0.040
+THRESHOLD_MANIFOLD_PERMUTATION_LOSS = 0.030
+
+THRESHOLD_SSDIR_NETWORK = 0.020
+THRESHOLD_SDIRDISTSTATE_NETWORK = 0.005

@@ -5,21 +5,19 @@ import torch.nn as nn
 import torch.optim as optim
 import numpy as np
 from src.ai.runtime_data_storage.storage_superset2 import StorageSuperset2, RawConnectionData
+from src.ai.variants.exploration.networks.abstract_base_autoencoder_model import BaseAutoencoderModel
+from src.ai.variants.exploration.params import THETAS_SIZE, MANIFOLD_SIZE
 from src.modules.save_load_handlers.ai_models_handle import load_manually_saved_ai, save_ai_manually, load_custom_ai, \
     load_other_ai
-from src.ai.models.base_autoencoder_model import BaseAutoencoderModel
 from src.utils import array_to_tensor
 from typing import List
 import torch.nn.functional as F
-from src.modules.pretty_display import pretty_display, set_pretty_display, pretty_display_start, pretty_display_reset
+from src.modules.pretty_display import pretty_display, pretty_display_set, pretty_display_start, pretty_display_reset
 from src.ai.runtime_data_storage.storage_superset2 import thetas_to_radians, \
     angle_percent_to_thetas_normalized_cached, \
     radians_to_degrees, atan2_to_standard_radians, radians_to_percent, coordinate_pair_to_radians_cursed_tranform, \
     direction_to_degrees_atan, degrees_to_percent
 from src.ai.variants.blocks import ResidualBlockSmallBatchNorm
-
-THETAS_SIZE = 36
-MANIFOLD_SIZE = 128
 
 
 class DirectionNetworkSDS(nn.Module):
@@ -117,7 +115,7 @@ def train_direction_SDS(direction_network, num_epochs):
 
     storage_raw.build_permuted_data_random_rotations_rotation0()
 
-    set_pretty_display(epoch_print_rate, "Epochs batch training")
+    pretty_display_set(epoch_print_rate, "Epochs batch training")
     pretty_display_start(0)
 
     for epoch in range(num_epochs):
@@ -252,8 +250,3 @@ autoencoder: BaseAutoencoderModel = None
 
 MODELS_FOLDER = "models_v11"
 AUTOENCODER_NAME = "camera1_autoencoder_v1.1.pth"
-
-if torch.cuda.is_available():
-    device = torch.device("cuda")
-else:
-    device = torch.device("cpu")

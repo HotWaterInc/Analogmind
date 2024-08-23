@@ -2,6 +2,8 @@ import time
 import math
 from typing import Dict, TypedDict, Generator, List
 from src.action_ai_controller import ActionAIController
+from src.ai.variants.exploration.networks.abstract_base_autoencoder_model import BaseAutoencoderModel
+from src.ai.variants.exploration.params import STEP_DISTANCE, MAX_DISTANCE, DISTANCE_THETAS_SIZE, DIRECTION_THETAS_SIZE
 from src.ai.variants.exploration.utils import get_collected_data_distances, check_direction_distance_validity
 from src.global_data_buffer import GlobalDataBuffer, empty_global_data_buffer
 from src.modules.save_load_handlers.data_handle import write_other_data_to_file
@@ -21,22 +23,12 @@ from src.modules.save_load_handlers.parameters import *
 from src.ai.runtime_data_storage.storage_superset2 import StorageSuperset2, thetas_to_radians, \
     direction_to_degrees_atan, angle_percent_to_thetas_normalized_cached, degrees_to_percent, \
     distance_percent_to_distance_thetas
-from src.ai.runtime_data_storage import Storage
 from typing import List, Dict, Union
 from src.utils import array_to_tensor, get_device
-from src.ai.models.base_autoencoder_model import BaseAutoencoderModel
-from src.ai.evaluation.evaluation import evaluate_reconstruction_error, evaluate_distances_between_pairs, \
-    evaluate_adjacency_properties
-from src.ai.evaluation.evaluation import evaluate_reconstruction_error, evaluate_distances_between_pairs, \
-    evaluate_adjacency_properties, evaluate_reconstruction_error_super, evaluate_distances_between_pairs_super, \
-    evaluate_adjacency_properties_super
-from src.modules.policies.data_collection import get_position, get_angle
 from src.modules.policies.testing_image_data import test_images_accuracy, process_webots_image_to_embedding, \
     squeeze_out_resnet_output
 from src.modules.policies.utils_lib import webots_radians_to_normal, radians_to_degrees
 import torch
-import torchvision.models as models
-import torchvision.transforms as transforms
 
 
 def load_everything(models_folder: str, autoencoder_name: str, SSD_name: str, SDS_name: str):
@@ -64,7 +56,7 @@ def next_embedding_policy_ab(current_embedding, target_embedding):
     return next_embedding
 
 
-def find_closest_known_position_to_manifold_north(current_embedding, target_x, target_y):
+def find_closest_known_position_to_manifold_north(current_embedding):
     global storage
     best_embedding_distance = 100000
     best_embedding_name = None
@@ -106,8 +98,10 @@ def next_embedding_policy_search_closest(current_embedding, current_theta_percen
     bestij = None
 
     # try for target position
-    potential_emb_left = storage.get_datapoint_data_tensor_by_name(target_name)[theta_search_index_left].to(device)
-    potential_emb_right = storage.get_datapoint_data_tensor_by_name(target_name)[theta_search_index_right].to(device)
+    potential_emb_left = storage.get_datapoint_data_tensor_by_name(target_name)[theta_search_index_left].to(
+        get_device())
+    potential_emb_right = storage.get_datapoint_data_tensor_by_name(target_name)[theta_search_index_right].to(
+        get_device())
 
     distance_left_embedding = torch.norm(potential_emb_left - current_embedding, p=2, dim=0).item()
     distance_right_embedding = torch.norm(potential_emb_right - current_embedding, p=2, dim=0).item()
@@ -133,9 +127,9 @@ def next_embedding_policy_search_closest(current_embedding, current_theta_percen
             continue
 
         potential_current_embedding_left = storage.get_datapoint_data_tensor_by_name(potential_current_embedding_name)[
-            theta_search_index_left].to(device)
+            theta_search_index_left].to(get_device())
         potential_current_embedding_right = storage.get_datapoint_data_tensor_by_name(potential_current_embedding_name)[
-            theta_search_index_right].to(device)
+            theta_search_index_right].to(get_device())
         current_distance = connection["distance"]
 
         distance_left_embedding = torch.norm(potential_current_embedding_left - current_embedding, p=2, dim=0).item()
@@ -203,7 +197,7 @@ def final_angle_policy_direction_testing(current_embedding, angle_percent, targe
     target_name = storage.get_closest_datapoint_to_xy(target_x, target_y)
     target_manifold = storage.get_datapoint_data_tensor_by_name(target_name)[0].to(get_device())
 
-    closest = find_closest_known_position_to_manifold_north(current_manifold, target_x, target_y)
+    closest = find_closest_known_position_to_manifold_north(current_manifold)
     coords = storage.get_datapoint_metadata_coords(closest)
     distance = math.sqrt((coords[0] - target_x) ** 2 + (coords[1] - target_y) ** 2)
     if distance < STEP_DISTANCE * 1.5:

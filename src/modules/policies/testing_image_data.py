@@ -2,6 +2,7 @@ import time
 import math
 from typing import Dict, TypedDict, Generator, List
 from src.action_ai_controller import ActionAIController
+from src.ai.variants.exploration.networks.abstract_base_autoencoder_model import BaseAutoencoderModel
 from src.global_data_buffer import GlobalDataBuffer, empty_global_data_buffer
 from src.modules.save_load_handlers.data_handle import write_other_data_to_file
 
@@ -22,12 +23,6 @@ from src.ai.runtime_data_storage.storage_superset2 import StorageSuperset2
 from src.ai.runtime_data_storage import Storage
 from typing import List, Dict, Union
 from src.utils import array_to_tensor
-from src.ai.models.base_autoencoder_model import BaseAutoencoderModel
-from src.ai.evaluation.evaluation import evaluate_reconstruction_error, evaluate_distances_between_pairs, \
-    evaluate_adjacency_properties
-from src.ai.evaluation.evaluation import evaluate_reconstruction_error, evaluate_distances_between_pairs, \
-    evaluate_adjacency_properties, evaluate_reconstruction_error_super, evaluate_distances_between_pairs_super, \
-    evaluate_adjacency_properties_super
 import sys
 import time
 import asyncio
@@ -35,8 +30,6 @@ from src.modules.external_communication import start_server, CommunicationInterf
 from src.configs_setup import configs
 import threading
 from src.modules.visualizations import run_visualization
-from src.ai.models.autoencoder import *
-from src.ai.models.variational_autoencoder import *
 from src.utils import perror
 from src.modules.external_communication.communication_interface import send_data, CommunicationInterface
 from src.utils import get_instance
