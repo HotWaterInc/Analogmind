@@ -12,7 +12,7 @@ def filtering_metric_djakstra(storage: StorageSuperset2, datapoint: str) -> any:
     Filtering datapoints by checking if they add any additional pathways between any of their neighbors in the topological graph
     """
     connection_hashmap = build_connections_hashmap(storage, [datapoint])
-    connections_neighbors = storage.get_datapoint_adjacent_connections(datapoint)
+    connections_neighbors = storage.get_datapoint_adjacent_connections_authentic(datapoint)
     neighbors_count = len(connections_neighbors)
 
     is_redundant = True
@@ -65,3 +65,31 @@ def data_filtering_redundancies(storage: StorageSuperset2):
     datapoints = storage.get_all_datapoints()
     # filtering_redundancy_djakstra_based(storage, datapoints)
     # filtering_redundancy_neighbors_based()
+
+
+def data_filtering_redundant_connections(storage: StorageSuperset2):
+    datapoints = storage.get_all_datapoints()
+    count_redundant = 0
+    total_count = 0
+
+    for datapoint in datapoints:
+        connections = storage.get_datapoint_adjacent_connections_all(datapoint)
+        connections_count = len(connections)
+        for idx in range(connections_count):
+            for jdx in range(idx + 1, connections_count):
+                first_connection = connections[idx]
+                second_connection = connections[jdx]
+
+                first_direction = first_connection["direction"]
+                second_direction = second_connection["direction"]
+
+                first_angle = direction_to_degrees_atan(first_direction)
+                second_angle = direction_to_degrees_atan(second_direction)
+                total_count += 1
+                if abs(first_angle - second_angle) < 15:
+                    print("Looks like redundant")
+                    print("Angles", first_angle, second_angle)
+                    count_redundant += 1
+
+    print("Count redundant", count_redundant)
+    print("Total count", total_count)

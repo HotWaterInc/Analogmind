@@ -6,8 +6,8 @@ import torch.optim as optim
 import numpy as np
 from src.ai.variants.blocks import ResidualBlockSmallBatchNorm, _make_layer_no_batchnorm_leaky, _make_layer, \
     _make_layer_relu, _make_layer_no_batchnorm_relu, _make_layer_linear, ResidualBlockSmallBatchNormWithAttention
-from src.ai.variants.exploration.utils import ROTATIONS, ROTATIONS_PER_FULL, ROTATIONS, OFFSETS_PER_DATAPOINT, \
-    THETAS_SIZE
+from src.ai.variants.exploration.networks.abstract_base_autoencoder_model import BaseAutoencoderModel
+from src.ai.variants.exploration.params import ROTATIONS_PER_FULL, OFFSETS_PER_DATAPOINT
 from src.modules.save_load_handlers.ai_models_handle import save_ai, save_ai_manually, load_latest_ai, \
     load_manually_saved_ai
 from src.modules.save_load_handlers.parameters import *
@@ -17,20 +17,14 @@ from src.ai.runtime_data_storage import Storage
 from typing import List, Dict, Union
 from src.modules.time_profiler import profiler_checkpoint_blank, start_profiler, profiler_checkpoint
 from src.utils import array_to_tensor, get_device
-from src.ai.models.base_autoencoder_model import BaseAutoencoderModel
-from src.ai.evaluation.evaluation import evaluate_reconstruction_error, evaluate_distances_between_pairs, \
-    evaluate_adjacency_properties
-from src.ai.evaluation.evaluation import evaluate_reconstruction_error, evaluate_distances_between_pairs, \
-    evaluate_adjacency_properties, evaluate_reconstruction_error_super, evaluate_distances_between_pairs_super, \
-    evaluate_adjacency_properties_super, evaluate_reconstruction_error_super_fist_rotation
 from src.modules.pretty_display import pretty_display_reset, pretty_display_start, pretty_display, pretty_display_set
 import torch
 import torch.nn as nn
 
 
 class AbstractionBlockSecondTrial(BaseAutoencoderModel):
-    def __init__(self, dropout_rate: float = 0.2, position_embedding_size: int = 128,
-                 thetas_embedding_size: int = 128,
+    def __init__(self, dropout_rate: float = 0.2, position_embedding_size: int = 64,
+                 thetas_embedding_size: int = 64,
                  hidden_size: int = 1024 * 2, num_blocks: int = 1, input_output_size=512 * ROTATIONS_PER_FULL):
         super(AbstractionBlockSecondTrial, self).__init__()
 
@@ -219,13 +213,13 @@ def reconstruction_handling(autoencoder: BaseAutoencoderModel, storage: StorageS
 
 
 def linearity_distance_handling(autoencoder: BaseAutoencoderModel, storage: StorageSuperset2,
-                                non_adjacent_sample_size: int) -> torch.Tensor:
+                                non_adjacent_sample_size: int, embedding_scaling_factor: float = 1) -> torch.Tensor:
     """
     Makes first degree connections be linearly distant from each other
     """
     # sampled_pairs = storage.sample_datapoints_adjacencies(non_adjacent_sample_size)
-    non_adjacent_sample_size = min(non_adjacent_sample_size, len(storage.get_all_connections_data()))
-    sampled_pairs = storage.sample_adjacent_datapoints_connections_raw_data(non_adjacent_sample_size)
+    non_adjacent_sample_size = min(non_adjacent_sample_size, len(storage.get_all_connections_only_datapoints()))
+    sampled_pairs = storage.sample_adjacent_datapoints_connections(non_adjacent_sample_size)
 
     batch_datapoint1 = []
     batch_datapoint2 = []
@@ -253,7 +247,8 @@ def linearity_distance_handling(autoencoder: BaseAutoencoderModel, storage: Stor
     embedding_size = encoded_i.shape[1]
 
     predicted_distances = torch.norm(encoded_i - encoded_j, p=2, dim=1)
-    expected_distances = [distance * 2 for distance in expected_distances]
+    predicted_distances /= embedding_scaling_factor
+    expected_distances = [distance for distance in expected_distances]
     expected_distances = torch.tensor(expected_distances, dtype=torch.float32).to(get_device())
 
     criterion = nn.MSELoss()
@@ -300,7 +295,7 @@ def _train_autoencoder_abstraction_block(abstraction_block: AbstractionBlockSeco
         losses_json = reconstruction_handling(
             abstraction_block,
             storage)
-        # linearity_loss = linearity_distance_handling(abstraction_block, storage, non_adjacent_sample_size)
+        linearity_loss = linearity_distance_handling(abstraction_block, storage, non_adjacent_sample_size)
 
         reconstruction_loss_same_position = losses_json["loss_reconstruction_same_position"]
         cdist_positional_encoding_same_position = losses_json["cdist_positional_encoding_same_position"]
@@ -317,12 +312,13 @@ def _train_autoencoder_abstraction_block(abstraction_block: AbstractionBlockSeco
 
         optimizer.step()
 
-        epoch_average_loss += reconstruction_loss_same_position.item() + cdist_positional_encoding_same_position.item() + reconstruction_loss_same_rotation.item() + cdist_rotational_encoding_same_rotation.item()
+        epoch_average_loss += reconstruction_loss_same_position.item() + cdist_positional_encoding_same_position.item() + reconstruction_loss_same_rotation.item() + cdist_rotational_encoding_same_rotation.item() + linearity_loss.item()
 
         average_loss_reconstruction_same_position += reconstruction_loss_same_position.item()
         average_loss_cdist_same_position += cdist_positional_encoding_same_position.item()
         average_loss_reconstruction_same_rotation += reconstruction_loss_same_rotation.item()
         average_loss_cdist_same_rotation += cdist_rotational_encoding_same_rotation.item()
+        average_loss_linearity += linearity_loss.item()
 
         if pretty_print:
             pretty_display(epoch % epoch_print_rate)
@@ -350,6 +346,7 @@ def _train_autoencoder_abstraction_block(abstraction_block: AbstractionBlockSeco
             average_loss_reconstruction_same_position = 0
             average_loss_cdist_same_position = 0
             average_loss_reconstruction_same_rotation = 0
+            average_loss_linearity = 0
 
             if pretty_print:
                 pretty_display_reset()

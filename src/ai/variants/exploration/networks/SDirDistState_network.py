@@ -12,7 +12,7 @@ from src.modules.save_load_handlers.ai_models_handle import load_manually_saved_
 from src.utils import array_to_tensor, get_device
 from typing import List
 from src.modules.pretty_display import pretty_display, pretty_display_set, pretty_display_start, pretty_display_reset
-from src.ai.runtime_data_storage.storage_superset2 import thetas_to_radians, \
+from src.ai.runtime_data_storage.storage_superset2 import direction_thetas_to_radians, \
     angle_percent_to_thetas_normalized_cached, \
     radians_to_degrees, atan2_to_standard_radians, radians_to_percent, coordinate_pair_to_radians_cursed_tranform, \
     direction_to_degrees_atan, degrees_to_percent, normalize_direction
@@ -67,19 +67,19 @@ def SDirDistState_loss(direction_network, storage: StorageSuperset2, sample_rate
     target_embeddings_batch = []
 
     for datapoint in datapoints:
-        if datapoint in datapoint_embeddings_cache:
-            start_data = datapoint_embeddings_cache[datapoint]["start_data"]
-            end_data = datapoint_embeddings_cache[datapoint]["end_data"]
-            direction_thetas = datapoint_embeddings_cache[datapoint]["direction_thetas"]
-            distance_thetas = datapoint_embeddings_cache[datapoint]["distance_thetas"]
+        # if datapoint in datapoint_embeddings_cache:
+        #     start_data = datapoint_embeddings_cache[datapoint]["start_data"]
+        #     end_data = datapoint_embeddings_cache[datapoint]["end_data"]
+        #     direction_thetas = datapoint_embeddings_cache[datapoint]["direction_thetas"]
+        #     distance_thetas = datapoint_embeddings_cache[datapoint]["distance_thetas"]
+        #
+        #     start_embeddings_batch.extend(start_data)
+        #     direction_thetas_batch.extend(direction_thetas)
+        #     distance_thetas_batch.extend(distance_thetas)
+        #     target_embeddings_batch.extend(end_data)
+        #     continue
 
-            start_embeddings_batch.extend(start_data)
-            direction_thetas_batch.extend(direction_thetas)
-            distance_thetas_batch.extend(distance_thetas)
-            target_embeddings_batch.extend(end_data)
-            continue
-
-        connections_to_point: List[RawConnectionData] = storage.get_datapoint_adjacent_connections(datapoint)
+        connections_to_point: List[RawConnectionData] = storage.get_datapoint_adjacent_connections_authentic(datapoint)
         start_data_arr = []
         end_data_arr = []
         direction_thetas_arr = []

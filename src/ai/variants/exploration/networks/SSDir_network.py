@@ -5,13 +5,13 @@ import torch.optim as optim
 import numpy as np
 from src.ai.runtime_data_storage.storage_superset2 import StorageSuperset2, RawConnectionData
 from src.ai.variants.exploration.networks.abstract_base_autoencoder_model import BaseAutoencoderModel
-from src.ai.variants.exploration.params import MANIFOLD_SIZE, THETAS_SIZE
+from src.ai.variants.exploration.params import MANIFOLD_SIZE, DIRECTION_THETAS
 from src.modules.save_load_handlers.ai_models_handle import load_manually_saved_ai, save_ai_manually
 from src.utils import array_to_tensor, get_device
 from typing import List
 import torch.nn.functional as F
 from src.modules.pretty_display import pretty_display, pretty_display_set, pretty_display_start, pretty_display_reset
-from src.ai.runtime_data_storage.storage_superset2 import thetas_to_radians, \
+from src.ai.runtime_data_storage.storage_superset2 import direction_thetas_to_radians, \
     angle_percent_to_thetas_normalized_cached, \
     radians_to_degrees, atan2_to_standard_radians, radians_to_percent, coordinate_pair_to_radians_cursed_tranform, \
     direction_to_degrees_atan
@@ -19,7 +19,7 @@ from src.ai.variants.blocks import ResidualBlockSmallBatchNorm
 
 
 class SSDirNetwork(nn.Module):
-    def __init__(self, input_size=MANIFOLD_SIZE, hidden_size=512, output_size=THETAS_SIZE, dropout_rate=0.3,
+    def __init__(self, input_size=MANIFOLD_SIZE, hidden_size=512, output_size=DIRECTION_THETAS, dropout_rate=0.3,
                  num_blocks=1):
         super(SSDirNetwork, self).__init__()
 
@@ -74,7 +74,7 @@ def direction_loss(direction_network, storage: StorageSuperset2, sample_rate):
         end_data_arr = []
         thetas_target_arr = []
 
-        connections_to_point: List[RawConnectionData] = storage.get_datapoint_adjacent_connections(datapoint)
+        connections_to_point: List[RawConnectionData] = storage.get_datapoint_adjacent_connections_authentic(datapoint)
         for j in range(len(connections_to_point)):
             start = connections_to_point[j]["start"]
             end = connections_to_point[j]["end"]
@@ -85,7 +85,7 @@ def direction_loss(direction_network, storage: StorageSuperset2, sample_rate):
 
             final_radian = coordinate_pair_to_radians_cursed_tranform(direction[0], direction[1])
             radian_percent = radians_to_percent(final_radian)
-            thetas_target = angle_percent_to_thetas_normalized_cached(radian_percent, THETAS_SIZE)
+            thetas_target = angle_percent_to_thetas_normalized_cached(radian_percent, DIRECTION_THETAS)
 
             start_data = storage.get_datapoint_data_tensor_by_name_permuted(start)
             end_data = storage.get_datapoint_data_tensor_by_name_permuted(end)

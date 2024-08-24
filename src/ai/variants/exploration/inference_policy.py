@@ -4,7 +4,8 @@ from typing import Dict, TypedDict, Generator, List
 from src.action_ai_controller import ActionAIController
 from src.ai.variants.exploration.networks.abstract_base_autoencoder_model import BaseAutoencoderModel
 from src.ai.variants.exploration.params import STEP_DISTANCE, MAX_DISTANCE, DISTANCE_THETAS_SIZE, DIRECTION_THETAS_SIZE
-from src.ai.variants.exploration.utils import get_collected_data_distances, check_direction_distance_validity
+from src.ai.variants.exploration.utils import get_collected_data_distances, check_direction_distance_validity_north, \
+    adjust_distance_sensors_according_to_rotation, adjust_distance_sensors_according_to_rotation_duplicate
 from src.global_data_buffer import GlobalDataBuffer, empty_global_data_buffer
 from src.modules.save_load_handlers.data_handle import write_other_data_to_file
 from src.action_robot_controller import detach_robot_sample_distance, detach_robot_sample_image, \
@@ -20,7 +21,7 @@ import numpy as np
 from src.modules.save_load_handlers.ai_models_handle import save_ai, save_ai_manually, load_latest_ai, \
     load_manually_saved_ai, load_custom_ai, load_other_ai
 from src.modules.save_load_handlers.parameters import *
-from src.ai.runtime_data_storage.storage_superset2 import StorageSuperset2, thetas_to_radians, \
+from src.ai.runtime_data_storage.storage_superset2 import StorageSuperset2, direction_thetas_to_radians, \
     direction_to_degrees_atan, angle_percent_to_thetas_normalized_cached, degrees_to_percent, \
     distance_percent_to_distance_thetas
 from typing import List, Dict, Union
@@ -56,7 +57,41 @@ def next_embedding_policy_ab(current_embedding, target_embedding):
     return next_embedding
 
 
-def find_closest_known_position_to_manifold_north(current_embedding):
+def find_closest_known_position(current_embedding, theta_percent):
+    global storage
+    best_embedding_distance = 100000
+    best_embedding_name = None
+    grid_dataset = 5
+    current_theta_percent = theta_percent
+
+    theta_search_index_left = int(current_theta_percent * 24)
+    theta_search_index_right = int(current_theta_percent * 24) + 1
+    if theta_search_index_right == 24:
+        theta_search_index_right = 0
+
+    datapoints = storage.get_all_datapoints()
+    for datapoint in datapoints:
+        target_name = datapoint
+        potential_emb_left = storage.get_datapoint_data_tensor_by_name(target_name)[theta_search_index_left].to(
+            get_device())
+        potential_emb_right = storage.get_datapoint_data_tensor_by_name(target_name)[theta_search_index_right].to(
+            get_device())
+
+        distance_left_embedding = torch.norm(potential_emb_left - current_embedding, p=2, dim=0).item()
+        distance_right_embedding = torch.norm(potential_emb_right - current_embedding, p=2, dim=0).item()
+
+        if distance_left_embedding < best_embedding_distance:
+            best_embedding_distance = distance_left_embedding
+            best_embedding_name = target_name
+
+        if distance_right_embedding < best_embedding_distance:
+            best_embedding_distance = distance_right_embedding
+            best_embedding_name = target_name
+
+    return best_embedding_name
+
+
+def find_closest_known_position_to_manifold_north(current_embedding, angle_percent):
     global storage
     best_embedding_distance = 100000
     best_embedding_name = None
@@ -175,7 +210,7 @@ def policy_thetas_navigation_next_manifold(current_manifold: torch.Tensor, next_
     direction_network_SSD.eval()
 
     thetas_direction = direction_network_SSD(current_manifold.unsqueeze(0), next_manifold.unsqueeze(0)).squeeze(0)
-    final_angle = thetas_to_radians(thetas_direction)
+    final_angle = direction_thetas_to_radians(thetas_direction)
     return final_angle
 
 
@@ -186,7 +221,7 @@ def storage_to_manifold(storage: StorageSuperset2):
 
 
 def print_closest_known_position(current_embedding, angle_percent):
-    closest = find_closest_known_position_to_manifold_north(current_embedding, angle_percent)
+    closest = find_closest_known_position(current_embedding, angle_percent)
     print("Closest known position:", closest)
 
 
@@ -197,10 +232,11 @@ def final_angle_policy_direction_testing(current_embedding, angle_percent, targe
     target_name = storage.get_closest_datapoint_to_xy(target_x, target_y)
     target_manifold = storage.get_datapoint_data_tensor_by_name(target_name)[0].to(get_device())
 
-    closest = find_closest_known_position_to_manifold_north(current_manifold)
-    coords = storage.get_datapoint_metadata_coords(closest)
-    distance = math.sqrt((coords[0] - target_x) ** 2 + (coords[1] - target_y) ** 2)
-    if distance < STEP_DISTANCE * 1.5:
+    closest = find_closest_known_position(current_manifold, angle_percent)
+    closest_coords = storage.get_datapoint_metadata_coords(closest)
+    target_coords = storage.get_datapoint_metadata_coords(target_name)
+    distance = math.sqrt((closest_coords[0] - target_coords[0]) ** 2 + (closest_coords[1] - target_coords[1]) ** 2)
+    if distance < STEP_DISTANCE:
         print("target reached")
         return None
 
@@ -232,7 +268,9 @@ def final_angle_policy_direction_testing(current_embedding, angle_percent, targe
     best_next_manifold = None
     for i, predicted_manifold in enumerate(predicted_manifolds):
         # check if direction is valid
-        if not check_direction_distance_validity(distances[i], directions_radians[i], distance_sensors):
+        if not check_direction_distance_validity_north(distances[i] * 1.5, directions_radians[i],
+                                                       adjust_distance_sensors_according_to_rotation(distance_sensors,
+                                                                                                     angle_percent)):
             continue
 
         distance = torch.norm(predicted_manifold - target_manifold, p=2, dim=0).item()
@@ -314,8 +352,10 @@ def teleportation_exploring_inference(models_folder: str, autoencoder_name: str,
                 target_reached = True
                 continue
 
-            dx, dy = generate_dxdy(final_angle, STEP_DISTANCE / 2)
+            detach_robot_rotate_absolute(final_angle)
+            yield
 
+            dx, dy = generate_dxdy(final_angle, STEP_DISTANCE / 2)
             detach_robot_teleport_relative(dx, dy)
             yield
 

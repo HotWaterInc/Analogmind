@@ -1,15 +1,18 @@
 from src.ai.runtime_data_storage.storage_superset2 import StorageSuperset2
 from src.ai.variants.exploration.data_augmentation import load_storage_with_base_data, \
     storage_augment_with_saved_connections, augment_saved_connections_with_distances, \
-    storage_augment_with_saved_augmented_connections
-from src.ai.variants.exploration.data_filtering import data_filtering_redundancies
+    storage_augment_with_saved_augmented_connections, get_augmented_connections
+from src.ai.variants.exploration.data_filtering import data_filtering_redundancies, data_filtering_redundant_connections
 from src.ai.variants.exploration.exploration_autonomous_policy import exploration_policy_autonomous
 from src.ai.variants.exploration.inference_policy import teleportation_exploring_inference
+from src.ai.variants.exploration.inferences import fill_augmented_connections_distances
 from src.ai.variants.exploration.networks.SDirDistState_network import SDirDistState, train_Sdirdiststate
 from src.ai.variants.exploration.networks.SSDir_network import SSDirNetwork, train_SSDirection
 from src.ai.variants.exploration.networks.images_raw_distance_predictor import ImagesRawDistancePredictor, \
     train_images_raw_distance_predictor
 from src.ai.variants.exploration.networks.manifold_network import run_manifold_network, ManifoldNetwork
+from src.ai.variants.exploration.others.abstraction_block_second_trial import run_abstraction_block_second_trial, \
+    AbstractionBlockSecondTrial
 from src.ai.variants.exploration.others.images_distance_predictor import train_images_distance_predictor, \
     ImagesDistancePredictor
 from src.ai.variants.exploration.temporary import augment_data_testing_network_distance
@@ -95,20 +98,16 @@ def data_augmentation_pipeline():
 
 
 def test_pipeline():
-    inference_pipeline()
+    # inference_pipeline()
+    storage = StorageSuperset2()
+    load_storage_with_base_data(storage)
 
-    # storage = StorageSuperset2()
-    # load_storage_with_base_data(storage)
-    # storage_augment_with_saved_augmented_connections(storage)
-    #
-    # manifold_network = load_manually_saved_ai("manifold_network_034_031")
-    # storage_to_manifold(storage, manifold_network)
+    # connections = get_augmented_connections()
 
-    # ssdir_network = SSDirNetwork()
-    # ssdir_network = train_SSDirection(ssdir_network, storage)
-    # save_ai_manually("ssdir_network", ssdir_network)
+    # fill_augmented_connections_distances(connections, storage, ssdir_network)
+    # fill_augmented_connections_distances()
 
-    # sdirdiststate_network = SDirDistState()
-    # sdirdiststate_network = train_Sdirdiststate(sdirdiststate_network, storage)
-    # save_ai_manually("sdirdiststate_network", sdirdiststate_network)
+    # data_filtering_redundant_connections(storage)
+    # storage.build_non_adjacent_numpy_array_from_connections(debug=True)
+
     pass

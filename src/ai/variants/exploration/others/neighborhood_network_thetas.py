@@ -10,7 +10,7 @@ from src.utils import array_to_tensor, get_device
 from typing import List
 import torch.nn.functional as F
 from src.modules.pretty_display import pretty_display, pretty_display_set, pretty_display_start, pretty_display_reset
-from src.ai.runtime_data_storage.storage_superset2 import thetas_to_radians, \
+from src.ai.runtime_data_storage.storage_superset2 import direction_thetas_to_radians, \
     angle_percent_to_thetas_normalized_cached, \
     radians_to_degrees, atan2_to_standard_radians, radians_to_percent, coordinate_pair_to_radians_cursed_tranform, \
     direction_to_degrees_atan, distance_percent_to_distance_thetas, distance_thetas_to_distance_percent
@@ -70,7 +70,7 @@ def distance_loss(neighborgood_network, storage, sample_rate):
     target_distances_batch = []
 
     for datapoint in datapoints:
-        connections_to_point: List[RawConnectionData] = storage.get_datapoint_adjacent_connections(datapoint)
+        connections_to_point: List[RawConnectionData] = storage.get_datapoint_adjacent_connections_authentic(datapoint)
         for j in range(len(connections_to_point)):
             start = connections_to_point[j]["start"]
             end = connections_to_point[j]["end"]

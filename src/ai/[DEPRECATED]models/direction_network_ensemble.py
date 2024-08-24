@@ -159,7 +159,7 @@ def direction_loss(direction_network, sample_rate=64):
 
     metadata = storage.get_pure_permuted_raw_env_metadata_array_rotation()
     for datapoint in datapoints:
-        connections_to_point: List[RawConnectionData] = storage.get_datapoint_adjacent_connections(datapoint)
+        connections_to_point: List[RawConnectionData] = storage.get_datapoint_adjacent_connections_authentic(datapoint)
         for j in range(len(connections_to_point)):
 
             start = connections_to_point[j]["start"]
@@ -319,7 +319,8 @@ def run_tests_mini(direction_network):
     for iter in range(ITERATIONS):
         storage.build_permuted_data_random_rotations()
         for datapoint in datapoints:
-            connections_to_point: List[RawConnectionData] = storage.get_datapoint_adjacent_connections(datapoint)
+            connections_to_point: List[RawConnectionData] = storage.get_datapoint_adjacent_connections_authentic(
+                datapoint)
 
             for j in range(len(connections_to_point)):
                 start = connections_to_point[j]["start"]
@@ -398,7 +399,8 @@ def run_tests(direction_network):
         expected_direction_angles = []
 
         for datapoint in datapoints:
-            connections_to_point: List[RawConnectionData] = storage.get_datapoint_adjacent_connections(datapoint)
+            connections_to_point: List[RawConnectionData] = storage.get_datapoint_adjacent_connections_authentic(
+                datapoint)
 
             for j in range(len(connections_to_point)):
                 start = connections_to_point[j]["start"]

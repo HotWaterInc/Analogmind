@@ -116,7 +116,11 @@ class Storage:
                 continue
             if authentic_distance and connection["distance"] == None:
                 continue
+            if authentic_distance and connection["markings"]["distance"] == "synthetic":
+                continue
             if authentic_direction and connection["direction"] == None:
+                continue
+            if authentic_direction and connection["markings"]["direction"] == "synthetic":
                 continue
 
             returned_connections.append(connection)
@@ -212,7 +216,7 @@ class Storage:
         """
         Samples an adjacent and non adjacent datapoints for a triplet loss
         """
-        degree1_adjacent: List[RawConnectionData] = self.get_datapoint_adjacent_connections(anchor)
+        degree1_adjacent: List[RawConnectionData] = self.get_datapoint_adjacent_connections_authentic(anchor)
         # connections of degree 1
         degree1_adjacent: List[str] = [item["end"] for item in degree1_adjacent]
 
@@ -441,7 +445,7 @@ class Storage:
         self._connection_cache[datapoint_name] = found_connections
         return found_connections
 
-    def get_datapoint_adjacent_connections(self, datapoint_name: str) -> List[RawConnectionData]:
+    def get_datapoint_adjacent_connections_all(self, datapoint_name: str) -> List[RawConnectionData]:
         """
         Returns the adjacent connections of a datapoint ( the connections that start or end with the datapoint )
         """
@@ -454,9 +458,53 @@ class Storage:
             connection_copy = connection.copy()
             start = connection_copy["start"]
             end = connection_copy["end"]
-            distance = connection_copy["distance"]
+
+            direction = None
+            if connection_copy["direction"] != None:
+                direction = connection_copy["direction"].copy()
+
+            if start == datapoint_name:
+                found_connections.append(connection_copy)
+
+            if end == datapoint_name:
+                # swap them
+                if direction != None:
+                    direction[0] = -direction[0]
+                    direction[1] = -direction[1]
+
+                aux = connection_copy["start"]
+                connection_copy["start"] = connection_copy["end"]
+                connection_copy["end"] = aux
+                connection_copy["direction"] = direction
+
+                found_connections.append(connection_copy)
+
+        # self._connection_cache[datapoint_name] = found_connections
+        return found_connections
+
+    def get_datapoint_adjacent_connections_authentic(self, datapoint_name: str) -> List[RawConnectionData]:
+        """
+        Returns the adjacent connections of a datapoint ( the connections that start or end with the datapoint )
+        """
+        found_connections = []
+        connections_data = self.get_all_connections_only_datapoints()
+        # if datapoint_name in self._connection_cache:
+        #     return self._connection_cache[datapoint_name]
+
+        for connection in connections_data:
+            connection_copy = connection.copy()
+            start = connection_copy["start"]
+            end = connection_copy["end"]
+
             if connection_copy["direction"] == None:
                 continue
+            if connection_copy["distance"] == None:
+                continue
+            if connection_copy["markings"]["distance"] == "synthetic":
+                continue
+            if connection_copy["markings"]["direction"] == "synthetic":
+                continue
+
             direction = connection_copy["direction"].copy()
             if start == datapoint_name:
                 found_connections.append(connection_copy)
@@ -509,7 +557,7 @@ class Storage:
         """
         new_datapoints = []
         for datapoint in datapoints:
-            connections = self.get_datapoint_adjacent_connections(datapoint)
+            connections = self.get_datapoint_adjacent_connections_authentic(datapoint)
             for connection in connections:
                 start = connection["start"]
                 end = connection["end"]

@@ -6,14 +6,14 @@ import torch.optim as optim
 import numpy as np
 from src.ai.runtime_data_storage.storage_superset2 import StorageSuperset2, RawConnectionData
 from src.ai.variants.exploration.networks.abstract_base_autoencoder_model import BaseAutoencoderModel
-from src.ai.variants.exploration.params import THETAS_SIZE
+from src.ai.variants.exploration.params import DIRECTION_THETAS
 
 from src.modules.save_load_handlers.ai_models_handle import load_manually_saved_ai, save_ai_manually
 from src.utils import array_to_tensor
 from typing import List
 import torch.nn.functional as F
 from src.modules.pretty_display import pretty_display, pretty_display_set, pretty_display_start, pretty_display_reset
-from src.ai.runtime_data_storage.storage_superset2 import thetas_to_radians, \
+from src.ai.runtime_data_storage.storage_superset2 import direction_thetas_to_radians, \
     angle_percent_to_thetas_normalized_cached, \
     radians_to_degrees, atan2_to_standard_radians, radians_to_percent, coordinate_pair_to_radians_cursed_tranform, \
     direction_to_degrees_atan
@@ -21,7 +21,7 @@ from src.ai.variants.blocks import ResidualBlockSmallBatchNorm
 
 
 class DirectionNetworkThetas(nn.Module):
-    def __init__(self, input_size=128, hidden_size=512, output_size=THETAS_SIZE, dropout_rate=0.3, num_blocks=1):
+    def __init__(self, input_size=128, hidden_size=512, output_size=DIRECTION_THETAS, dropout_rate=0.3, num_blocks=1):
         super(DirectionNetworkThetas, self).__init__()
 
         self.input_layer = nn.Linear(input_size * 2, hidden_size)
@@ -69,7 +69,7 @@ def direction_loss(direction_network, sample_rate=25):
 
     counter = 0
     for datapoint in datapoints:
-        connections_to_point: List[RawConnectionData] = storage.get_datapoint_adjacent_connections(datapoint)
+        connections_to_point: List[RawConnectionData] = storage.get_datapoint_adjacent_connections_authentic(datapoint)
         for j in range(len(connections_to_point)):
             start = connections_to_point[j]["start"]
             end = connections_to_point[j]["end"]
@@ -234,7 +234,7 @@ def run_tests_permuted_data_unseen_before(direction_network):
 
                 pred_direction_thetas = direction_network(start_embedding, end_embedding).squeeze(0)
 
-                predicted_degree = radians_to_degrees(thetas_to_radians(pred_direction_thetas))
+                predicted_degree = radians_to_degrees(direction_thetas_to_radians(pred_direction_thetas))
                 expected_degree = direction_to_degrees_atan(direction)
                 # expected_degree = direction_to_degrees(direction)
 
@@ -274,7 +274,8 @@ def run_tests_permuted_data(direction_network):
     for iter in range(ITERATIONS):
         storage.build_permuted_data_random_rotations()
         for datapoint in datapoints:
-            connections_to_point: List[RawConnectionData] = storage.get_datapoint_adjacent_connections(datapoint)
+            connections_to_point: List[RawConnectionData] = storage.get_datapoint_adjacent_connections_authentic(
+                datapoint)
 
             for j in range(len(connections_to_point)):
                 start = connections_to_point[j]["start"]
@@ -296,7 +297,7 @@ def run_tests_permuted_data(direction_network):
 
                 pred_direction_thetas = direction_network(start_embedding, end_embedding).squeeze(0)
 
-                predicted_degree = radians_to_degrees(thetas_to_radians(pred_direction_thetas))
+                predicted_degree = radians_to_degrees(direction_thetas_to_radians(pred_direction_thetas))
                 # expected_degree = direction_to_degrees(direction)
                 expected_degree = direction_to_degrees_atan(direction)
                 # print("Predicted degree", predicted_degree)

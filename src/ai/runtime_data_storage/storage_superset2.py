@@ -30,6 +30,32 @@ def calculate_coords_distance(coords1, coords2):
     return math.sqrt((coords1[0] - coords2[0]) ** 2 + (coords1[1] - coords2[1]) ** 2)
 
 
+def get_markings(distance_authenticity: bool, direction_authenticity: bool):
+    distance_authenticity_str = "authentic" if distance_authenticity else "synthetic"
+    direction_authenticity_str = "authentic" if direction_authenticity else "synthetic"
+
+    markings = {
+        "direction": direction_authenticity_str,
+        "distance": distance_authenticity_str
+    }
+
+    return markings
+
+
+def generate_connection(start, end, distance, direction, distance_authenticity,
+                        direction_authenticity):
+    markings = get_markings(distance_authenticity, direction_authenticity)
+    connection = {
+        "start": start,
+        "end": end,
+        "distance": distance,
+        "direction": direction,
+        "markings": markings
+    }
+
+    return connection
+
+
 def flag_data_authenticity(new_connections):
     """
     Flags whether data is synthetically generated or authentic
@@ -211,7 +237,7 @@ def deg_to_rad(degrees):
     return degrees * math.pi / 180
 
 
-def thetas_to_radians(thetas):
+def direction_thetas_to_radians(thetas):
     # theta is cos x + i sin x
     lng = len(thetas)
     step = 360 / lng
@@ -664,12 +690,12 @@ class StorageSuperset2(StorageSuperset):
         Builds the numpy array for non-adjacent data
         """
         print("STARTED BUILDING NON ADJCENT FLOYD CONNECTIONS")
-        print("NUMBER OF EDGES, ", len(self.raw_connections_data))
 
-        connections_only_datapoints = self.get_all_connections_only_datapoints_authenticity_filter(
-            authentic_distance=True)
+        connections_only_datapoints = self.get_all_connections_only_datapoints_authenticity_filter()
+        print("FLOYD CONNECTIONS", len(connections_only_datapoints))
         connection_hashmap = build_connections_hashmap(connections_only_datapoints, [])
         distances = floyd_warshall_algorithm(connection_hashmap)
+
         # iterates all datapoints
         datapoints = self.get_all_datapoints()
         length = len(datapoints)

@@ -1,16 +1,19 @@
 from typing import Generator
+
+from src.ai.variants.exploration.inferences import fill_augmented_connections_distances
 from src.ai.variants.exploration.metric_builders import build_find_adjacency_heursitic_raw_data, \
     build_find_adjacency_heursitic_adjacency_network
 from src.ai.variants.exploration.networks.SDirDistState_network import SDirDistState
 from src.ai.variants.exploration.networks.SSDir_network import SSDirNetwork
 from src.ai.variants.exploration.networks.adjacency_detector import AdjacencyDetector, \
     train_adjacency_network_until_threshold
-from src.ai.variants.exploration.networks.images_raw_distance_predictor import ImagesRawDistancePredictor
+from src.ai.variants.exploration.networks.images_raw_distance_predictor import ImagesRawDistancePredictor, \
+    train_images_raw_distance_predictor_until_threshold
 from src.ai.variants.exploration.others.images_distance_predictor import train_images_distance_predictor_until_threshold
 from src.ai.variants.exploration.others.neighborhood_network import NeighborhoodDistanceNetwork
 from src.ai.variants.exploration.params import STEP_DISTANCE, ROTATIONS
 from src.ai.variants.exploration.utils import get_collected_data_image, get_collected_data_distances, \
-    check_direction_distance_validity
+    check_direction_distance_validity_north
 from src.ai.variants.exploration.utils_pure_functions import get_direction_between_datapoints
 from src.modules.save_load_handlers.data_handle import write_other_data_to_file
 from src.action_robot_controller import detach_robot_sample_distance, detach_robot_teleport_relative, \
@@ -131,7 +134,7 @@ def random_move_policy():
     distance, direction = 0, 0
     while not valid:
         distance, direction = get_random_movement()
-        valid = check_direction_distance_validity(distance, direction, distance_sensors)
+        valid = check_direction_distance_validity_north(distance, direction, distance_sensors)
         if valid:
             global index
             index += 1
@@ -191,7 +194,7 @@ def display_sensor_data():
     distance, direction = get_random_movement()
     distance = 0.5
     direction = 3.14
-    valid = check_direction_distance_validity(distance, direction, distance_sensors)
+    valid = check_direction_distance_validity_north(distance, direction, distance_sensors)
     print(valid)
 
 
@@ -238,7 +241,7 @@ def collect_data_rotations_and_create_datapoint():
         # sensors oriented in the direction of the robot, so we can only check the north assuming it is rotated in the direction we want
         distance = STEP_DISTANCE * 2
         direction = 0
-        valid = check_direction_distance_validity(distance, direction, distances)
+        valid = check_direction_distance_validity_north(distance, direction, distances)
         print("At rotation", angle, " the valid param is", valid)
         null_connections_tests.append({
             "angle": angle,
@@ -352,7 +355,7 @@ def exploration_policy_autonomous() -> Generator[None, None, None]:
         if first_walk:
             print("FIRST TIME")
 
-        yield from phase_explore(random_walk_datapoints, random_walk_connections, first_walk, max_steps=200)
+        yield from phase_explore(random_walk_datapoints, random_walk_connections, first_walk, max_steps=10)
         first_walk = False
         flag_data_authenticity(random_walk_connections)
         storage_raw.incorporate_new_data(random_walk_datapoints, random_walk_connections)
@@ -381,12 +384,21 @@ def exploration_policy_autonomous() -> Generator[None, None, None]:
                                                               total_connections_found)
         print("FINISHING AUGMENTING CONNECTIONS")
         print("TRAINING DISTANCES NETWORK")
-        image_distance_network = train_images_distance_predictor_until_threshold(image_distance_network, storage_raw)
+        image_distance_network = train_images_raw_distance_predictor_until_threshold(image_distance_network,
+                                                                                     storage_raw)
         print("ADDING SYNTHETIC DISTANCES")
+        total_new_connections_filled = fill_augmented_connections_distances(
+            additional_connections=total_connections_found,
+            storage=storage_raw,
+            image_distance_network=image_distance_network)
 
+        storage_raw.incorporate_new_data([], total_new_connections_filled)
+        write_other_data_to_file(f"additional_found_total_connections_distance_augmented_iter{iter}.json",
+                                 total_new_connections_filled)
         print("SKIPPING DATA PURGING")
 
         break
+
     yield
 
 

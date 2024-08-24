@@ -19,7 +19,7 @@ import numpy as np
 from src.modules.save_load_handlers.ai_models_handle import save_ai, save_ai_manually, load_latest_ai, \
     load_manually_saved_ai, load_custom_ai, load_other_ai
 from src.modules.save_load_handlers.parameters import *
-from src.ai.runtime_data_storage.storage_superset2 import StorageSuperset2, thetas_to_radians, \
+from src.ai.runtime_data_storage.storage_superset2 import StorageSuperset2, direction_thetas_to_radians, \
     direction_to_degrees_atan, angle_percent_to_thetas_normalized_cached, degrees_to_percent
 from src.ai.runtime_data_storage import Storage
 from typing import List, Dict, Union
@@ -285,7 +285,7 @@ def policy_thetas_navigation_next_manifold(current_manifold: torch.Tensor, next_
     direction_network_SSD.eval()
 
     thetas_direction = direction_network_SSD(current_manifold.unsqueeze(0), next_manifold.unsqueeze(0)).squeeze(0)
-    final_angle = thetas_to_radians(thetas_direction)
+    final_angle = direction_thetas_to_radians(thetas_direction)
     return final_angle
 
 
@@ -300,7 +300,7 @@ def policy_thetas_navigation_next_close_target(index_rotation, current_embedding
     current_embeddings = current_embedding.unsqueeze(0).repeat(24, 1)
 
     thetas_directions = direction_network_SSD(current_embeddings, next_embeddings)
-    angles = [thetas_to_radians(direction) for direction in thetas_directions]
+    angles = [direction_thetas_to_radians(direction) for direction in thetas_directions]
 
     final_angle = average_angles_directions(angles)
     return final_angle

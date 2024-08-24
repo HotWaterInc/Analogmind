@@ -17,7 +17,7 @@ from src.utils import array_to_tensor, get_device
 from typing import List
 import torch.nn.functional as F
 from src.modules.pretty_display import pretty_display, pretty_display_set, pretty_display_start, pretty_display_reset
-from src.ai.runtime_data_storage.storage_superset2 import thetas_to_radians, \
+from src.ai.runtime_data_storage.storage_superset2 import direction_thetas_to_radians, \
     angle_percent_to_thetas_normalized_cached, \
     radians_to_degrees, atan2_to_standard_radians, radians_to_percent, coordinate_pair_to_radians_cursed_tranform, \
     direction_to_degrees_atan

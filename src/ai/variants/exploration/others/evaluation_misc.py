@@ -10,7 +10,7 @@ from src.utils import array_to_tensor, get_device
 from typing import List
 import torch.nn.functional as F
 from src.modules.pretty_display import pretty_display, pretty_display_set, pretty_display_start, pretty_display_reset
-from src.ai.runtime_data_storage.storage_superset2 import thetas_to_radians, \
+from src.ai.runtime_data_storage.storage_superset2 import direction_thetas_to_radians, \
     angle_percent_to_thetas_normalized_cached, \
     radians_to_degrees, atan2_to_standard_radians, radians_to_percent, coordinate_pair_to_radians_cursed_tranform, \
     direction_to_degrees_atan
@@ -60,7 +60,7 @@ def run_tests_SSDir_unseen(direction_network, storage: StorageSuperset2):
 
                 pred_direction_thetas = direction_network(start_embedding, end_embedding).squeeze(0)
 
-                predicted_degree = radians_to_degrees(thetas_to_radians(pred_direction_thetas))
+                predicted_degree = radians_to_degrees(direction_thetas_to_radians(pred_direction_thetas))
                 expected_degree = direction_to_degrees_atan(direction)
 
                 if math.fabs(predicted_degree - expected_degree) < 22.5:
@@ -93,7 +93,7 @@ def run_tests_SSDir(direction_network, storage: StorageSuperset2):
 
     storage.build_permuted_data_random_rotations()
     for idx, datapoint in enumerate(datapoints):
-        connections_to_point: List[RawConnectionData] = storage.get_datapoint_adjacent_connections(datapoint)
+        connections_to_point: List[RawConnectionData] = storage.get_datapoint_adjacent_connections_authentic(datapoint)
         pretty_display(idx)
 
         for j in range(len(connections_to_point)):
@@ -121,7 +121,7 @@ def run_tests_SSDir(direction_network, storage: StorageSuperset2):
     for idx, prediction in enumerate(pred_direction_thetas):
         expected_direction = expected_thetas_arr[idx]
 
-        predicted_degree = radians_to_degrees(thetas_to_radians(prediction))
+        predicted_degree = radians_to_degrees(direction_thetas_to_radians(prediction))
         expected_degree = direction_to_degrees_atan(expected_direction)
 
         if math.fabs(predicted_degree - expected_degree) < 22.5:
@@ -153,7 +153,7 @@ def run_tests_SDirDistState(direction_network_SDDS, storage):
     print("Evaluating ... ")
 
     for datapoint in datapoints:
-        connections_to_point: List[RawConnectionData] = storage.get_datapoint_adjacent_connections(datapoint)
+        connections_to_point: List[RawConnectionData] = storage.get_datapoint_adjacent_connections_authentic(datapoint)
 
         for j in range(len(connections_to_point)):
             start = connections_to_point[j]["start"]

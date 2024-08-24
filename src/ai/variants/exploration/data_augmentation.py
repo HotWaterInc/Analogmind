@@ -25,30 +25,35 @@ def load_storage_with_base_data(storage: StorageSuperset2):
 
     random_walk_datapoints = read_other_data_from_file(f"datapoints_random_walks_300_24rot.json")
     random_walk_connections = read_other_data_from_file(f"datapoints_connections_random_walks_300_24rot.json")
+    flag_data_authenticity(random_walk_connections)
     storage.incorporate_new_data(random_walk_datapoints, random_walk_connections)
     return storage
 
 
 def storage_augment_with_saved_augmented_connections(storage: StorageSuperset2) -> any:
-    new_connections1 = read_other_data_from_file(f"additional_found_connections_rawh_random_walks_300.json")
-    flag_data_authenticity(new_connections1)
     new_connections1_augmented = read_other_data_from_file(
         f"additional_found_connections_rawh_random_walks_300_distance_augmented.json")
 
     for idx, conn in enumerate(new_connections1_augmented):
-        conn["markings"] = new_connections1[idx]["markings"]
+        conn["markings"] = get_markings(False, False)
 
     storage.incorporate_new_data([], new_connections1_augmented)
-    new_connections2 = read_other_data_from_file(f"additional_found_connections_networkh_random_walks_300.json")
-    flag_data_authenticity(new_connections2)
     new_connections2_augmented = read_other_data_from_file(
         f"additional_found_connections_networkh_random_walks_300_distance_augmented.json")
 
     for idx, conn in enumerate(new_connections2_augmented):
-        conn["markings"] = new_connections2[idx]["markings"]
+        conn["markings"] = get_markings(False, False)
 
     storage.incorporate_new_data([], new_connections2_augmented)
     return storage
+
+
+def get_augmented_connections() -> any:
+    new_connections1 = read_other_data_from_file(f"additional_found_connections_rawh_random_walks_300.json")
+    flag_data_authenticity(new_connections1)
+    new_connections2 = read_other_data_from_file(f"additional_found_connections_networkh_random_walks_300.json")
+    flag_data_authenticity(new_connections2)
+    return new_connections1 + new_connections2
 
 
 def storage_augment_with_saved_connections(storage: StorageSuperset2) -> any:

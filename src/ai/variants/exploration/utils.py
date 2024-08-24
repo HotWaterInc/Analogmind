@@ -44,13 +44,43 @@ def get_missing_connections_based_on_distance(storage: StorageSuperset2, datapoi
     return found_connections
 
 
-def check_direction_distance_validity(distance, direction, distance_sensors):
+def adjust_distance_sensors_according_to_rotation_duplicate(distance_sensors, rotation_percent):
+    sensors_count = len(distance_sensors)
+    rotation_percentage = rotation_percent
+    rotation_offset = int(rotation_percentage * sensors_count)
+    new_distance_sensors = np.zeros(sensors_count)
+
+    for i in range(sensors_count):
+        new_index = (i + rotation_offset) % sensors_count
+        # new_distance_sensors.append(distance_sensors[new_index])
+        new_distance_sensors[new_index] = distance_sensors[i]
+
+    print(rotation_percentage)
+    print(new_distance_sensors)
+    return new_distance_sensors
+
+
+def adjust_distance_sensors_according_to_rotation(distance_sensors, rotation_percent):
+    sensors_count = len(distance_sensors)
+    rotation_percentage = rotation_percent
+    rotation_offset = int(rotation_percentage * sensors_count)
+    new_distance_sensors = np.zeros(sensors_count)
+
+    for i in range(sensors_count):
+        new_index = (i + rotation_offset) % sensors_count
+        # new_distance_sensors.append(distance_sensors[new_index])
+        new_distance_sensors[new_index] = distance_sensors[i]
+
+    return new_distance_sensors
+
+
+def check_direction_distance_validity_north(distance, direction, distance_sensors):
     # works only for north, needs adaptation for full rotation
     direction_percentage = direction / (2 * math.pi)
     sensors_count = len(distance_sensors)
     sensor_index_left = int(direction_percentage * sensors_count)
     sensor_index_right = (sensor_index_left + 1) % sensors_count
-    wideness = 2
+    wideness = 3
 
     for offset in range(wideness):
         left_index = sensor_index_left - offset

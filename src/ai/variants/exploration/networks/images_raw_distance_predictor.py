@@ -4,7 +4,8 @@ import torch.nn as nn
 import torch.optim as optim
 import numpy as np
 from src.ai.runtime_data_storage.storage_superset2 import StorageSuperset2, RawConnectionData, calculate_coords_distance
-from src.ai.variants.exploration.params import DISTANCE_THETAS_SIZE, MAX_DISTANCE, ROTATIONS
+from src.ai.variants.exploration.params import DISTANCE_THETAS_SIZE, MAX_DISTANCE, ROTATIONS, \
+    THRESHOLD_IMAGE_DISTANCE_NETWORK, THRESHOLD_IMAGE_RAW_DISTANCE_NETWORK
 from src.ai.variants.exploration.utils_pure_functions import sample_n_elements
 
 from src.modules.time_profiler import start_profiler, profiler_checkpoint
@@ -12,7 +13,7 @@ from src.utils import array_to_tensor, get_device
 from typing import List
 import torch.nn.functional as F
 from src.modules.pretty_display import pretty_display, pretty_display_set, pretty_display_start, pretty_display_reset
-from src.ai.runtime_data_storage.storage_superset2 import thetas_to_radians, \
+from src.ai.runtime_data_storage.storage_superset2 import direction_thetas_to_radians, \
     angle_percent_to_thetas_normalized_cached, \
     radians_to_degrees, atan2_to_standard_radians, radians_to_percent, coordinate_pair_to_radians_cursed_tranform, \
     direction_to_degrees_atan, distance_percent_to_distance_thetas, distance_thetas_to_distance_percent
@@ -91,7 +92,8 @@ def distance_loss(image_distance_predictor_network, storage, sample_rate: int = 
 
 
 def _train_images_distance_predictor_network(image_distance_network, storage, num_epochs,
-                                             pretty_print=True) -> ImagesRawDistancePredictor:
+                                             pretty_print=True,
+                                             stop_at_threshold: bool = False) -> ImagesRawDistancePredictor:
     optimizer = optim.Adam(image_distance_network.parameters(), lr=0.0005, amsgrad=True)
 
     image_distance_network = image_distance_network.to(get_device())
@@ -102,6 +104,9 @@ def _train_images_distance_predictor_network(image_distance_network, storage, nu
     storage.build_permuted_data_random_rotations_rotation0()
     pretty_display_set(epoch_print_rate, "Epochs batch training")
     pretty_display_start(0)
+
+    if stop_at_threshold:
+        num_epochs = 1e7
 
     for epoch in range(num_epochs):
 
@@ -126,6 +131,11 @@ def _train_images_distance_predictor_network(image_distance_network, storage, nu
             epoch_average_loss /= epoch_print_rate
             print("")
             print(f'Epoch [{epoch}/{num_epochs}], Loss: {epoch_average_loss:.4f}')
+
+            if stop_at_threshold and epoch_average_loss < THRESHOLD_IMAGE_RAW_DISTANCE_NETWORK:
+                print("Threshold reached")
+                break
+
             epoch_average_loss = 0  # Reset for the next average calculation
 
             pretty_display_reset()
@@ -138,7 +148,7 @@ def train_images_raw_distance_predictor_until_threshold(image_distance_predictor
                                                         storage: StorageSuperset2) -> ImagesRawDistancePredictor:
     storage.build_permuted_data_random_rotations_rotation0()
     image_distance_predictor_network = _train_images_distance_predictor_network(image_distance_predictor_network,
-                                                                                storage, 1500, True)
+                                                                                storage, 1500, True, True)
     return image_distance_predictor_network
 
 

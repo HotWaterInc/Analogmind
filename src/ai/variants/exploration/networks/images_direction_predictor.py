@@ -4,10 +4,9 @@ import torch.nn as nn
 import torch.optim as optim
 import numpy as np
 from src.ai.runtime_data_storage.storage_superset2 import StorageSuperset2, RawConnectionData, calculate_coords_distance
-from src.ai.variants.exploration.params import DISTANCE_THETAS_SIZE, MAX_DISTANCE, ROTATIONS, \
-    THRESHOLD_IMAGE_DISTANCE_NETWORK
+from src.ai.variants.exploration.params import MAX_DISTANCE, ROTATIONS, \
+    THRESHOLD_IMAGE_DISTANCE_NETWORK, DIRECTION_THETAS_SIZE
 from src.ai.variants.exploration.utils_pure_functions import sample_n_elements
-
 from src.modules.time_profiler import start_profiler, profiler_checkpoint
 from src.utils import array_to_tensor, get_device
 from typing import List
@@ -20,10 +19,10 @@ from src.ai.runtime_data_storage.storage_superset2 import direction_thetas_to_ra
 from src.ai.variants.blocks import ResidualBlockSmallBatchNorm
 
 
-class ImagesDistancePredictor(nn.Module):
-    def __init__(self, input_size=512, hidden_size=512, output_size=DISTANCE_THETAS_SIZE, dropout_rate=0.3,
+class ImagesDirectionPredictor(nn.Module):
+    def __init__(self, input_size=512, hidden_size=512, output_size=DIRECTION_THETAS_SIZE, dropout_rate=0.3,
                  num_blocks=1):
-        super(ImagesDistancePredictor, self).__init__()
+        super(ImagesDirectionPredictor, self).__init__()
 
         self.input_layer = nn.Linear(input_size * 2, hidden_size)
         self.blocks = nn.ModuleList([ResidualBlockSmallBatchNorm(hidden_size, dropout_rate) for _ in range(num_blocks)])
@@ -51,7 +50,7 @@ class ImagesDistancePredictor(nn.Module):
         return output
 
 
-def distance_loss(image_distance_predictor_network, storage, sample_rate: int = None):
+def direction_loss(image_distance_predictor_network, storage, sample_rate: int = None):
     loss = torch.tensor(0.0)
 
     connections: RawConnectionData = storage.get_all_connections_only_datapoints_authenticity_filter(
@@ -75,7 +74,7 @@ def distance_loss(image_distance_predictor_network, storage, sample_rate: int = 
             distance = MAX_DISTANCE - 0.01
 
         distance_thetas_target = distance_percent_to_distance_thetas(distance / MAX_DISTANCE,
-                                                                     DISTANCE_THETAS_SIZE)
+                                                                     DIRECTION_THETAS_SIZE)
         start_data = storage.get_datapoint_data_tensor_by_name_permuted(start)
         end_data = storage.get_datapoint_data_tensor_by_name_permuted(end)
 
@@ -96,7 +95,7 @@ def distance_loss(image_distance_predictor_network, storage, sample_rate: int = 
 
 def _train_images_distance_predictor_network(image_distance_network, storage, num_epochs,
                                              pretty_print=True,
-                                             stop_at_threshold: bool = False) -> ImagesDistancePredictor:
+                                             stop_at_threshold: bool = False) -> ImagesDirectionPredictor:
     optimizer = optim.Adam(image_distance_network.parameters(), lr=0.0005, amsgrad=True)
 
     image_distance_network = image_distance_network.to(get_device())
@@ -122,7 +121,7 @@ def _train_images_distance_predictor_network(image_distance_network, storage, nu
         for i in range(ITERATIONS):
             rand_dir = random.randint(0, ROTATIONS - 1)
             storage.build_permuted_data_random_rotations_rotation_N_with_noise(rand_dir)
-            loss += distance_loss(image_distance_network, storage)
+            loss += direction_loss(image_distance_network, storage)
 
         loss.backward()
         optimizer.step()
@@ -146,16 +145,16 @@ def _train_images_distance_predictor_network(image_distance_network, storage, nu
     return image_distance_network
 
 
-def train_images_distance_predictor_until_threshold(image_distance_predictor_network: ImagesDistancePredictor,
-                                                    storage: StorageSuperset2) -> ImagesDistancePredictor:
+def train_images_distance_predictor_until_threshold(image_distance_predictor_network: ImagesDirectionPredictor,
+                                                    storage: StorageSuperset2) -> ImagesDirectionPredictor:
     storage.build_permuted_data_random_rotations_rotation0()
     image_distance_predictor_network = _train_images_distance_predictor_network(image_distance_predictor_network,
                                                                                 storage, 1500, True)
     return image_distance_predictor_network
 
 
-def train_images_distance_predictor(image_distance_predictor_network: ImagesDistancePredictor,
-                                    storage: StorageSuperset2) -> ImagesDistancePredictor:
+def train_images_distance_predictor(image_distance_predictor_network: ImagesDirectionPredictor,
+                                    storage: StorageSuperset2) -> ImagesDirectionPredictor:
     storage.build_permuted_data_random_rotations_rotation0()
     image_distance_predictor_network = _train_images_distance_predictor_network(image_distance_predictor_network,
                                                                                 storage, 5000, True)

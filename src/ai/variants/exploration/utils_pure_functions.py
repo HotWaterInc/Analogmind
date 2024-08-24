@@ -1,4 +1,4 @@
-from typing import Dict
+from typing import Dict, List
 import numpy as np
 import math
 
@@ -22,7 +22,7 @@ def get_direction_between_datapoints(datapoint1: Dict[str, any], datapoint2: Dic
     return direction_vector
 
 
-def sample_n_elements(data: list, n: int) -> list:
+def sample_n_elements(data: List[any], n: int) -> List[any]:
     if n >= len(data):
         return data
 

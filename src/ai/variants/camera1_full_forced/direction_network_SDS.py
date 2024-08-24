@@ -6,14 +6,14 @@ import torch.optim as optim
 import numpy as np
 from src.ai.runtime_data_storage.storage_superset2 import StorageSuperset2, RawConnectionData
 from src.ai.variants.exploration.networks.abstract_base_autoencoder_model import BaseAutoencoderModel
-from src.ai.variants.exploration.params import THETAS_SIZE, MANIFOLD_SIZE
+from src.ai.variants.exploration.params import DIRECTION_THETAS, MANIFOLD_SIZE
 from src.modules.save_load_handlers.ai_models_handle import load_manually_saved_ai, save_ai_manually, load_custom_ai, \
     load_other_ai
 from src.utils import array_to_tensor
 from typing import List
 import torch.nn.functional as F
 from src.modules.pretty_display import pretty_display, pretty_display_set, pretty_display_start, pretty_display_reset
-from src.ai.runtime_data_storage.storage_superset2 import thetas_to_radians, \
+from src.ai.runtime_data_storage.storage_superset2 import direction_thetas_to_radians, \
     angle_percent_to_thetas_normalized_cached, \
     radians_to_degrees, atan2_to_standard_radians, radians_to_percent, coordinate_pair_to_radians_cursed_tranform, \
     direction_to_degrees_atan, degrees_to_percent
@@ -21,7 +21,7 @@ from src.ai.variants.blocks import ResidualBlockSmallBatchNorm
 
 
 class DirectionNetworkSDS(nn.Module):
-    def __init__(self, manifold_size=MANIFOLD_SIZE, direction_thetas_size=THETAS_SIZE, hidden_size=512,
+    def __init__(self, manifold_size=MANIFOLD_SIZE, direction_thetas_size=DIRECTION_THETAS, hidden_size=512,
                  dropout_rate=0.3,
                  num_blocks=1):
         super(DirectionNetworkSDS, self).__init__()
@@ -68,7 +68,7 @@ def SDS_loss(direction_network, sample_rate=25):
     target_embeddings_batch = []
 
     for datapoint in datapoints:
-        connections_to_point: List[RawConnectionData] = storage.get_datapoint_adjacent_connections(datapoint)
+        connections_to_point: List[RawConnectionData] = storage.get_datapoint_adjacent_connections_authentic(datapoint)
         for j in range(len(connections_to_point)):
             start = connections_to_point[j]["start"]
             end = connections_to_point[j]["end"]
@@ -171,7 +171,8 @@ def run_tests_basic(direction_network_SDS):
     for iter in range(ITERATIONS):
         storage.build_permuted_data_random_rotations()
         for datapoint in datapoints:
-            connections_to_point: List[RawConnectionData] = storage.get_datapoint_adjacent_connections(datapoint)
+            connections_to_point: List[RawConnectionData] = storage.get_datapoint_adjacent_connections_authentic(
+                datapoint)
             error_datapoint = 0
 
             for j in range(len(connections_to_point)):
@@ -182,7 +183,7 @@ def run_tests_basic(direction_network_SDS):
                 direction = normalize_direction(direction)
                 direction_angle = direction_to_degrees_atan(direction)
                 direction_thetas = angle_percent_to_thetas_normalized_cached(degrees_to_percent(direction_angle),
-                                                                             THETAS_SIZE)
+                                                                             DIRECTION_THETAS)
 
                 start_data = storage.get_datapoint_data_tensor_by_name_permuted(start).to(device)
                 end_data = storage.get_datapoint_data_tensor_by_name_permuted(end).to(device)

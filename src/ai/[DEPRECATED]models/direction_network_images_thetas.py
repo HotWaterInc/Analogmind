@@ -11,7 +11,7 @@ from src.utils import array_to_tensor
 from typing import List
 import torch.nn.functional as F
 from src.modules.pretty_display import pretty_display, pretty_display_set, pretty_display_start, pretty_display_reset
-from src.ai.runtime_data_storage.storage_superset2 import angle_to_thetas, thetas_to_radians, \
+from src.ai.runtime_data_storage.storage_superset2 import angle_to_thetas, direction_thetas_to_radians, \
     angle_percent_to_thetas_normalized_cached, \
     radians_to_degrees, atan2_to_standard_radians, radians_to_percent, coordinate_pair_to_radians_cursed_tranform
 
@@ -95,7 +95,7 @@ def direction_loss(direction_network, sample_rate=25):
 
     counter = 0
     for datapoint in datapoints:
-        connections_to_point: List[RawConnectionData] = storage.get_datapoint_adjacent_connections(datapoint)
+        connections_to_point: List[RawConnectionData] = storage.get_datapoint_adjacent_connections_authentic(datapoint)
         for j in range(len(connections_to_point)):
             start = connections_to_point[j]["start"]
             end = connections_to_point[j]["end"]
@@ -242,7 +242,8 @@ def run_tests_permuted_data(direction_network):
     for iter in range(ITERATIONS):
         storage.build_permuted_data_random_rotations()
         for datapoint in datapoints:
-            connections_to_point: List[RawConnectionData] = storage.get_datapoint_adjacent_connections(datapoint)
+            connections_to_point: List[RawConnectionData] = storage.get_datapoint_adjacent_connections_authentic(
+                datapoint)
 
             for j in range(len(connections_to_point)):
                 start = connections_to_point[j]["start"]
@@ -264,7 +265,7 @@ def run_tests_permuted_data(direction_network):
 
                 pred_direction_thetas = direction_network(start_embedding, end_embedding).squeeze(0)
 
-                predicted_degree = radians_to_degrees(thetas_to_radians(pred_direction_thetas))
+                predicted_degree = radians_to_degrees(direction_thetas_to_radians(pred_direction_thetas))
                 expected_degree = direction_to_degrees(direction)
                 # print("Predicted degree", predicted_degree)
 
