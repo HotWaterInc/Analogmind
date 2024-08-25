@@ -306,17 +306,6 @@ def policy_thetas_navigation_next_close_target(index_rotation, current_embedding
     return final_angle
 
 
-def storage_to_manifold():
-    global storage_raw
-    global autoencoder
-    autoencoder = load_custom_ai(AUTOENCODER_NAME, MODELS_FOLDER)
-    autoencoder.eval()
-    autoencoder = autoencoder.to(device)
-
-    storage.set_permutor(autoencoder)
-    storage.build_permuted_data_raw_abstraction_autoencoder_manifold()
-
-
 def print_closest_known_position(current_embedding, angle_percent):
     closest = find_closest_known_position(current_embedding, angle_percent)
     print("Closest known position:", closest)
@@ -325,7 +314,7 @@ def print_closest_known_position(current_embedding, angle_percent):
 def final_angle_policy_direction_testing(current_embedding, angle_percent, target_i, target_j):
     global storage_raw, direction_network_SDirDistS
 
-    current_manifold = autoencoder.encoder_inference(current_embedding.unsqueeze(0)).squeeze()
+    current_manifold = manifold_network.encoder_inference(current_embedding.unsqueeze(0)).squeeze()
     target_manifold = storage.get_datapoint_data_tensor_by_name(f"{target_i}_{target_j}")[0].to(device)
 
     closest = find_closest_known_position(current_manifold, angle_percent)
@@ -360,7 +349,7 @@ def final_angle_policy_direction_testing(current_embedding, angle_percent, targe
 
 
 def final_angle_policy_abn(current_embedding, angle_percent, target_i, target_j):
-    current_manifold = autoencoder.encoder_inference(current_embedding.unsqueeze(0)).squeeze()
+    current_manifold = manifold_network.encoder_inference(current_embedding.unsqueeze(0)).squeeze()
     closest = find_closest_known_position(current_manifold, angle_percent)
     if closest == f"{target_i}_{target_j}":
         print("target reached")
@@ -376,7 +365,7 @@ def final_angle_policy_abn(current_embedding, angle_percent, target_i, target_j)
 def get_closest_point_policy() -> Generator[None, None, None]:
     load_everything()
     storage_to_manifold()
-    global storage, direction_network_SSD, autoencoder
+    global storage, direction_network_SSD, manifold_network
 
     autoencoder.eval()
     target_reached = False
@@ -413,7 +402,7 @@ def get_closest_point_policy() -> Generator[None, None, None]:
 def navigation_image_1camera_vae() -> Generator[None, None, None]:
     load_everything()
     storage_to_manifold()
-    global storage, direction_network_SSD, autoencoder
+    global storage, direction_network_SSD, manifold_network
 
     autoencoder.eval()
     target_reached = False
@@ -464,7 +453,7 @@ def navigation_image_1camera_vae() -> Generator[None, None, None]:
 storage: StorageSuperset2 = None
 direction_network_SSD: nn.Module = None
 direction_network_SDirDistS: nn.Module = None
-autoencoder: BaseAutoencoderModel = None
+manifold_network: BaseAutoencoderModel = None
 
 DIRECTION_NETWORK_SSD_NAME = "direction_SSD_v1.1.pth"
 DIRECTION_NETWORK_SDS_NAME = "direction_SDS_v1.1.pth"

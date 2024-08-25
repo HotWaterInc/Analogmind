@@ -15,10 +15,10 @@ def get_real_distance_between_datapoints(datapoint1: Dict[str, any], datapoint2:
     return get_distance_coords_pair(coords1, coords2)
 
 
-def get_direction_between_datapoints(datapoint1: Dict[str, any], datapoint2: Dict[str, any]) -> tuple[float, float]:
+def get_direction_between_datapoints(datapoint1: Dict[str, any], datapoint2: Dict[str, any]) -> list[float, float]:
     coords1 = datapoint1["params"]["x"], datapoint1["params"]["y"]
     coords2 = datapoint2["params"]["x"], datapoint2["params"]["y"]
-    direction_vector = (coords2[0] - coords1[0], coords2[1] - coords1[1])
+    direction_vector = [coords2[0] - coords1[0], coords2[1] - coords1[1]]
     return direction_vector
 
 
@@ -27,3 +27,7 @@ def sample_n_elements(data: List[any], n: int) -> List[any]:
         return data
 
     return np.random.choice(data, n, replace=False)
+
+
+def relative_difference(a, b):
+    return abs(a - b) / ((a + b) / 2)

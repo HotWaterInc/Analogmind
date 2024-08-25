@@ -106,7 +106,7 @@ def _train_images_distance_predictor_network(image_distance_network, storage, nu
     pretty_display_start(0)
 
     if stop_at_threshold:
-        num_epochs = 1e7
+        num_epochs = int(1e7)
 
     for epoch in range(num_epochs):
 
@@ -147,14 +147,25 @@ def _train_images_distance_predictor_network(image_distance_network, storage, nu
 def train_images_raw_distance_predictor_until_threshold(image_distance_predictor_network: ImagesRawDistancePredictor,
                                                         storage: StorageSuperset2) -> ImagesRawDistancePredictor:
     storage.build_permuted_data_random_rotations_rotation0()
-    image_distance_predictor_network = _train_images_distance_predictor_network(image_distance_predictor_network,
-                                                                                storage, 1500, True, True)
+
+    image_distance_predictor_network = _train_images_distance_predictor_network(
+        image_distance_network=image_distance_predictor_network,
+        storage=storage,
+        num_epochs=-1,
+        pretty_print=True,
+        stop_at_threshold=True
+    )
     return image_distance_predictor_network
 
 
 def train_images_raw_distance_predictor(image_distance_predictor_network: ImagesRawDistancePredictor,
                                         storage: StorageSuperset2) -> ImagesRawDistancePredictor:
     storage.build_permuted_data_random_rotations_rotation0()
-    image_distance_predictor_network = _train_images_distance_predictor_network(image_distance_predictor_network,
-                                                                                storage, 15000, True)
+    image_distance_predictor_network = _train_images_distance_predictor_network(
+        image_distance_network=image_distance_predictor_network,
+        storage=storage,
+        num_epochs=15000,
+        pretty_print=True,
+        stop_at_threshold=False
+    )
     return image_distance_predictor_network

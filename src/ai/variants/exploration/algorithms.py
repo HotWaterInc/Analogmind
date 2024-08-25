@@ -1,5 +1,7 @@
 from typing import Dict, List
 
+from src.modules.pretty_display import pretty_display_set_and_start, pretty_display
+
 
 def build_connections_hashmap(connections_only_datapoints, exclude_datapoints: List[str]):
     connections = connections_only_datapoints
@@ -106,7 +108,9 @@ def floyd_warshall_algorithm(connections_hashmap: Dict):
         for connection in connections_hashmap[node]:
             distances[node][connection["end"]] = connection["distance"]
 
-    for k in nodes:
+    pretty_display_set_and_start(len(nodes))
+    for idx, k in enumerate(nodes):
+        pretty_display(idx)
         for i in nodes:
             for j in nodes:
                 distances[i][j] = min(distances[i][j], distances[i][k] + distances[k][j])

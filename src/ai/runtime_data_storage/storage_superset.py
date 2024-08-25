@@ -58,7 +58,7 @@ class StorageSuperset(Storage):
             index = lng
         if index >= lng:
             index = 0
-            
+
         return torch.tensor(self.raw_env_data_map[name]["data"][index])
 
     def get_datapoint_data_selected_rotation_tensor_by_name(self, name: str, index: int) -> torch.Tensor:
@@ -66,6 +66,18 @@ class StorageSuperset(Storage):
         Returns a random rotation from a datapoint as
         """
         return torch.tensor(self.raw_env_data_map[name]["data"][index])
+
+    def get_datapoints_real_direction(self, datapoint1: str, datapoint2: str) -> list:
+        dp1 = self.raw_env_data_map[datapoint1]
+        dp2 = self.raw_env_data_map[datapoint2]
+        x1 = dp1["params"]["x"]
+        y1 = dp1["params"]["y"]
+        x2 = dp2["params"]["x"]
+        y2 = dp2["params"]["y"]
+        dirx = x2 - x1
+        diry = y2 - y1
+
+        return [dirx, diry]
 
     def get_datapoints_real_distance(self, datapoint1: str, datapoint2: str) -> float:
         dp1 = self.raw_env_data_map[datapoint1]

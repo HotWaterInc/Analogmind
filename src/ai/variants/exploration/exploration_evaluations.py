@@ -139,15 +139,17 @@ def evaluate_distance_metric_on_already_found_connections(storage: StorageSupers
 
     print("")
     print("True positive", true_positive)
-    print("Percent of true positive of actual positives", true_positive / len(true_found_datapoints))
     print("True positive distant", true_positives_distant)
-    print("Avg distance of true positive distant", avg_distant_true_positive / true_positives_distant)
+    if len(true_found_datapoints) == 0:
+        print("No true found datapoints")
+    else:
+        print("Percent of true positive of actual positives", true_positive / len(true_found_datapoints))
     print("Really bad false positive", really_bad_false_positive)
     print("")
     # print("False positive distances", false_positive_distances)
 
 
-def evaluate_distance_metric(storage: StorageSuperset2, metric, new_datapoints: List[any]
+def evaluate_distance_metric(storage: StorageSuperset2, metric, new_datapoints: List[str]
                              ):
     """
     Evaluate new datapoints and old datapoints with the distance metric
@@ -199,18 +201,19 @@ def evaluate_distance_metric(storage: StorageSuperset2, metric, new_datapoints: 
 
     print("")
     print("True positive", true_positive)
-    print("Percent of true positive of actual positives", true_positive / len(true_found_datapoints))
     print("True positive distant", true_positives_distant)
-    print("Avg distance of true positive distant", avg_distant_true_positive / true_positives_distant)
+    if len(true_found_datapoints) == 0:
+        print("No true found datapoints")
+    else:
+        print("Percent of true positive of actual positives", true_positive / len(true_found_datapoints))
     print("Really bad false positive", really_bad_false_positive)
     print("")
-    # print("False positive distances", false_positive_distances)
 
     return new_connections_pairs
 
 
 def _get_connection_distances_raw_data(storage: StorageSuperset2) -> any:
-    connections = storage.get_all_connections_data()
+    connections = storage.get_all_connections_only_datapoints()
     SAMPLES = min(500, len(connections))
 
     sampled_connections = np.random.choice(np.array(connections), SAMPLES, replace=False)

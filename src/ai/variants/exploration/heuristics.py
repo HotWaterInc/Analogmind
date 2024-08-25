@@ -51,13 +51,16 @@ def find_adjacency_heuristic_raw_data(storage: StorageSuperset2, datapoint: Dict
         if name in adjacent_names or name == current_name:
             continue
 
-        for i in range(24):
+        for i in range(ROTATIONS):
             current_data = storage.get_datapoint_data_selected_rotation_tensor_by_name_with_noise(current_name, i)
             existing_data = storage.get_datapoint_data_selected_rotation_tensor_by_name_with_noise(name, i)
 
             current_data_arr.append(current_data)
             other_datapoints_data_arr.append(existing_data)
             selected_names.append(name)
+
+    if len(current_data_arr) == 0:
+        return []
 
     current_data_arr = torch.stack(current_data_arr).to(get_device())
     other_datapoints_data_arr = torch.stack(other_datapoints_data_arr).to(get_device())
@@ -98,13 +101,16 @@ def find_adjacency_heuristic_adjacency_network(storage: StorageSuperset2, datapo
         if name in adjacent_names or name == current_name:
             continue
 
-        for i in range(24):
+        for i in range(ROTATIONS):
             current_data = storage.get_datapoint_data_selected_rotation_tensor_by_name_with_noise(current_name, i)
             existing_data = storage.get_datapoint_data_selected_rotation_tensor_by_name_with_noise(name, i)
 
             current_data_arr.append(current_data)
             other_datapoints_data_arr.append(existing_data)
             selected_names.append(name)
+
+    if len(current_data_arr) == 0:
+        return []
 
     current_data_arr = torch.stack(current_data_arr).to(get_device())
     other_datapoints_data_arr = torch.stack(other_datapoints_data_arr).to(get_device())
@@ -128,6 +134,37 @@ def find_adjacency_heuristic_adjacency_network(storage: StorageSuperset2, datapo
 
     for name in name_keys:
         if name_keys[name] >= 12:
+            found_additional_connections.append(name)
+
+    return found_additional_connections
+
+
+def find_adjacency_heuristic_cheating(storage: StorageSuperset2, datapoint: Dict[str, any]) -> List[str]:
+    current_name = datapoint["name"]
+
+    datapoints_names = storage.get_all_datapoints()
+    adjacent_names = storage.get_datapoint_adjacent_datapoints_at_most_n_deg(current_name, 1)
+    adjacent_names.append(current_name)
+
+    selected_names = []
+
+    for name in datapoints_names:
+        if name in adjacent_names or name == current_name:
+            continue
+
+        selected_names.append(name)
+
+    if len(selected_names) == 0:
+        return []
+
+    length = len(selected_names)
+    name_keys = {}
+
+    found_additional_connections = []
+    for i in range(length):
+        name = selected_names[i]
+        real_distance = storage.get_datapoints_real_distance(current_name, name)
+        if real_distance < 0.65:
             found_additional_connections.append(name)
 
     return found_additional_connections

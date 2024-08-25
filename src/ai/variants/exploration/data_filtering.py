@@ -67,6 +67,10 @@ def data_filtering_redundancies(storage: StorageSuperset2):
     # filtering_redundancy_neighbors_based()
 
 
+def data_filtering_redundant_datapoints(storage: StorageSuperset2):
+    pass
+
+
 def data_filtering_redundant_connections(storage: StorageSuperset2):
     datapoints = storage.get_all_datapoints()
     count_redundant = 0
@@ -75,6 +79,7 @@ def data_filtering_redundant_connections(storage: StorageSuperset2):
     for datapoint in datapoints:
         connections = storage.get_datapoint_adjacent_connections_all(datapoint)
         connections_count = len(connections)
+        to_remove = []
         for idx in range(connections_count):
             for jdx in range(idx + 1, connections_count):
                 first_connection = connections[idx]
@@ -82,14 +87,23 @@ def data_filtering_redundant_connections(storage: StorageSuperset2):
 
                 first_direction = first_connection["direction"]
                 second_direction = second_connection["direction"]
+                first_distance = first_connection["distance"]
+                second_distance = second_connection["distance"]
 
                 first_angle = direction_to_degrees_atan(first_direction)
                 second_angle = direction_to_degrees_atan(second_direction)
                 total_count += 1
-                if abs(first_angle - second_angle) < 15:
-                    print("Looks like redundant")
-                    print("Angles", first_angle, second_angle)
-                    count_redundant += 1
+                if abs(first_angle - second_angle) < 7.5:
+                    # print("Looks like redundant")
+                    # print("Angles", first_angle, second_angle)
+                    # invalidate the bigger distance
+                    if first_distance > second_distance:
+                        to_remove.append(first_connection)
+                    else:
+                        to_remove.append(second_connection)
+
+        for connection in to_remove:
+            count_redundant += storage.remove_connection(datapoint, connection["end"])
 
     print("Count redundant", count_redundant)
     print("Total count", total_count)

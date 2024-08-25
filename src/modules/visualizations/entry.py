@@ -231,7 +231,7 @@ def build_scene_autoencoded_permuted():
 
     global storage_superset2
     permutor = load_manually_saved_ai("permutor_deshift_working.pth")
-    storage_superset2.set_permutor(permutor)
+    storage_superset2.set_transformation(permutor)
     storage_superset2.load_raw_data_from_others("data8x8_rotated20.json")
     storage_superset2.load_raw_data_connections_from_others("data8x8_connections.json")
     storage_superset2.normalize_all_data_super()

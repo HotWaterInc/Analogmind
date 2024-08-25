@@ -76,7 +76,7 @@ class DirectionNetworkThetas(nn.Module):
 
 
 def embedding_policy(data):
-    global autoencoder
+    global manifold_network
     start_embedding = data
     # start_embedding = autoencoder.encoder_inference(data)
     return start_embedding
@@ -226,7 +226,7 @@ def direction_to_degrees(direction):
 
 
 def run_tests_permuted_data(direction_network):
-    global storage_raw, autoencoder
+    global storage_raw, manifold_network
 
     direction_network = direction_network.to(device)
     direction_network.eval()
@@ -303,7 +303,7 @@ def run_loaded_ai():
 def run_direction_network_images_thetas():
     global storage_raw
     global permutor
-    global autoencoder
+    global manifold_network
 
     storage = StorageSuperset2()
     # autoencoder = load_manually_saved_ai("autoencod_images_full_without_recons.pth")
@@ -317,4 +317,4 @@ def run_direction_network_images_thetas():
 
 
 storage_raw: StorageSuperset2 = None
-autoencoder: BaseAutoencoderModel = None
+manifold_network: BaseAutoencoderModel = None

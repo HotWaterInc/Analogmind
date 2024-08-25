@@ -6,11 +6,12 @@ from src.ai.variants.exploration.data_filtering import data_filtering_redundanci
 from src.ai.variants.exploration.exploration_autonomous_policy import exploration_policy_autonomous
 from src.ai.variants.exploration.inference_policy import teleportation_exploring_inference
 from src.ai.variants.exploration.inferences import fill_augmented_connections_distances
-from src.ai.variants.exploration.networks.SDirDistState_network import SDirDistState, train_Sdirdiststate
+from src.ai.variants.exploration.networks.SDirDistState_network import SDirDistState, train_SDirDistS_network
 from src.ai.variants.exploration.networks.SSDir_network import SSDirNetwork, train_SSDirection
 from src.ai.variants.exploration.networks.images_raw_distance_predictor import ImagesRawDistancePredictor, \
     train_images_raw_distance_predictor
-from src.ai.variants.exploration.networks.manifold_network import run_manifold_network, ManifoldNetwork
+from src.ai.variants.exploration.networks.manifold_network import train_manifold_network, ManifoldNetwork
+from src.ai.variants.exploration.networks.seen_network import train_seen_network, SeenNetwork
 from src.ai.variants.exploration.others.abstraction_block_second_trial import run_abstraction_block_second_trial, \
     AbstractionBlockSecondTrial
 from src.ai.variants.exploration.others.images_distance_predictor import train_images_distance_predictor, \
@@ -70,15 +71,15 @@ def exploration_autonomous_pipeline():
     server_thread.join()
 
 
-def inference_pipeline():
+def inference_pipeline_no_sofa():
     configs_communication()
 
     storage = StorageSuperset2()
     load_storage_with_base_data(storage)
 
     generator = teleportation_exploring_inference(
-        models_folder="manually_saved",
-        autoencoder_name="manifold_network_034_031",
+        models_folder="exploration_inference_no_sofa",
+        manifold_encoder_name="manifold_network_034_031",
         SSD_name="ssdir_network_02",
         SDirDistS_name="sdirdiststate_network_001",
         storage_arg=storage
@@ -98,16 +99,18 @@ def data_augmentation_pipeline():
 
 
 def test_pipeline():
-    # inference_pipeline()
-    storage = StorageSuperset2()
-    load_storage_with_base_data(storage)
+    # inference_pipeline_no_sofa()
+    exploration_autonomous_pipeline()
 
-    # connections = get_augmented_connections()
-
-    # fill_augmented_connections_distances(connections, storage, ssdir_network)
-    # fill_augmented_connections_distances()
-
-    # data_filtering_redundant_connections(storage)
-    # storage.build_non_adjacent_numpy_array_from_connections(debug=True)
-
+    # storage = StorageSuperset2()
+    # load_storage_with_base_data(storage)
+    # seen_network = SeenNetwork()
+    # seen_network = train_seen_network(
+    #     seen_network=seen_network,
+    #     storage=storage,
+    # )
+    # save_ai_manually(
+    #     name="seen_network_01",
+    #     model=seen_network,
+    # )
     pass

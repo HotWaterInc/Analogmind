@@ -1,17 +1,19 @@
 from multiprocessing.forkserver import set_forkserver_preload
-
+from typing import List, Dict
 import matplotlib.pyplot as plt
+from numpy import ndarray
 from scipy.stats import pearsonr
 import numpy as np
 from fontTools.misc.cython import returns
 from pyglet.input.linux.evdev import get_devices
 import torch
 from src.ai.runtime_data_storage.storage_superset2 import StorageSuperset2, distance_thetas_to_distance_percent, \
-    distance_percent_to_distance_thetas
+    distance_percent_to_distance_thetas, flag_data_authenticity
+from src.ai.variants.exploration.networks.abstract_base_autoencoder_model import BaseAutoencoderModel
 from src.ai.variants.exploration.params import MAX_DISTANCE
-
 from src.modules.pretty_display import pretty_display_start, pretty_display_set, pretty_display, pretty_display_reset
-from src.modules.save_load_handlers.ai_models_handle import load_ai_version, load_other_ai, load_manually_saved_ai
+from src.modules.save_load_handlers.ai_models_handle import load_ai_version, load_other_ai, load_manually_saved_ai, \
+    load_custom_ai
 from src.modules.save_load_handlers.data_handle import read_other_data_from_file
 from src.utils import get_device
 
@@ -250,10 +252,56 @@ def standard_error(y_true, y_pred):
     return se
 
 
-def _get_connection_distances_seen_network_on_unknown_dataset(storage: StorageSuperset2,
-                                                              seen_network: any) -> any:
-    seen_network.eval()
-    seen_network = seen_network.to(get_device())
+def _get_mse_losses_seen_network_on_dataset(storage: StorageSuperset2,
+                                            network: BaseAutoencoderModel) -> any:
+    network = network.to(get_device())
+    network.eval()
+
+    datapoints = storage.get_all_datapoints()
+
+    axis_coord = []
+    data_arr = []
+    mse_losses = []
+
+    pretty_display_set(len(datapoints), "Calculating distances")
+    pretty_display_start()
+
+    lng = len(datapoints)
+
+    for i in range(lng):
+        pretty_display(i)
+        name = datapoints[i]
+        metadata = storage.get_datapoint_metadata_coords(name)
+
+        data = storage.get_datapoint_data_random_rotation_tensor_by_name(name)
+        coord = metadata[1]
+
+        axis_coord.append(coord)
+        data_arr.append(data)
+
+    data_arr = torch.stack(data_arr).to(get_device())
+    data_reconstruction = network.forward_inference(data_arr).to(get_device())
+    mse_loss = torch.norm(data_reconstruction - data_arr, p=2, dim=1)
+
+    datapoints_reconstructions = []
+    for i in range(lng):
+        name = datapoints[i]
+        axis = axis_coord[i]
+        mse_loss_i = mse_loss[i].item()
+
+        datapoints_reconstructions.append({
+            "start": name,
+            "coord": axis,
+            "mse_loss": mse_loss_i
+        })
+
+    return datapoints_reconstructions
+
+
+def _get_connection_distances_on_some_network_on_unknown_dataset(storage: StorageSuperset2,
+                                                                 network: BaseAutoencoderModel) -> any:
+    network.eval()
+    network = network.to(get_device())
 
     datapoints = storage.get_all_datapoints()
 
@@ -289,8 +337,8 @@ def _get_connection_distances_seen_network_on_unknown_dataset(storage: StorageSu
     end_data_arr = torch.stack(end_data_arr).to(get_device())
     distance_data = torch.norm(start_data_arr - end_data_arr, p=2, dim=1)
 
-    start_embeddings = seen_network.encoder_inference(start_data_arr).to(get_device())
-    end_embeddings = seen_network.encoder_inference(end_data_arr).to(get_device())
+    start_embeddings = network.encoder_inference(start_data_arr).to(get_device())
+    end_embeddings = network.encoder_inference(end_data_arr).to(get_device())
 
     raw_diff_data = torch.norm(start_data_arr - end_data_arr, p=2, dim=1)
     raw_diff_embeddings = torch.norm(start_embeddings - end_embeddings, p=2, dim=1)
@@ -467,8 +515,7 @@ def _get_connection_distances_neigh_network_on_training_dataset(storage: Storage
     return connections_distances_data
 
 
-def calculate_pearson_correlations(data):
-    # Convert data to numpy array
+def calculate_pearson_correlations(data: ndarray):
     data_array = np.array(data)
 
     # Extract columns
@@ -488,67 +535,86 @@ def calculate_pearson_correlations(data):
     print(f"Second Number vs Third Number: {pearson_second_third[0]:.3f} (p-value: {pearson_second_third[1]:.3e})")
 
 
-if __name__ == "__main__":
+def get_manifold_datapoint_distances():
     random_walk_datapoints = read_other_data_from_file(f"datapoints_random_walks_300_24rot.json")
     random_walk_connections = read_other_data_from_file(f"datapoints_connections_random_walks_300_24rot.json")
+    random_walk_connections = flag_data_authenticity(random_walk_connections)
     storage: StorageSuperset2 = StorageSuperset2()
     storage.incorporate_new_data(random_walk_datapoints, random_walk_connections)
-    # neighborhood_distance_network = load_manually_saved_ai("adjacency_network_north.pth")
-    # adjacency = load_manually_saved_ai("adjacency_network_north_contrasted.pth")
-    
-    abs_network = load_manually_saved_ai("manifold_network_034_031.pth")
-    # abs_network = load_manually_saved_ai("manifold_network_066_022.pth")
 
-    # _get_connection_distances_adjacency_network_on_unknown_dataset(storage, adjacency)
-    # connections = _get_connection_distances_neigh_network_on_training_dataset(storage, abs_network)
-    eval_data_changes(storage, abs_network)
-    # connections = _get_connection_distances_seen_network(storage, abs_network)
-    connections = _get_connection_distances_seen_network_on_unknown_dataset(storage, abs_network)
-    # connections = _get_connection_distances_neigh_network_on_unknown_dataset(storage, abs_network)
+    abs_network = load_custom_ai(model_name="manifold_network_034_031.pth", folder_name="exploration_inference_no_sofa")
+    connections = _get_connection_distances_on_some_network_on_unknown_dataset(storage, abs_network)
+    return connections
 
-    filtered_connections = [
-        connection for connection in connections
-        # if connection["distance_real"] < 2
+
+def get_reconstructions_seen_network():
+    random_walk_datapoints = read_other_data_from_file(f"datapoints_random_walks_300_24rot.json")
+    random_walk_connections = read_other_data_from_file(f"datapoints_connections_random_walks_300_24rot.json")
+    random_walk_connections = flag_data_authenticity(random_walk_connections)
+    storage: StorageSuperset2 = StorageSuperset2()
+    storage.incorporate_new_data(random_walk_datapoints, random_walk_connections)
+
+    seen_network = load_custom_ai(model_name="seen_network_01.pth", folder_name="exploration_inference_no_sofa")
+    datapoints = _get_mse_losses_seen_network_on_dataset(storage, seen_network)
+    return datapoints
+
+
+def plot_datapoints(subplot: int, x_axis_data: List[any], y_axis_data: List[any], x_label: str, y_label: str,
+                    title: str, color: str, alpha: float = 0.7):
+    plt.subplot(subplot)
+    plt.scatter(x_axis_data, y_axis_data, color=color, alpha=0.7)
+    plt.title(title)
+    plt.xlabel(x_label)
+    plt.ylabel(y_label)
+
+
+def visualize_datapoints_reconstructions(datapoints_recons):
+    filtered_datapoints = [
+        connection for connection in datapoints_recons
     ]
-
-    data_arr = [[connection["distance_real"], connection["distance_data"], connection["distance_embeddings"]] for
-                connection in filtered_connections]
-
-    # Convert to numpy array for easier manipulation
+    data_arr = [[connection["coord"], connection["mse_loss"]] for
+                connection in filtered_datapoints]
     data_array = np.array(data_arr)
-
-
-    # Define a function to calculate relative difference
-    def relative_difference(a, b):
-        return abs(a - b) / ((a + b) / 2)
-
-
-    # Set a threshold for what we consider a "big discrepancy"
-    threshold = 0.1
-
     filtered_data = data_array
 
     # Create the plot
     plt.figure(figsize=(12, 4))
 
-    # Plot Input vs Second Number
-    plt.subplot(131)
-    plt.scatter(filtered_data[:, 0], filtered_data[:, 1], color='blue', alpha=0.7)
-    plt.title('Input vs Second Number')
-    plt.xlabel('Input')
-    plt.ylabel('Second Number')
-
-    # Plot Input vs Third Number
-    plt.subplot(132)
-    plt.scatter(filtered_data[:, 0], filtered_data[:, 2], color='red', alpha=0.7)
-    plt.title('Input vs Third Number')
-    plt.xlabel('Input')
-    plt.ylabel('Third Number')
+    plot_datapoints(131, filtered_data[:, 0], filtered_data[:, 1], "X axis coords", "Reconstruction error",
+                    "Real vs Data Distance", "blue")
 
     plt.tight_layout()
     plt.show()
 
-    # Print the number of points remaining after filtering
-    print(f"Number of points after filtering: {len(filtered_data)}")
 
-    calculate_pearson_correlations(data_arr)
+def visualize_connections_distances(connections):
+    filtered_connections = [
+        connection for connection in connections
+        # if connection["distance_real"] < 2
+    ]
+    data_arr = [[connection["distance_real"], connection["distance_data"], connection["distance_embeddings"]] for
+                connection in filtered_connections]
+    data_array = np.array(data_arr)
+    filtered_data = data_array
+
+    # Create the plot
+    plt.figure(figsize=(12, 4))
+
+    plot_datapoints(131, filtered_data[:, 0], filtered_data[:, 1], "Real Distance", "Data Distance",
+                    "Real vs Data Distance", "blue")
+    plot_datapoints(132, filtered_data[:, 0], filtered_data[:, 2], "Real Distance", "Embeddings Distance",
+                    "Real vs Embeddings Distance", "red")
+
+    plt.tight_layout()
+    plt.show()
+    calculate_pearson_correlations(filtered_data)
+
+
+if __name__ == "__main__":
+    # connections = get_manifold_datapoint_distances()
+    # visualize_connections_distances(connections)
+
+    datapoints = get_reconstructions_seen_network()
+    visualize_datapoints_reconstructions(datapoints)
+
+    pass

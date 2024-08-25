@@ -198,7 +198,7 @@ def run_permuted_autoencoder() -> None:
     storage.load_raw_data_from_others("data8x8_rotated20.json")
     storage.load_raw_data_connections_from_others("data8x8_connections.json")
     storage.normalize_all_data_super()
-    storage.set_permutor(permutor)
+    storage.set_transformation(permutor)
 
     run_new_ai()
     # run_loaded_ai()

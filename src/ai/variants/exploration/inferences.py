@@ -71,6 +71,56 @@ def fill_augmented_connections_directions(additional_connections: List[any], sto
     return additional_connections_augmented
 
 
+def fill_augmented_connections_directions_cheating(additional_connections: List[any], storage: StorageSuperset2):
+    additional_connections_augmented = []
+
+    for idx, connection in enumerate(additional_connections):
+        start = connection["start"]
+        end = connection["end"]
+        dist = connection["distance"]
+        direction = storage.get_datapoints_real_direction(start, end)
+        distance_authenticity = connection["markings"]["distance"] == "authentic"
+        direction_authenticity = connection["markings"]["direction"] == "authentic"
+
+        additional_connections_augmented.append(
+            generate_connection(
+                start=start,
+                end=end,
+                distance=dist,
+                direction=direction,
+                distance_authenticity=distance_authenticity,
+                direction_authenticity=direction_authenticity
+            )
+        )
+
+    return additional_connections_augmented
+
+
+def fill_augmented_connections_distances_cheating(additional_connections: List[any], storage: StorageSuperset2):
+    additional_connections_augmented = []
+
+    for idx, connection in enumerate(additional_connections):
+        start = connection["start"]
+        end = connection["end"]
+        dist = storage.get_datapoints_real_distance(start, end)
+        direction = connection["direction"]
+        distance_authenticity = connection["markings"]["distance"] == "authentic"
+        direction_authenticity = connection["markings"]["direction"] == "authentic"
+
+        additional_connections_augmented.append(
+            generate_connection(
+                start=start,
+                end=end,
+                distance=dist,
+                direction=direction,
+                distance_authenticity=distance_authenticity,
+                direction_authenticity=direction_authenticity
+            )
+        )
+
+    return additional_connections_augmented
+
+
 def fill_augmented_connections_distances(additional_connections: List[any], storage: StorageSuperset2,
                                          image_distance_network: ImagesRawDistancePredictor):
     additional_connections_augmented = []
@@ -97,6 +147,9 @@ def fill_augmented_connections_distances(additional_connections: List[any], stor
             start_data_array.append(start_data)
             end_data_array.append(end_data)
             index_array.append(idx)
+
+    if len(start_data_array) == 0:
+        return additional_connections_augmented
 
     start_data_array = torch.stack(start_data_array).to(get_device())
     end_data_array = torch.stack(end_data_array).to(get_device())

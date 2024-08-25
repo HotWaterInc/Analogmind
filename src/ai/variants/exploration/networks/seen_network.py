@@ -3,7 +3,6 @@ import time
 import torch.nn as nn
 import torch.optim as optim
 import numpy as np
-
 from src.ai.variants.exploration.networks.abstract_base_autoencoder_model import BaseAutoencoderModel
 from src.modules.save_load_handlers.ai_models_handle import save_ai, save_ai_manually, load_latest_ai, \
     load_manually_saved_ai
@@ -21,7 +20,7 @@ from src.utils import get_device
 
 class SeenNetwork(BaseAutoencoderModel):
     def __init__(self, dropout_rate: float = 0.2, embedding_size: int = 64, input_output_size: int = 512,
-                 hidden_size: int = 256, num_blocks: int = 1):
+                 hidden_size: int = 1024, num_blocks: int = 1):
         super(SeenNetwork, self).__init__()
         self.embedding_size = embedding_size
 
@@ -72,12 +71,11 @@ class SeenNetwork(BaseAutoencoderModel):
         return self.embedding_size
 
 
-def reconstruction_handling(autoencoder: SeenNetwork, data: any,
-                            scale_reconstruction_loss: int = 1) -> torch.Tensor:
+def reconstruction_handling(autoencoder: SeenNetwork, data: any) -> torch.Tensor:
     dec = autoencoder.forward_training(data)
     criterion = nn.MSELoss()
 
-    return criterion(dec, data) * scale_reconstruction_loss
+    return criterion(dec, data)
 
 
 def _train_seen_network(autoencoder: SeenNetwork, epochs: int,
@@ -93,19 +91,29 @@ def _train_seen_network(autoencoder: SeenNetwork, epochs: int,
     epoch_print_rate = 250
 
     autoencoder = autoencoder.to(get_device())
+    storage.build_permuted_data_random_rotations_rotation0()
     train_data = array_to_tensor(np.array(storage.get_pure_permuted_raw_env_data())).to(get_device())
 
     if pretty_print:
         pretty_display_set(epoch_print_rate, "Epoch batch")
         pretty_display_start(0)
 
+    SHUFFLE = 2
     for epoch in range(num_epochs):
+        if epoch % SHUFFLE == 0:
+            storage.build_permuted_data_random_rotations()
+            # train_data = array_to_tensor(np.array(storage.get_pure_permuted_raw_env_data())).to(get_device())
+            train_data = array_to_tensor(
+                np.array(
+                    storage.get_pure_permuted_raw_env_data_with_xy_thresholds(x_threshold=10, y_threshold=1.5))).to(
+                get_device())
+
         reconstruction_loss = torch.tensor(0.0)
         epoch_loss = 0.0
         optimizer.zero_grad()
 
         # RECONSTRUCTION LOSS
-        reconstruction_loss = reconstruction_handling(autoencoder, train_data, scale_reconstruction_loss)
+        reconstruction_loss = reconstruction_handling(autoencoder, train_data)
         reconstruction_loss.backward()
 
         optimizer.step()
@@ -143,16 +151,6 @@ def generate_new_ai() -> SeenNetwork:
     return SeenNetwork()
 
 
-def run_seen_network(seen_network: SeenNetwork, storage: StorageSuperset2) -> SeenNetwork:
-    storage.build_permuted_data_random_rotations_rotation0()
-    seen_network = _train_seen_network(seen_network, 2500, storage, True)
+def train_seen_network(seen_network: SeenNetwork, storage: StorageSuperset2) -> SeenNetwork:
+    seen_network = _train_seen_network(seen_network, 7501, storage, True)
     return seen_network
-
-
-def load_storage_data(storage: StorageSuperset2) -> StorageSuperset2:
-    dataset_grid = 5
-    storage.load_raw_data_from_others(f"data{dataset_grid}x{dataset_grid}_rotated24_image_embeddings.json")
-    storage.load_raw_data_connections_from_others(f"data{dataset_grid}x{dataset_grid}_connections.json")
-    # selects first rotation
-    storage.build_permuted_data_random_rotations_rotation0()
-    return storage

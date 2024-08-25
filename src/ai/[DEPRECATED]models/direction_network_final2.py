@@ -127,7 +127,7 @@ def radians_to_degrees(radians):
 
 
 def embedding_policy(data):
-    global autoencoder
+    global manifold_network
     start_embedding = data
     # start_embedding = autoencoder.encoder_inference(data)
     return start_embedding
@@ -290,7 +290,7 @@ def thetas_to_degree(thetas):
 
 
 def run_tests_mini(direction_network):
-    global storage_raw, autoencoder
+    global storage_raw, manifold_network
 
     direction_network = direction_network.to(device)
     autoencoder = autoencoder.to(device)
@@ -356,7 +356,7 @@ def run_tests_mini(direction_network):
 
 
 def run_tests(direction_network):
-    global storage_raw, autoencoder
+    global storage_raw, manifold_network
     ITERATIONS = 10
 
     total_l1_loss = 0.0
@@ -446,7 +446,7 @@ def run_loaded_ai():
 def run_direction_network2():
     global storage_raw
     global permutor
-    global autoencoder
+    global manifold_network
 
     storage = StorageSuperset2()
     permutor = load_manually_saved_ai("permutor_deshift_working.pth")
@@ -457,7 +457,7 @@ def run_direction_network2():
     storage.normalize_all_data_super()
 
     storage.tanh_all_data()
-    storage.set_permutor(permutor)
+    storage.set_transformation(permutor)
     storage.build_permuted_data_raw_with_thetas()
 
     run_new_ai()
@@ -465,4 +465,4 @@ def run_direction_network2():
 
 
 storage_raw: StorageSuperset2 = None
-autoencoder: BaseAutoencoderModel = None
+manifold_network: BaseAutoencoderModel = None

@@ -104,8 +104,10 @@ def adjacency_detector_loss(direction_network, storage, sample_rate=None):
     datapoints: List[str] = storage.get_all_datapoints()
     sample_size = 300
     sample_size = min(sample_size, len(datapoints))
-    indices = torch.randperm(len(datapoints))[:sample_size]
-    pairs = [(datapoints[i], datapoints[j]) for i, j in indices.view(int(sample_size / 2), 2).tolist()]
+    permutation1 = torch.randperm(sample_size)
+    permutation2 = torch.randperm(sample_size)
+    indices = torch.cat((permutation1, permutation2), dim=0)
+    pairs = [(datapoints[i], datapoints[j]) for i, j in indices.view(int(sample_size), 2).tolist()]
 
     for pair in pairs:
         start = pair[0]
@@ -143,7 +145,7 @@ def _train_adjacency_network(adjacency_network, storage, num_epochs,
     pretty_display_start(0)
 
     if stop_at_threshold:
-        num_epochs = 1e7
+        num_epochs = int(1e7)
 
     for epoch in range(num_epochs):
         pretty_display(epoch % epoch_print_rate)
@@ -186,7 +188,11 @@ def _train_adjacency_network(adjacency_network, storage, num_epochs,
 def train_adjacency_network_until_threshold(adjacency_network: AdjacencyDetector,
                                             storage: StorageSuperset2) -> AdjacencyDetector:
     adjacency_network = adjacency_network.to(get_device())
-    adjacency_network = _train_adjacency_network(adjacency_network, storage, 1501, True, True)
+    adjacency_network = _train_adjacency_network(adjacency_network=adjacency_network,
+                                                 storage=storage,
+                                                 num_epochs=-1,
+                                                 pretty_print=True,
+                                                 stop_at_threshold=True)
 
     return adjacency_network
 

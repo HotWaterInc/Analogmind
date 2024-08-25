@@ -149,9 +149,9 @@ def get_collected_data_image() -> tuple[torch.Tensor, float, list[float]]:
     return current_embedding, angle, coords
 
 
-def storage_to_manifold(storage: StorageSuperset2, autoencoder: BaseAutoencoderModel):
-    autoencoder.eval()
-    autoencoder = autoencoder.to(get_device())
+def storage_to_manifold(storage: StorageSuperset2, manifold_network: BaseAutoencoderModel):
+    manifold_network.eval()
+    manifold_network = manifold_network.to(get_device())
 
-    storage.set_permutor(autoencoder)
+    storage.set_transformation(manifold_network)
     storage.build_permuted_data_raw_abstraction_autoencoder_manifold()

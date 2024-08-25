@@ -15,6 +15,7 @@ import numpy as np
 import torch
 from src.ai.data_processing.ai_data_processing import normalize_data_min_max
 from src.utils import perror, array_to_tensor
+import warnings
 
 
 class RawEnvironmentData(TypedDict):
@@ -129,12 +130,12 @@ class Storage:
         return returned_connections
 
     def get_all_connections_only_datapoints(self) -> List[RawConnectionData]:
-        if self._cache_only_datapoints_connections != None:
-            return self._cache_only_datapoints_connections
+        # if self._cache_only_datapoints_connections != None:
+        #     return self._cache_only_datapoints_connections
 
         datapoints_connections_data = [conn for conn in self.raw_connections_data if conn["end"] != None]
 
-        self._cache_only_datapoints_connections = datapoints_connections_data
+        # self._cache_only_datapoints_connections = datapoints_connections_data
         return datapoints_connections_data
 
     def get_all_connections_data(self) -> List[RawConnectionData]:
@@ -208,6 +209,10 @@ class Storage:
         """
         Samples a number of random datapoints
         """
+        if sample_size > len(self.raw_env_data):
+            warnings.warn("Sample size is larger than the number of datapoints, returning all datapoints")
+            sample_size = len(self.raw_env_data)
+
         return np.random.choice([item["name"] for item in self.raw_env_data], sample_size, replace=False)
 
     _non_adjacent_numpy_array: np.ndarray = None
@@ -444,6 +449,20 @@ class Storage:
 
         self._connection_cache[datapoint_name] = found_connections
         return found_connections
+
+    def remove_connection(self, start: str, end: str):
+        """
+        Removes a connection from the storage
+        """
+        for idx, connection in enumerate(self.raw_connections_data):
+            if connection["start"] == start and connection["end"] == end:
+                self.raw_connections_data.pop(idx)
+                return 1
+            if connection["start"] == end and connection["end"] == start:
+                self.raw_connections_data.pop(idx)
+                return 1
+
+        return 0
 
     def get_datapoint_adjacent_connections_all(self, datapoint_name: str) -> List[RawConnectionData]:
         """

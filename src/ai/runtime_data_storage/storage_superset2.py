@@ -1,7 +1,7 @@
 import numpy as np
 import torch
 import random
-
+import warnings
 from .storage_superset import *
 from .storage import *
 from typing import List
@@ -281,7 +281,7 @@ class StorageSuperset2(StorageSuperset):
 
         super().__init__()
 
-    def set_permutor(self, permutor):
+    def set_transformation(self, permutor):
         self.permutor = permutor
 
     def build_permuted_data_12images(self) -> None:
@@ -582,6 +582,13 @@ class StorageSuperset2(StorageSuperset):
             arr.append(selected_data.tolist())
         return arr
 
+    def get_pure_permuted_raw_env_data_with_xy_thresholds(self, x_threshold, y_threshold):
+        """
+        Returns the data point by its name
+        """
+        return [datapoint["data"] for datapoint in self.raw_env_data_permuted_choice if
+                datapoint["params"]["x"] < x_threshold and datapoint["params"]["y"] < y_threshold]
+
     def get_pure_permuted_raw_env_data(self):
         """
         Returns the data point by its name
@@ -685,21 +692,31 @@ class StorageSuperset2(StorageSuperset):
             err = mse_loss(pred_dist, real_distances)
             print("Error for synthetically generated distances", err.item())
 
-    def build_non_adjacent_numpy_array_from_connections(self, debug: bool = False):
+    _non_adjacent_distances: Dict[str, Dict[str, float]] = None
+
+    def build_non_adjacent_distances_from_connections(self, debug: bool = False):
         """
         Builds the numpy array for non-adjacent data
         """
         print("STARTED BUILDING NON ADJCENT FLOYD CONNECTIONS")
-
+        print("TOTAL CONNECTIONS WITH NULLITY", len(self.get_all_connections_data()))
+        print("TOTAL CONNECTIONS", len(self.get_all_connections_only_datapoints()))
         connections_only_datapoints = self.get_all_connections_only_datapoints_authenticity_filter()
+
         print("FLOYD CONNECTIONS", len(connections_only_datapoints))
         connection_hashmap = build_connections_hashmap(connections_only_datapoints, [])
         distances = floyd_warshall_algorithm(connection_hashmap)
+        print("")
+        print("FINISHED WARSHALL")
+        self._non_adjacent_distances = distances
 
         # iterates all datapoints
         datapoints = self.get_all_datapoints()
         length = len(datapoints)
         array = []
+        total_error = 0
+        total_error_samples = 0
+
         for start in range(length):
             for end in range(start + 1, length):
                 start_name = datapoints[start]
@@ -715,6 +732,12 @@ class StorageSuperset2(StorageSuperset):
                     print("Alternative distance", distance_found)
                     real_distance = self.get_datapoints_real_distance(start_name, end_name)
                     print("Real distance", real_distance)
+                    total_error += (distance - real_distance) ** 2
+                    total_error_samples += 1
+
+        if debug:
+            print("Average error", total_error / total_error_samples)
+            print("Total error samples", total_error_samples)
 
         self._non_adjacent_numpy_array = np.array(array, dtype=AdjacencyDataSample)
 
@@ -725,7 +748,11 @@ class StorageSuperset2(StorageSuperset):
         :param sample_size: the number of datapoints to sample
         """
         if self._non_adjacent_numpy_array is None:
-            self.build_non_adjacent_numpy_array_from_connections(debug=False)
+            self.build_non_adjacent_distances_from_connections(debug=False)
+
+        if sample_size > len(self._non_adjacent_numpy_array):
+            warnings.warn(f"Sample size {sample_size} is larger than the non-adjacent datapoints array size")
+            sample_size = len(self._non_adjacent_numpy_array)
 
         sampled_connections = np.random.choice(self._non_adjacent_numpy_array, sample_size, replace=False)
         return sampled_connections

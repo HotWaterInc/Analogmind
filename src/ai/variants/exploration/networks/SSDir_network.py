@@ -5,7 +5,7 @@ import torch.optim as optim
 import numpy as np
 from src.ai.runtime_data_storage.storage_superset2 import StorageSuperset2, RawConnectionData
 from src.ai.variants.exploration.networks.abstract_base_autoencoder_model import BaseAutoencoderModel
-from src.ai.variants.exploration.params import MANIFOLD_SIZE, DIRECTION_THETAS
+from src.ai.variants.exploration.params import MANIFOLD_SIZE, THRESHOLD_SSDIR_NETWORK, DIRECTION_THETAS_SIZE
 from src.modules.save_load_handlers.ai_models_handle import load_manually_saved_ai, save_ai_manually
 from src.utils import array_to_tensor, get_device
 from typing import List
@@ -19,7 +19,7 @@ from src.ai.variants.blocks import ResidualBlockSmallBatchNorm
 
 
 class SSDirNetwork(nn.Module):
-    def __init__(self, input_size=MANIFOLD_SIZE, hidden_size=512, output_size=DIRECTION_THETAS, dropout_rate=0.3,
+    def __init__(self, input_size=MANIFOLD_SIZE, hidden_size=512, output_size=DIRECTION_THETAS_SIZE, dropout_rate=0.3,
                  num_blocks=1):
         super(SSDirNetwork, self).__init__()
 
@@ -85,7 +85,7 @@ def direction_loss(direction_network, storage: StorageSuperset2, sample_rate):
 
             final_radian = coordinate_pair_to_radians_cursed_tranform(direction[0], direction[1])
             radian_percent = radians_to_percent(final_radian)
-            thetas_target = angle_percent_to_thetas_normalized_cached(radian_percent, DIRECTION_THETAS)
+            thetas_target = angle_percent_to_thetas_normalized_cached(radian_percent, DIRECTION_THETAS_SIZE)
 
             start_data = storage.get_datapoint_data_tensor_by_name_permuted(start)
             end_data = storage.get_datapoint_data_tensor_by_name_permuted(end)
@@ -116,8 +116,9 @@ def direction_loss(direction_network, storage: StorageSuperset2, sample_rate):
     return loss
 
 
-def _train_SSDir_network(direction_network, storage: StorageSuperset2, num_epochs: int):
-    optimizer = optim.Adam(direction_network.parameters(), lr=0.0005, amsgrad=True)
+def _train_SSDir_network(SSDir_network, storage: StorageSuperset2, num_epochs: int,
+                         stop_at_threshold: bool = False):
+    optimizer = optim.Adam(SSDir_network.parameters(), lr=0.0005, amsgrad=True)
 
     scale_direction_loss = 1
 
@@ -130,6 +131,9 @@ def _train_SSDir_network(direction_network, storage: StorageSuperset2, num_epoch
     pretty_display_set(epoch_print_rate, "Epochs batch training")
     pretty_display_start(0)
 
+    if stop_at_threshold == True:
+        num_epochs = int(1e7)
+
     SHUFFLE = 2
     for epoch in range(num_epochs):
         if epoch % SHUFFLE == 0:
@@ -141,7 +145,7 @@ def _train_SSDir_network(direction_network, storage: StorageSuperset2, num_epoch
 
         optimizer.zero_grad()
 
-        loss = direction_loss(direction_network, storage, sample_rate)
+        loss = direction_loss(SSDir_network, storage, sample_rate)
         # loss = direction_loss_v2(direction_network, storage, sample_rate)
         loss = loss * scale_direction_loss
         loss.backward()
@@ -155,12 +159,16 @@ def _train_SSDir_network(direction_network, storage: StorageSuperset2, num_epoch
             epoch_average_loss /= epoch_print_rate
             print("")
             print(f'Epoch [{epoch}/{num_epochs}], Loss: {epoch_average_loss:.4f}')
-            epoch_average_loss = 0  # Reset for the next average calculation
 
+            if stop_at_threshold == True and epoch_average_loss < THRESHOLD_SSDIR_NETWORK:
+                print("SSDIR: Threshold reached, stopping training")
+                break
+
+            epoch_average_loss = 0  # Reset for the next average calculation
             pretty_display_reset()
             pretty_display_start(epoch)
 
-    return direction_network
+    return SSDir_network
 
 
 def datapoints_to_manifold(datapoints, autoencoder: BaseAutoencoderModel):
@@ -172,6 +180,17 @@ def datapoints_to_manifold(datapoints, autoencoder: BaseAutoencoderModel):
         datapoint["data"] = autoencoder.encoder_inference(data).tolist()
 
     return datapoints
+
+
+def train_SSDirection_until_threshold(SSDir_network: SSDirNetwork, storage: StorageSuperset2):
+    SSDir_network = SSDir_network.to(get_device())
+    SSDir_network = _train_SSDir_network(
+        SSDir_network=SSDir_network,
+        storage=storage,
+        num_epochs=-1,
+        stop_at_threshold=True
+    )
+    return SSDir_network
 
 
 def train_SSDirection(SSDir_network: SSDirNetwork, storage: StorageSuperset2):

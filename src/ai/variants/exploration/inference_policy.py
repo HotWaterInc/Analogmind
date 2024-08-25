@@ -5,7 +5,8 @@ from src.action_ai_controller import ActionAIController
 from src.ai.variants.exploration.networks.abstract_base_autoencoder_model import BaseAutoencoderModel
 from src.ai.variants.exploration.params import STEP_DISTANCE, MAX_DISTANCE, DISTANCE_THETAS_SIZE, DIRECTION_THETAS_SIZE
 from src.ai.variants.exploration.utils import get_collected_data_distances, check_direction_distance_validity_north, \
-    adjust_distance_sensors_according_to_rotation, adjust_distance_sensors_according_to_rotation_duplicate
+    adjust_distance_sensors_according_to_rotation, adjust_distance_sensors_according_to_rotation_duplicate, \
+    storage_to_manifold
 from src.global_data_buffer import GlobalDataBuffer, empty_global_data_buffer
 from src.modules.save_load_handlers.data_handle import write_other_data_to_file
 from src.action_robot_controller import detach_robot_sample_distance, detach_robot_sample_image, \
@@ -32,18 +33,18 @@ from src.modules.policies.utils_lib import webots_radians_to_normal, radians_to_
 import torch
 
 
-def load_everything(models_folder: str, autoencoder_name: str, SSD_name: str, SDS_name: str):
-    global direction_network_SSD, direction_network_SDirDistS, autoencoder
+def load_everything(models_folder: str, manifold_encoder_name: str, SSD_name: str, SDS_name: str):
+    global direction_network_SSD, direction_network_SDirDistS, manifold_network
 
-    autoencoder = load_custom_ai(autoencoder_name, models_folder)
+    manifold_network = load_custom_ai(manifold_encoder_name, models_folder)
     direction_network_SSD = load_custom_ai(SSD_name, models_folder)
     direction_network_SDirDistS = load_custom_ai(SDS_name, models_folder)
 
-    autoencoder.eval()
+    manifold_network.eval()
     direction_network_SSD.eval()
     direction_network_SDirDistS.eval()
 
-    autoencoder = autoencoder.to(get_device())
+    manifold_network = manifold_network.to(get_device())
     direction_network_SSD = direction_network_SSD.to(get_device())
     direction_network_SDirDistS = direction_network_SDirDistS.to(get_device())
 
@@ -214,12 +215,6 @@ def policy_thetas_navigation_next_manifold(current_manifold: torch.Tensor, next_
     return final_angle
 
 
-def storage_to_manifold(storage: StorageSuperset2):
-    global autoencoder
-    storage.set_permutor(autoencoder)
-    storage.build_permuted_data_raw_abstraction_autoencoder_manifold()
-
-
 def print_closest_known_position(current_embedding, angle_percent):
     closest = find_closest_known_position(current_embedding, angle_percent)
     print("Closest known position:", closest)
@@ -228,7 +223,7 @@ def print_closest_known_position(current_embedding, angle_percent):
 def final_angle_policy_direction_testing(current_embedding, angle_percent, target_x, target_y, distance_sensors):
     global storage, direction_network_SDirDistS
 
-    current_manifold = autoencoder.encoder_inference(current_embedding.unsqueeze(0)).squeeze()
+    current_manifold = manifold_network.encoder_inference(current_embedding.unsqueeze(0)).squeeze()
     target_name = storage.get_closest_datapoint_to_xy(target_x, target_y)
     target_manifold = storage.get_datapoint_data_tensor_by_name(target_name)[0].to(get_device())
 
@@ -283,7 +278,7 @@ def final_angle_policy_direction_testing(current_embedding, angle_percent, targe
 
 
 def final_angle_policy_abn(current_embedding, angle_percent, target_i, target_j):
-    current_manifold = autoencoder.encoder_inference(current_embedding.unsqueeze(0)).squeeze()
+    current_manifold = manifold_network.encoder_inference(current_embedding.unsqueeze(0)).squeeze()
     closest = find_closest_known_position_to_manifold_north(current_manifold, angle_percent)
     if closest == f"{target_i}_{target_j}":
         print("target reached")
@@ -303,16 +298,16 @@ def generate_dxdy(direction, distance):
     return dx, dy
 
 
-def teleportation_exploring_inference(models_folder: str, autoencoder_name: str, SSD_name: str, SDirDistS_name: str,
+def teleportation_exploring_inference(models_folder: str, manifold_encoder_name: str, SSD_name: str,
+                                      SDirDistS_name: str,
                                       storage_arg: StorageSuperset2) -> \
         Generator[
             None, None, None]:
-    global direction_network_SSD, autoencoder, storage
+    global direction_network_SSD, manifold_network, storage
     storage = storage_arg
-    load_everything(models_folder, autoencoder_name, SSD_name, SDirDistS_name)
-    storage_to_manifold(storage)
+    load_everything(models_folder, manifold_encoder_name, SSD_name, SDirDistS_name)
+    storage_to_manifold(storage, manifold_network)
 
-    autoencoder.eval()
     target_reached = False
 
     detach_robot_teleport_absolute(0, 0)
@@ -363,4 +358,4 @@ def teleportation_exploring_inference(models_folder: str, autoencoder_name: str,
 storage: StorageSuperset2 = None
 direction_network_SSD: nn.Module = None
 direction_network_SDirDistS: nn.Module = None
-autoencoder: BaseAutoencoderModel = None
+manifold_network: BaseAutoencoderModel = None

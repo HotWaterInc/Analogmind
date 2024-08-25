@@ -6,7 +6,8 @@ import numpy as np
 from src.ai.runtime_data_storage.storage_superset2 import StorageSuperset2, RawConnectionData, \
     distance_percent_to_distance_thetas
 from src.ai.variants.exploration.networks.abstract_base_autoencoder_model import BaseAutoencoderModel
-from src.ai.variants.exploration.params import MANIFOLD_SIZE, DIRECTION_THETAS_SIZE, DISTANCE_THETAS_SIZE, MAX_DISTANCE
+from src.ai.variants.exploration.params import MANIFOLD_SIZE, DIRECTION_THETAS_SIZE, DISTANCE_THETAS_SIZE, MAX_DISTANCE, \
+    THRESHOLD_SDIRDISTSTATE_NETWORK
 from src.modules.save_load_handlers.ai_models_handle import load_manually_saved_ai, save_ai_manually, load_custom_ai, \
     load_other_ai
 from src.utils import array_to_tensor, get_device
@@ -135,7 +136,7 @@ def SDirDistState_loss(direction_network, storage: StorageSuperset2, sample_rate
     return loss
 
 
-def _train_SDirDistState(SDDS: SDirDistState, storage: StorageSuperset2, num_epochs):
+def _train_SDirDistState(SDDS: SDirDistState, storage: StorageSuperset2, num_epochs, stop_at_threshold: bool = False):
     optimizer = optim.Adam(SDDS.parameters(), lr=0.001, amsgrad=True)
 
     scale_direction_loss = 10
@@ -148,6 +149,9 @@ def _train_SDirDistState(SDDS: SDirDistState, storage: StorageSuperset2, num_epo
     storage.build_permuted_data_random_rotations_rotation0()
     pretty_display_set(epoch_print_rate, "Epochs batch training")
     pretty_display_start(0)
+
+    if stop_at_threshold == True:
+        num_epochs = int(1e7)
 
     SHUFFLE = 2
     for epoch in range(num_epochs):
@@ -172,6 +176,11 @@ def _train_SDirDistState(SDDS: SDirDistState, storage: StorageSuperset2, num_epo
             epoch_average_loss /= epoch_print_rate
             print("")
             print(f'Epoch [{epoch}/{num_epochs}], Loss: {epoch_average_loss:.4f}')
+
+            if stop_at_threshold == True and epoch_average_loss < THRESHOLD_SDIRDISTSTATE_NETWORK:
+                print("Threshold SDirDistState network reached. Stopping training.")
+                break
+
             epoch_average_loss = 0  # Reset for the next average calculation
 
             pretty_display_reset()
@@ -181,16 +190,15 @@ def _train_SDirDistState(SDDS: SDirDistState, storage: StorageSuperset2, num_epo
     return SDDS
 
 
-def storage_to_manifold(storage: StorageSuperset2, autoencoder: BaseAutoencoderModel):
-    autoencoder.eval()
-    autoencoder = autoencoder.to(get_device())
+def train_SDirDistS_network_until_threshold(SDirDistState_network: SDirDistState,
+                                            storage: StorageSuperset2):
+    SDirDistState_network = SDirDistState_network.to(get_device())
+    direction_network = _train_SDirDistState(SDirDistState_network, storage, num_epochs=1000)
+    return direction_network
 
-    storage.set_permutor(autoencoder)
-    storage.build_permuted_data_raw_abstraction_autoencoder_manifold()
 
-
-def train_Sdirdiststate(sdisdiststate_network: SDirDistState,
-                        storage: StorageSuperset2):
+def train_SDirDistS_network(sdisdiststate_network: SDirDistState,
+                            storage: StorageSuperset2):
     sdisdiststate_network = sdisdiststate_network.to(get_device())
     direction_network = _train_SDirDistState(sdisdiststate_network, storage, num_epochs=1000)
     return direction_network

@@ -6,7 +6,8 @@ import numpy as np
 from torch.fx.experimental.proxy_tensor import ProxyTorchDispatchMode
 
 from src.ai.variants.exploration.networks.abstract_base_autoencoder_model import BaseAutoencoderModel
-from src.ai.variants.exploration.params import MANIFOLD_SIZE
+from src.ai.variants.exploration.params import MANIFOLD_SIZE, THRESHOLD_MANIFOLD_PERMUTATION_LOSS, \
+    THRESHOLD_MANIFOLD_NON_ADJACENT_LOSS
 from src.modules.save_load_handlers.ai_models_handle import save_ai, save_ai_manually, load_latest_ai, \
     load_manually_saved_ai
 from src.modules.save_load_handlers.parameters import *
@@ -185,10 +186,10 @@ def non_adjacent_distance_handling(autoencoder: BaseAutoencoderModel, storage: S
     return non_adjacent_distance_loss
 
 
-def _train_autoencoder_with_distance_constraint(autoencoder: BaseAutoencoderModel, storage: StorageSuperset2,
-                                                epochs: int) -> BaseAutoencoderModel:
+def _train_autoencoder_with_distance_constraint(manifold_network: BaseAutoencoderModel, storage: StorageSuperset2,
+                                                epochs: int, stop_at_threshold: bool = False) -> BaseAutoencoderModel:
     # PARAMETERS
-    optimizer = optim.Adam(autoencoder.parameters(), lr=0.0005)
+    optimizer = optim.Adam(manifold_network.parameters(), lr=0.0005)
 
     num_epochs = epochs
 
@@ -213,10 +214,13 @@ def _train_autoencoder_with_distance_constraint(autoencoder: BaseAutoencoderMode
 
     storage.build_permuted_data_random_rotations_rotation0()
     train_data = array_to_tensor(np.array(storage.get_pure_permuted_raw_env_data())).to(get_device())
-    autoencoder = autoencoder.to(get_device())
+    manifold_network = manifold_network.to(get_device())
 
     pretty_display_set(epoch_print_rate, "Epoch batch")
     pretty_display_start(0)
+
+    if stop_at_threshold:
+        num_epochs = int(1e7)
 
     SHUFFLE_RATE = 2
     for epoch in range(num_epochs):
@@ -241,11 +245,11 @@ def _train_autoencoder_with_distance_constraint(autoencoder: BaseAutoencoderMode
         # adjacent_distance_loss, average_distance_adjacent = adjacent_distance_handling(autoencoder, storage,
         #                                                                                adjacent_sample_size)
         # NON-ADJACENT DISTANCE LOSS
-        non_adjacent_distance_loss = non_adjacent_distance_handling(autoencoder, storage, non_adjacent_sample_size,
+        non_adjacent_distance_loss = non_adjacent_distance_handling(manifold_network, storage, non_adjacent_sample_size,
                                                                     distance_scaling_factor=DISTANCE_SCALING_FACTOR,
                                                                     embedding_scaling_factor=EMBEDDING_SCALING_FACTOR)
         # PERMUTATION ADJUST LOSS
-        permutation_adjustion_loss = permutation_adjustion_handling(autoencoder, storage, permutation_sample_size)
+        permutation_adjustion_loss = permutation_adjustion_handling(manifold_network, storage, permutation_sample_size)
 
         accumulated_loss = reconstruction_loss + non_adjacent_distance_loss + adjacent_distance_loss + permutation_adjustion_loss
         accumulated_loss.backward()
@@ -279,8 +283,11 @@ def _train_autoencoder_with_distance_constraint(autoencoder: BaseAutoencoderMode
             print(f"AVERAGE LOSS:{epoch_average_loss}")
             print("--------------------------------------------------")
 
-            epoch_average_loss = 0
+            if non_adjacent_average_loss < THRESHOLD_MANIFOLD_NON_ADJACENT_LOSS and permutation_average_loss < THRESHOLD_MANIFOLD_PERMUTATION_LOSS and stop_at_threshold:
+                print(f"Stopping at epoch {epoch} with loss {epoch_average_loss} because of threshold")
+                break
 
+            epoch_average_loss = 0
             reconstruction_average_loss = 0
             non_adjacent_average_loss = 0
             adjacent_average_loss = 0
@@ -289,10 +296,26 @@ def _train_autoencoder_with_distance_constraint(autoencoder: BaseAutoencoderMode
             pretty_display_reset()
             pretty_display_start(epoch)
 
-    return autoencoder
+    return manifold_network
 
 
-def run_manifold_network(manifold_network: BaseAutoencoderModel, storage: StorageSuperset2):
-    manifold_network = _train_autoencoder_with_distance_constraint(manifold_network, storage, epochs=10001)
+def train_manifold_network_until_thresholds(manifold_network: BaseAutoencoderModel, storage: StorageSuperset2):
+    manifold_network = _train_autoencoder_with_distance_constraint(
+        manifold_network=manifold_network,
+        storage=storage,
+        epochs=-1,
+        stop_at_threshold=True
+    )
+
+    return manifold_network
+
+
+def train_manifold_network(manifold_network: BaseAutoencoderModel, storage: StorageSuperset2):
+    manifold_network = _train_autoencoder_with_distance_constraint(
+        manifold_network=manifold_network,
+        storage=storage,
+        epochs=10000,
+        stop_at_threshold=False
+    )
 
     return manifold_network
