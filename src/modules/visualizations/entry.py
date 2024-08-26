@@ -207,17 +207,17 @@ def build_scene_datapoints_topology():
     scene = IntroScene()
 
     global storage_superset2
-    storage_superset2.load_raw_data_from_others("datapoints_random_walks_300_24rot.json")
-    storage_superset2.load_raw_data_connections_from_others("datapoints_connections_random_walks_300_24rot.json")
+    storage_superset2.load_raw_data_from_others("step64_datapoints_autonomous_walk.json")
+    storage_superset2.load_raw_data_connections_from_others("step64_connections_autonomous_walk_augmented_filled.json")
 
-    storage_superset2.build_sparse_datapoints_coordinates_map_based_on_xy(percent=0.4)
+    storage_superset2.build_sparse_datapoints_coordinates_map_based_on_xy(percent=1)
     datapoints_coordinates_map = storage_superset2.get_datapoints_coordinates_map()
 
     distance_scale = 1
     radius = 0.2
 
-    augmented_connections = read_other_data_from_file("additional_found_connections_random_walks_300.json")
-    storage_superset2.incorporate_new_data([], augmented_connections)
+    # augmented_connections = read_other_data_from_file("additional_found_connections_random_walks_300.json")
+    # storage_superset2.incorporate_new_data([], augmented_connections)
 
     add_mobjects_datapoints(scene, datapoints_coordinates_map, distance_scale, radius)
     connections = storage_superset2.get_all_connections_only_datapoints()
@@ -287,7 +287,3 @@ def basic_viz():
 
 def myfunc1():
     print("Hello from a thread")
-
-
-if __name__ == "__main__":
-    run_visualization()

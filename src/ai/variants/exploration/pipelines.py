@@ -1,3 +1,4 @@
+from entry_test import visualize_datapoints_reconstructions
 from src.ai.runtime_data_storage.storage_superset2 import StorageSuperset2
 from src.ai.variants.exploration.data_augmentation import load_storage_with_base_data, \
     storage_augment_with_saved_connections, augment_saved_connections_with_distances, \
@@ -25,6 +26,7 @@ from src.modules.policies.data_collection import grid_data_collection
 from src.ai.variants.camera1_full_forced.policy_images_simple import get_closest_point_policy
 from src.modules.save_load_handlers.ai_models_handle import save_ai_manually, load_manually_saved_ai
 from src.modules.save_load_handlers.data_handle import write_other_data_to_file
+from src.modules.visualizations import run_visualization
 
 
 def start_server_thread():
@@ -100,7 +102,9 @@ def data_augmentation_pipeline():
 
 def test_pipeline():
     # inference_pipeline_no_sofa()
-    exploration_autonomous_pipeline()
+    # exploration_autonomous_pipeline()
+
+    run_visualization()
 
     # storage = StorageSuperset2()
     # load_storage_with_base_data(storage)

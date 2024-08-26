@@ -105,12 +105,11 @@ def create_datapoint(name: str, data: List[any], coords: List[float]) -> Dict[st
 
 movement_type = 0
 
-movement_distances = np.random.uniform(0.1, 1, 500)
+movement_distances = np.random.uniform(STEP_DISTANCE / 2, STEP_DISTANCE * 2, 500)
 index = 0
 
 
 def get_random_movement():
-    # distance = np.random.uniform(0.1, 2)
     distance = movement_distances[index]
     direction = np.random.uniform(0, 2 * math.pi)
 
@@ -213,9 +212,9 @@ def null_connections_to_raw_connections_data(name, null_connections):
         valid = null_connection["valid"]
         # if we bump into something we create a null connections
         if valid == False:
-            dx, dy = generate_dxdy(angle, STEP_DISTANCE * 2)
+            dx, dy = generate_dxdy(angle, STEP_DISTANCE_CLOSE_THRESHOLD)
             direction = [dx, dy]
-            distance = STEP_DISTANCE * 2
+            distance = STEP_DISTANCE_CLOSE_THRESHOLD
             connection = {
                 "start": name,
                 "end": None,
@@ -307,16 +306,18 @@ def random_walk_policy(random_walk_datapoints, random_walk_connections):
     yield from move
 
 
-def phase_explore(random_walk_datapoints, random_walk_connections, first_walk, max_steps):
-    print("STARTED NEW PAHSE EXPLORE")
+def phase_explore(random_walk_datapoints, random_walk_connections, first_walk, max_steps, skip_checks=0):
     for step in range(max_steps):
         collect_data = collect_current_data_and_add_connections(random_walk_datapoints, random_walk_connections)
         yield from collect_data
 
-        if first_walk == False:
+        if first_walk == False and skip_checks == 0:
             position_check = check_position_is_known_cheating(random_walk_datapoints)
             if position_check:
                 break
+
+        if skip_checks != 0:
+            skip_checks -= 1
 
         if step != max_steps - 1:
             move_randomly = random_move_policy()
@@ -385,7 +386,7 @@ def exploration_policy_autonomous_data_filtering(step: int):
 
 
 def exploration_policy_autonomous_exploration(step: int):
-    global storage_raw, first_walk
+    global storage_raw, first_walk, exploring
 
     random_walk_datapoints = []
     random_walk_connections = []
@@ -394,7 +395,7 @@ def exploration_policy_autonomous_exploration(step: int):
     if first_walk:
         print("IT'S FIRST TIME !!")
 
-    yield from phase_explore(random_walk_datapoints, random_walk_connections, first_walk, max_steps=3)
+    yield from phase_explore(random_walk_datapoints, random_walk_connections, first_walk, max_steps=10, skip_checks=1)
 
     first_walk = False
     flag_data_authenticity(random_walk_connections)
@@ -412,8 +413,8 @@ def exploration_policy_autonomous_exploration(step: int):
     storage_raw.incorporate_new_data([], total_connections_found)
 
     print("DATA PURGING")
-    # data_filtering_redundant_connections(storage_raw)
-    # data_filtering_redundant_datapoints(storage_raw)
+    data_filtering_redundant_connections(storage_raw)
+    data_filtering_redundant_datapoints(storage_raw)
     storage_raw.build_non_adjacent_distances_from_connections(debug=False)
 
     last_dp = random_walk_datapoints[-1]
@@ -421,6 +422,10 @@ def exploration_policy_autonomous_exploration(step: int):
                                                                                    last_dp["name"])
     if frontier_datapoint is None:
         print("NO FRONTIER FOUND, EXPLORATION FINISHED")
+        exploring = False
+        write_other_data_to_file(f"step{step}_datapoints_autonomous_walk.json", storage_raw.get_raw_environment_data())
+        write_other_data_to_file(f"step{step}_connections_autonomous_walk_augmented_filled.json",
+                                 storage_raw.get_raw_connections_data())
         return
 
     # move to frontier
@@ -536,7 +541,7 @@ def exploration_policy_autonomous_step(step: int, train_networks=True):
 
 def exploration_policy_autonomous() -> Generator[None, None, None]:
     initial_setup()
-    global storage_raw, storage_manifold, first_walk
+    global storage_raw, storage_manifold, first_walk, exploring
     global adjacency_network, image_distance_network, manifold_network, SSDir_network, SDirDistS_network
 
     detach_robot_teleport_absolute(0, 0)
@@ -571,3 +576,4 @@ global_register1 = None
 global_register2 = None
 
 first_walk = True
+exploring = True

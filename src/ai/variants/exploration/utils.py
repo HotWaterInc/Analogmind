@@ -1,8 +1,8 @@
 from src.ai.variants.exploration.networks.abstract_base_autoencoder_model import BaseAutoencoderModel
-from src.ai.variants.exploration.params import DIRECTION_THETAS_SIZE, STEP_DISTANCE
+from src.ai.variants.exploration.params import DIRECTION_THETAS_SIZE, STEP_DISTANCE, STEP_DISTANCE_BASIC_STEP
 from src.ai.variants.exploration.utils_pure_functions import direction_to_degrees_atan, degrees_to_percent, \
     angle_percent_to_thetas_normalized_cached, direction_thetas_to_radians, find_thetas_null_indexes, \
-    get_angle_percent_from_thetas_index, generate_dxdy
+    get_angle_percent_from_thetas_index, generate_dxdy, angle_percent_to_radians
 from src.modules.policies.testing_image_data import process_webots_image_to_embedding, \
     squeeze_out_resnet_output
 from src.ai.runtime_data_storage.storage_superset2 import StorageSuperset2
@@ -223,7 +223,8 @@ def find_frontier_datapoint_and_direction(storage: StorageSuperset2, current_dat
         null_thetas = find_thetas_null_indexes(accumulated_thetas)
         if len(null_thetas) > 0:
             direction_percent = get_angle_percent_from_thetas_index(null_thetas[0], DIRECTION_THETAS_SIZE)
-            direction = generate_dxdy(direction_percent, STEP_DISTANCE * 1.5)
+            direction_radians = angle_percent_to_radians(direction_percent)
+            direction = generate_dxdy(direction_radians, STEP_DISTANCE_BASIC_STEP / 2)
             return current_datapoint_name, direction
 
     return None, None

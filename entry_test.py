@@ -7,10 +7,11 @@ import numpy as np
 from fontTools.misc.cython import returns
 from pyglet.input.linux.evdev import get_devices
 import torch
-from src.ai.runtime_data_storage.storage_superset2 import StorageSuperset2, distance_thetas_to_distance_percent, \
-    distance_percent_to_distance_thetas, flag_data_authenticity
+
+from src.ai.runtime_data_storage.storage_superset2 import StorageSuperset2
 from src.ai.variants.exploration.networks.abstract_base_autoencoder_model import BaseAutoencoderModel
 from src.ai.variants.exploration.params import MAX_DISTANCE
+from src.ai.variants.exploration.utils_pure_functions import distance_thetas_to_distance_percent, flag_data_authenticity
 from src.modules.pretty_display import pretty_display_start, pretty_display_set, pretty_display, pretty_display_reset
 from src.modules.save_load_handlers.ai_models_handle import load_ai_version, load_other_ai, load_manually_saved_ai, \
     load_custom_ai

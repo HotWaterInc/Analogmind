@@ -8,7 +8,7 @@ from typing import List
 import math
 from ..variants.exploration.algorithms import build_connections_hashmap, floyd_warshall_algorithm, \
     find_minimum_distance_between_datapoints_on_graph_bfs, find_minimum_distance_between_datapoints_on_graph_djakstra
-from ..variants.exploration.params import ROTATIONS, STEP_DISTANCE
+from ..variants.exploration.params import ROTATIONS, STEP_DISTANCE, STEP_DISTANCE_CLOSE_THRESHOLD
 from ..variants.exploration.utils_pure_functions import get_real_distance_between_datapoints, calculate_coords_distance
 from ...modules.time_profiler import start_profiler, profiler_checkpoint
 from ...utils import get_device
@@ -529,7 +529,7 @@ class StorageSuperset2(StorageSuperset):
         datapoints = self.get_all_datapoints()
         for datapoint in datapoints:
             coords = self.get_datapoint_metadata_coords(datapoint)
-            if calculate_coords_distance(coords, current_coords) < STEP_DISTANCE * 1.5:
+            if calculate_coords_distance(coords, current_coords) < STEP_DISTANCE_CLOSE_THRESHOLD:
                 return True
 
         return False
