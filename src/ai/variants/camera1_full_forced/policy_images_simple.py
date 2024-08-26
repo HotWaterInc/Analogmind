@@ -2,10 +2,9 @@ import time
 import math
 from typing import Dict, TypedDict, Generator, List
 from src.action_ai_controller import ActionAIController
+from src.ai.runtime_data_storage.storage_superset2 import StorageSuperset2
 from src.ai.variants.exploration.networks.abstract_base_autoencoder_model import BaseAutoencoderModel
 from src.global_data_buffer import GlobalDataBuffer, empty_global_data_buffer
-from src.modules.save_load_handlers.data_handle import write_other_data_to_file
-
 from src.action_robot_controller import detach_robot_sample_distance, detach_robot_sample_image, \
     detach_robot_teleport_relative, \
     detach_robot_rotate_absolute, detach_robot_rotate_relative, detach_robot_teleport_absolute, \
@@ -18,18 +17,9 @@ import torch.optim as optim
 import numpy as np
 from src.modules.save_load_handlers.ai_models_handle import save_ai, save_ai_manually, load_latest_ai, \
     load_manually_saved_ai, load_custom_ai, load_other_ai
-from src.modules.save_load_handlers.parameters import *
-from src.ai.runtime_data_storage.storage_superset2 import StorageSuperset2, direction_thetas_to_radians, \
-    direction_to_degrees_atan, angle_percent_to_thetas_normalized_cached, degrees_to_percent
-from src.ai.runtime_data_storage import Storage
-from typing import List, Dict, Union
-from src.utils import array_to_tensor
-
-from src.modules.policies.data_collection import get_position, get_angle
 from src.modules.policies.testing_image_data import test_images_accuracy, process_webots_image_to_embedding, \
     squeeze_out_resnet_output
 from src.modules.policies.utils_lib import webots_radians_to_normal, radians_to_degrees
-
 import torch
 import torchvision.models as models
 import torchvision.transforms as transforms

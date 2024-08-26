@@ -3,20 +3,16 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 import numpy as np
-from src.ai.runtime_data_storage.storage_superset2 import StorageSuperset2, RawConnectionData, calculate_coords_distance
+from src.ai.runtime_data_storage.storage_superset2 import StorageSuperset2, RawConnectionData
 from src.ai.variants.exploration.params import DISTANCE_THETAS_SIZE, MAX_DISTANCE, ROTATIONS, \
     THRESHOLD_IMAGE_DISTANCE_NETWORK, THRESHOLD_IMAGE_RAW_DISTANCE_NETWORK
-from src.ai.variants.exploration.utils_pure_functions import sample_n_elements
+from src.ai.variants.exploration.utils_pure_functions import sample_n_elements, calculate_coords_distance
 
 from src.modules.time_profiler import start_profiler, profiler_checkpoint
 from src.utils import array_to_tensor, get_device
 from typing import List
 import torch.nn.functional as F
 from src.modules.pretty_display import pretty_display, pretty_display_set, pretty_display_start, pretty_display_reset
-from src.ai.runtime_data_storage.storage_superset2 import direction_thetas_to_radians, \
-    angle_percent_to_thetas_normalized_cached, \
-    radians_to_degrees, atan2_to_standard_radians, radians_to_percent, coordinate_pair_to_radians_cursed_tranform, \
-    direction_to_degrees_atan, distance_percent_to_distance_thetas, distance_thetas_to_distance_percent
 from src.ai.variants.blocks import ResidualBlockSmallBatchNorm
 
 

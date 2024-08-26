@@ -108,8 +108,8 @@ class Storage:
     def get_all_connections_only_datapoints_authenticity_filter(self, authentic_distance: bool = False,
                                                                 authentic_direction: bool = False) -> List[
         RawConnectionData]:
-        if self._cache_only_datapoints_connections != None:
-            return self._cache_only_datapoints_connections
+        # if self._cache_only_datapoints_connections != None:
+        #     return self._cache_only_datapoints_connections
 
         returned_connections = []
         for connection in self.raw_connections_data:
@@ -126,7 +126,7 @@ class Storage:
 
             returned_connections.append(connection)
 
-        self._cache_only_datapoints_connections = returned_connections
+        # self._cache_only_datapoints_connections = returned_connections
         return returned_connections
 
     def get_all_connections_only_datapoints(self) -> List[RawConnectionData]:
@@ -464,7 +464,7 @@ class Storage:
 
         return 0
 
-    def get_datapoint_adjacent_connections_all(self, datapoint_name: str) -> List[RawConnectionData]:
+    def get_datapoint_adjacent_connections_direction_filled(self, datapoint_name: str) -> List[RawConnectionData]:
         """
         Returns the adjacent connections of a datapoint ( the connections that start or end with the datapoint )
         """
@@ -490,6 +490,71 @@ class Storage:
                 if direction != None:
                     direction[0] = -direction[0]
                     direction[1] = -direction[1]
+
+                aux = connection_copy["start"]
+                connection_copy["start"] = connection_copy["end"]
+                connection_copy["end"] = aux
+                connection_copy["direction"] = direction
+
+                found_connections.append(connection_copy)
+
+        # self._connection_cache[datapoint_name] = found_connections
+        return found_connections
+
+    def get_datapoint_adjacent_connections(self, datapoint_name: str) -> List[RawConnectionData]:
+        """
+        Returns the adjacent connections of a datapoint ( the connections that start or end with the datapoint )
+        """
+        found_connections = []
+        connections_data = self.get_all_connections_only_datapoints()
+
+        for connection in connections_data:
+            connection_copy = connection.copy()
+            start = connection_copy["start"]
+            end = connection_copy["end"]
+
+            if start == datapoint_name:
+                found_connections.append(connection_copy)
+
+            if end == datapoint_name:
+                # swap them
+                direction = connection_copy["direction"].copy()
+                direction[0] = -direction[0]
+                direction[1] = -direction[1]
+
+                aux = connection_copy["start"]
+                connection_copy["start"] = connection_copy["end"]
+                connection_copy["end"] = aux
+                connection_copy["direction"] = direction
+
+                found_connections.append(connection_copy)
+
+        return found_connections
+
+    def get_datapoint_adjacent_connections_non_null(self, datapoint_name: str) -> List[RawConnectionData]:
+        """
+        Returns the adjacent connections of a datapoint ( the connections that start or end with the datapoint )
+        """
+        found_connections = []
+        connections_data = self.get_all_connections_only_datapoints()
+        # if datapoint_name in self._connection_cache:
+        #     return self._connection_cache[datapoint_name]
+
+        for connection in connections_data:
+            connection_copy = connection.copy()
+            start = connection_copy["start"]
+            end = connection_copy["end"]
+
+            if start == None or end == None:
+                continue
+
+            if start == datapoint_name:
+                found_connections.append(connection_copy)
+            if end == datapoint_name:
+                direction = connection_copy["direction"].copy()
+                # swap them
+                direction[0] = -direction[0]
+                direction[1] = -direction[1]
 
                 aux = connection_copy["start"]
                 connection_copy["start"] = connection_copy["end"]

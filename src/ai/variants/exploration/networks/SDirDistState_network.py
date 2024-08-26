@@ -3,20 +3,17 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 import numpy as np
-from src.ai.runtime_data_storage.storage_superset2 import StorageSuperset2, RawConnectionData, \
-    distance_percent_to_distance_thetas
+from src.ai.runtime_data_storage.storage_superset2 import StorageSuperset2, RawConnectionData
 from src.ai.variants.exploration.networks.abstract_base_autoencoder_model import BaseAutoencoderModel
 from src.ai.variants.exploration.params import MANIFOLD_SIZE, DIRECTION_THETAS_SIZE, DISTANCE_THETAS_SIZE, MAX_DISTANCE, \
     THRESHOLD_SDIRDISTSTATE_NETWORK
+from src.ai.variants.exploration.utils_pure_functions import degrees_to_percent, direction_to_degrees_atan, \
+    angle_percent_to_thetas_normalized_cached, distance_percent_to_distance_thetas
 from src.modules.save_load_handlers.ai_models_handle import load_manually_saved_ai, save_ai_manually, load_custom_ai, \
     load_other_ai
 from src.utils import array_to_tensor, get_device
 from typing import List
 from src.modules.pretty_display import pretty_display, pretty_display_set, pretty_display_start, pretty_display_reset
-from src.ai.runtime_data_storage.storage_superset2 import direction_thetas_to_radians, \
-    angle_percent_to_thetas_normalized_cached, \
-    radians_to_degrees, atan2_to_standard_radians, radians_to_percent, coordinate_pair_to_radians_cursed_tranform, \
-    direction_to_degrees_atan, degrees_to_percent, normalize_direction
 from src.ai.variants.blocks import ResidualBlockSmallBatchNorm
 
 

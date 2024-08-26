@@ -27,3 +27,8 @@ THRESHOLD_MANIFOLD_PERMUTATION_LOSS = 0.030
 
 THRESHOLD_SSDIR_NETWORK = 0.020
 THRESHOLD_SDIRDISTSTATE_NETWORK = 0.005
+
+# OTHER PARAMS
+# removes connections from the same datapoint which are too aligned
+# removes up to 90% of the connections
+REDUNDANCY_CONNECTION_ANGLE = 5

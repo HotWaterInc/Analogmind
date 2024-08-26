@@ -611,10 +611,10 @@ def visualize_connections_distances(connections):
 
 
 if __name__ == "__main__":
-    # connections = get_manifold_datapoint_distances()
-    # visualize_connections_distances(connections)
+    connections = get_manifold_datapoint_distances()
+    visualize_connections_distances(connections)
 
-    datapoints = get_reconstructions_seen_network()
-    visualize_datapoints_reconstructions(datapoints)
+    # datapoints = get_reconstructions_seen_network()
+    # visualize_datapoints_reconstructions(datapoints)
 
     pass

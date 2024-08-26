@@ -1,7 +1,8 @@
 import copy
 from typing import Generator
 
-from src.ai.variants.exploration.data_filtering import data_filtering_redundant_connections
+from src.ai.variants.exploration.data_filtering import data_filtering_redundant_connections, \
+    data_filtering_redundant_datapoints
 from src.ai.variants.exploration.inferences import fill_augmented_connections_distances, \
     fill_augmented_connections_distances_cheating, fill_augmented_connections_directions_cheating
 from src.ai.variants.exploration.metric_builders import build_find_adjacency_heursitic_raw_data, \
@@ -20,7 +21,7 @@ from src.ai.variants.exploration.params import STEP_DISTANCE, ROTATIONS
 from src.ai.variants.exploration.temporary import augment_data_testing_network_distance
 from src.ai.variants.exploration.utils import get_collected_data_image, get_collected_data_distances, \
     check_direction_distance_validity_north, storage_to_manifold
-from src.ai.variants.exploration.utils_pure_functions import get_direction_between_datapoints
+from src.ai.variants.exploration.utils_pure_functions import get_direction_between_datapoints, flag_data_authenticity
 from src.modules.save_load_handlers.ai_models_handle import save_ai_manually
 from src.modules.save_load_handlers.data_handle import write_other_data_to_file
 from src.action_robot_controller import detach_robot_sample_distance, detach_robot_teleport_relative, \
@@ -350,7 +351,7 @@ def augment_data_network_heuristic(storage: StorageSuperset2, random_walk_datapo
     return new_connections
 
 
-def exploration_policy_autonomous_exhaustive_exploration(step: int):
+def exploration_policy_autonomous_data_filtering(step: int):
     global storage_raw, first_walk
 
     random_walk_datapoints = []
@@ -382,6 +383,7 @@ def exploration_policy_autonomous_exhaustive_exploration(step: int):
 
     print("DATA PURGING")
     data_filtering_redundant_connections(storage_raw)
+    data_filtering_redundant_datapoints(storage_raw)
     storage_raw.build_non_adjacent_distances_from_connections(debug=True)
 
 
@@ -500,7 +502,7 @@ def exploration_policy_autonomous() -> Generator[None, None, None]:
         step += 1
 
         # yield from exploration_policy_autonomous_step(step, train_networks=False)
-        exploration_policy_autonomous_exhaustive_exploration(step)
+        exploration_policy_autonomous_data_filtering(step)
 
         break
 

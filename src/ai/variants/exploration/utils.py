@@ -1,8 +1,11 @@
 from src.ai.variants.exploration.networks.abstract_base_autoencoder_model import BaseAutoencoderModel
+from src.ai.variants.exploration.params import DIRECTION_THETAS_SIZE
+from src.ai.variants.exploration.utils_pure_functions import direction_to_degrees_atan, degrees_to_percent, \
+    angle_percent_to_thetas_normalized_cached, direction_thetas_to_radians
 from src.modules.policies.testing_image_data import process_webots_image_to_embedding, \
     squeeze_out_resnet_output
-
 from src.ai.runtime_data_storage.storage_superset2 import StorageSuperset2
+
 import torch
 import numpy as np
 import math
@@ -155,3 +158,26 @@ def storage_to_manifold(storage: StorageSuperset2, manifold_network: BaseAutoenc
 
     storage.set_transformation(manifold_network)
     storage.build_permuted_data_raw_abstraction_autoencoder_manifold()
+
+
+def check_datapoint_connections_completeness(storage: StorageSuperset2, datapoint_name: str):
+    direction_thetas_accumulated = np.zeros(DIRECTION_THETAS_SIZE)
+    connections = storage.get_datapoint_adjacent_connections_direction_filled(datapoint_name)
+
+    for connection in connections:
+        direction = connection["direction"]
+        degrees = direction_to_degrees_atan(direction)
+        angle_percent = degrees_to_percent(degrees)
+        dir_thetas = angle_percent_to_thetas_normalized_cached(angle_percent, DIRECTION_THETAS_SIZE)
+
+        np.add(direction_thetas_accumulated, dir_thetas, out=direction_thetas_accumulated)
+
+    has_zeros = False
+    for theta in direction_thetas_accumulated:
+        if theta == 0:
+            has_zeros = True
+            break
+
+    connection_completeness = not has_zeros and len(connections) >= 5
+
+    return connection_completeness

@@ -5,268 +5,13 @@ import warnings
 from .storage_superset import *
 from .storage import *
 from typing import List
-from src.ai.data_processing.ai_data_processing import normalize_data_min_max_super
-
 import math
-from scipy.stats import norm
-
 from ..variants.exploration.algorithms import build_connections_hashmap, floyd_warshall_algorithm, \
     find_minimum_distance_between_datapoints_on_graph_bfs, find_minimum_distance_between_datapoints_on_graph_djakstra
 from ..variants.exploration.params import ROTATIONS
 from ..variants.exploration.utils_pure_functions import get_real_distance_between_datapoints
 from ...modules.time_profiler import start_profiler, profiler_checkpoint
-
 from ...utils import get_device
-
-
-def normalize_direction(direction):
-    direction = torch.tensor(direction, dtype=torch.float32, device=get_device())
-    l2_direction = torch.norm(direction, p=2, dim=0, keepdim=True)
-    direction = direction / l2_direction
-    return direction
-
-
-def calculate_coords_distance(coords1, coords2):
-    return math.sqrt((coords1[0] - coords2[0]) ** 2 + (coords1[1] - coords2[1]) ** 2)
-
-
-def get_markings(distance_authenticity: bool, direction_authenticity: bool):
-    distance_authenticity_str = "authentic" if distance_authenticity else "synthetic"
-    direction_authenticity_str = "authentic" if direction_authenticity else "synthetic"
-
-    markings = {
-        "direction": direction_authenticity_str,
-        "distance": distance_authenticity_str
-    }
-
-    return markings
-
-
-def generate_connection(start, end, distance, direction, distance_authenticity,
-                        direction_authenticity):
-    markings = get_markings(distance_authenticity, direction_authenticity)
-    connection = {
-        "start": start,
-        "end": end,
-        "distance": distance,
-        "direction": direction,
-        "markings": markings
-    }
-
-    return connection
-
-
-def flag_data_authenticity(new_connections):
-    """
-    Flags whether data is synthetically generated or authentic
-    """
-    marked_connections = []
-    for connection in new_connections:
-        start = connection["start"]
-        end = connection["end"]
-        direction = connection["direction"]
-        distance = connection["distance"]
-        markings = {
-            "direction": "authentic",
-            "distance": "authentic"
-        }
-        if direction is None:
-            markings["direction"] = "synthetic"
-        if distance is None:
-            markings["distance"] = "synthetic"
-
-        connection["markings"] = markings
-        marked_connections.append(connection)
-
-    return marked_connections
-
-
-def direction_to_degrees_atan(direction):
-    y = direction[1]
-    x = direction[0]
-
-    # Calculate the angle in radians using atan2
-    angle_rad = math.atan2(x, y)
-
-    # Convert radians to degrees
-    angle_deg = math.degrees(angle_rad)
-
-    # Normalize the angle to be between 0 and 360 degrees
-    normalized_angle = (angle_deg + 360) % 360
-    # account for weird representation
-    normalized_angle = (360 - angle_deg) % 360
-
-    return normalized_angle
-
-
-def radians_to_degrees(radians):
-    return radians * 180 / np.pi
-
-
-def atan2_to_standard_radians(atan2):
-    if atan2 < 0:
-        atan2 = atan2 + 2 * np.pi
-
-    atan2 = 2 * np.pi - atan2
-    return atan2
-
-
-def degrees_to_percent(angle_degrees):
-    return angle_degrees / 360
-
-
-def coordinate_pair_to_radians_cursed_tranform(x_component, y_component):
-    """
-    wizard magic
-
-    In webots we measure angle counter clockwise from 0 to 2pi
-    Only positive range can be transformed easily in percents
-    counter clockwise because of some webots weird behavior when setting the rotation
-
-    So [0,1] is 0 degrees
-    [-1,0] is 90 degrees
-    [0,-1] is 180 degrees
-    [1,0] is 270 degrees
-
-    You can infer the rest
-    """
-    # atan2 = math.atan2(y_component, x_component)
-    atan2_inversed = math.atan2(x_component, y_component)
-    radians_only_positive = atan2_to_standard_radians(atan2_inversed)
-    return radians_only_positive
-
-
-def radians_to_percent(radians):
-    return radians / (2 * np.pi)
-
-
-_cache_distances = {}
-
-
-def distance_thetas_to_distance_percent(thetas):
-    length = len(thetas)
-    step = 1 / length
-    distance_result = 0
-    for i in range(length):
-        distance = i * step
-        distance_result += distance * thetas[i]
-
-    # the thetas arr should already be normalized but just in case
-    l1_norm = torch.norm(thetas, p=1)
-    distance_result /= l1_norm
-
-    return distance_result
-
-
-def distance_percent_to_distance_thetas(true_theta_percent, thetas_length):
-    thetas = torch.zeros(thetas_length)
-    if true_theta_percent >= 1:
-        true_theta_percent = 0.99
-
-    true_theta_index = true_theta_percent * thetas_length
-    if true_theta_index in _cache_distances:
-        return _cache_distances[true_theta_index]
-
-    integer_index_left = int(true_theta_index)
-    integer_index_right = integer_index_left + 1
-
-    FILL_DISTANCE = 3
-    SD = 1
-    for i in range(FILL_DISTANCE):
-        left_index = integer_index_left - i
-        right_index = integer_index_right + i
-
-        if left_index > 0:
-            pdf_value = norm.pdf(left_index, loc=true_theta_index, scale=SD)
-            thetas[left_index] = pdf_value
-
-        if right_index < len(thetas):
-            pdf_value = norm.pdf(right_index, loc=true_theta_index, scale=SD)
-            thetas[right_index] = pdf_value
-
-    l1_norm = torch.norm(thetas, p=1)
-    thetas /= l1_norm
-    _cache_distances[true_theta_index] = thetas
-    return thetas
-
-
-_cache_thetas = {}
-
-
-def angle_radians_to_percent(angle_radians):
-    return angle_radians / (2 * np.pi)
-
-
-def angle_percent_to_thetas_normalized_cached(true_theta_percent, thetas_length):
-    thetas = torch.zeros(thetas_length)
-    if true_theta_percent == 1:
-        true_theta_percent = 0
-
-    if true_theta_percent in _cache_thetas:
-        return _cache_thetas[true_theta_percent]
-
-    true_theta_index = true_theta_percent * thetas_length
-    integer_index_left = int(true_theta_index)
-    integer_index_right = integer_index_left + 1
-
-    FILL_DISTANCE = 5
-    SD = 1.5
-    for i in range(FILL_DISTANCE):
-        left_index = integer_index_left - i
-        right_index = integer_index_right + i
-
-        pdf_value = norm.pdf(left_index, loc=true_theta_index, scale=SD)
-        if left_index < 0:
-            left_index = len(thetas) + left_index
-
-        thetas[left_index] = pdf_value
-
-        pdf_value = norm.pdf(right_index, loc=true_theta_index, scale=SD)
-        if right_index >= len(thetas):
-            right_index = right_index - len(thetas)
-        thetas[right_index] = pdf_value
-
-    l1_norm = torch.norm(thetas, p=1)
-    thetas /= l1_norm
-
-    _cache_thetas[true_theta_percent] = thetas
-    return thetas
-
-
-def deg_to_rad(degrees):
-    return degrees * math.pi / 180
-
-
-def direction_thetas_to_radians(thetas):
-    # theta is cos x + i sin x
-    lng = len(thetas)
-    step = 360 / lng
-    real_arr = []
-    imag_arr = []
-    for i in range(lng):
-        degree = i * step
-        radians = deg_to_rad(degree)
-
-        real = math.cos(radians)
-        imag = math.sin(radians)
-
-        real_arr.append(real)
-        imag_arr.append(imag)
-
-    real_sum = 0
-    imag_sum = 0
-    for i in range(lng):
-        real_sum += real_arr[i] * thetas[i]
-        imag_sum += imag_arr[i] * thetas[i]
-
-    real_sum /= lng
-    imag_sum /= lng
-
-    angle = math.atan2(imag_sum, real_sum)
-    if angle < 0:
-        angle += 2 * math.pi
-
-    return angle
 
 
 class StorageSuperset2(StorageSuperset):
@@ -716,6 +461,8 @@ class StorageSuperset2(StorageSuperset):
         array = []
         total_error = 0
         total_error_samples = 0
+        print("DATAPOINTS LENGTH")
+        print(length)
 
         for start in range(length):
             for end in range(start + 1, length):
@@ -726,12 +473,12 @@ class StorageSuperset2(StorageSuperset):
                 array.append(adjacency_sample)
                 # additional checks
                 if debug and random.randint(0, 100) == 0:
-                    print(f"Floyd warshall Distance between {start_name} and {end_name} is {distance}")
+                    # print(f"Floyd warshall Distance between {start_name} and {end_name} is {distance}")
                     distance_found = find_minimum_distance_between_datapoints_on_graph_djakstra(start_name, end_name,
                                                                                                 connection_hashmap)
-                    print("Alternative distance", distance_found)
+                    # print("Alternative distance", distance_found)
                     real_distance = self.get_datapoints_real_distance(start_name, end_name)
-                    print("Real distance", real_distance)
+                    # print("Real distance", real_distance)
                     total_error += (distance - real_distance) ** 2
                     total_error_samples += 1
 
@@ -756,3 +503,19 @@ class StorageSuperset2(StorageSuperset):
 
         sampled_connections = np.random.choice(self._non_adjacent_numpy_array, sample_size, replace=False)
         return sampled_connections
+
+    def remove_datapoint(self, name: str):
+        """
+        Removes a datapoint by its name
+        """
+        associated_connections = []
+        associated_connections = self.get_datapoint_adjacent_connections(name)
+        for connection in associated_connections:
+            self.remove_connection(connection["start"], connection["end"])
+
+        for idx, datapoint in enumerate(self.raw_env_data):
+            if datapoint["name"] == name:
+                self.raw_env_data.pop(idx)
+                break
+
+        self._convert_raw_data_to_map()

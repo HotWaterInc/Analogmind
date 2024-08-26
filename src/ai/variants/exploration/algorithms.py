@@ -6,6 +6,7 @@ from src.modules.pretty_display import pretty_display_set_and_start, pretty_disp
 def build_connections_hashmap(connections_only_datapoints, exclude_datapoints: List[str]):
     connections = connections_only_datapoints
     connections_hashmap = {}
+    connections_hashmap_names = {}
 
     def build_connection(start: str, end: str, distance: float) -> Dict[str, any]:
         return {
@@ -22,15 +23,20 @@ def build_connections_hashmap(connections_only_datapoints, exclude_datapoints: L
         if start in exclude_datapoints or end in exclude_datapoints:
             continue
 
-        if start not in connections_hashmap:
+        if start not in connections_hashmap_names:
             connections_hashmap[start] = []
-        if end not in connections_hashmap:
-            connections_hashmap[end] = []
+            connections_hashmap_names[start] = []
 
-        if end not in connections_hashmap[start]:
+        if end not in connections_hashmap_names:
+            connections_hashmap[end] = []
+            connections_hashmap_names[end] = []
+
+        if end not in connections_hashmap_names[start]:
             connections_hashmap[start].append(build_connection(start, end, distance))
-        if start not in connections_hashmap[end]:
+            connections_hashmap_names[start].append(end)
+        if start not in connections_hashmap_names[end]:
             connections_hashmap[end].append(build_connection(end, start, distance))
+            connections_hashmap_names[end].append(start)
 
     return connections_hashmap
 
