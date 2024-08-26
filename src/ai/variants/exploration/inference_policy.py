@@ -291,13 +291,6 @@ def final_angle_policy_abn(current_embedding, angle_percent, target_i, target_j)
     return final_angle
 
 
-def generate_dxdy(direction, distance):
-    dx = -distance * math.sin(direction)
-    dy = distance * math.cos(direction)
-
-    return dx, dy
-
-
 def teleportation_exploring_inference(models_folder: str, manifold_encoder_name: str, SSD_name: str,
                                       SDirDistS_name: str,
                                       storage_arg: StorageSuperset2) -> \

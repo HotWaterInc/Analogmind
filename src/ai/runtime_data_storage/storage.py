@@ -464,28 +464,39 @@ class Storage:
 
         return 0
 
+    def get_datapoint_adjacent_connections_null_connections(self, datapoint_name: str) -> List[RawConnectionData]:
+        """
+        Returns the adjacent connections of a datapoint ( the connections that start or end with the datapoint )
+        """
+        found_connections = []
+        connections_data = self.get_all_connections_data()
+
+        for connection in connections_data:
+            connection_copy = connection.copy()
+            start = connection_copy["start"]
+            end = connection_copy["end"]
+            if start == datapoint_name and end == None:
+                found_connections.append(connection_copy)
+
+        return found_connections
+
     def get_datapoint_adjacent_connections_direction_filled(self, datapoint_name: str) -> List[RawConnectionData]:
         """
         Returns the adjacent connections of a datapoint ( the connections that start or end with the datapoint )
         """
         found_connections = []
         connections_data = self.get_all_connections_only_datapoints()
-        # if datapoint_name in self._connection_cache:
-        #     return self._connection_cache[datapoint_name]
 
         for connection in connections_data:
             connection_copy = connection.copy()
             start = connection_copy["start"]
             end = connection_copy["end"]
 
-            direction = None
-            if connection_copy["direction"] != None:
-                direction = connection_copy["direction"].copy()
-
             if start == datapoint_name:
                 found_connections.append(connection_copy)
 
             if end == datapoint_name:
+                direction = connection_copy["direction"].copy()
                 # swap them
                 if direction != None:
                     direction[0] = -direction[0]
@@ -498,7 +509,6 @@ class Storage:
 
                 found_connections.append(connection_copy)
 
-        # self._connection_cache[datapoint_name] = found_connections
         return found_connections
 
     def get_datapoint_adjacent_connections(self, datapoint_name: str) -> List[RawConnectionData]:

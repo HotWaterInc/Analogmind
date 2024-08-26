@@ -285,3 +285,24 @@ def direction_thetas_to_radians(thetas):
         angle += 2 * math.pi
 
     return angle
+
+
+def find_thetas_null_indexes(thetas):
+    null_indexes = []
+    for i in range(len(thetas)):
+        if thetas[i] < 1e-5:
+            null_indexes.append(i)
+
+    return null_indexes
+
+
+def get_angle_percent_from_thetas_index(index, thetas_length):
+    return index / thetas_length
+
+
+def generate_dxdy(direction: float, distance):
+    # direction in radians
+    dx = -distance * math.sin(direction)
+    dy = distance * math.cos(direction)
+
+    return dx, dy

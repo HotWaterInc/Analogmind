@@ -1,7 +1,8 @@
 from src.ai.variants.exploration.networks.abstract_base_autoencoder_model import BaseAutoencoderModel
-from src.ai.variants.exploration.params import DIRECTION_THETAS_SIZE
+from src.ai.variants.exploration.params import DIRECTION_THETAS_SIZE, STEP_DISTANCE
 from src.ai.variants.exploration.utils_pure_functions import direction_to_degrees_atan, degrees_to_percent, \
-    angle_percent_to_thetas_normalized_cached, direction_thetas_to_radians
+    angle_percent_to_thetas_normalized_cached, direction_thetas_to_radians, find_thetas_null_indexes, \
+    get_angle_percent_from_thetas_index, generate_dxdy
 from src.modules.policies.testing_image_data import process_webots_image_to_embedding, \
     squeeze_out_resnet_output
 from src.ai.runtime_data_storage.storage_superset2 import StorageSuperset2
@@ -181,3 +182,48 @@ def check_datapoint_connections_completeness(storage: StorageSuperset2, datapoin
     connection_completeness = not has_zeros and len(connections) >= 5
 
     return connection_completeness
+
+
+def find_frontier_datapoint_and_direction(storage: StorageSuperset2, current_datapoint_name):
+    """
+    Finds empty connections gaps and goes there to explore, starting from the current datapoint
+    If no gaps are found it means the entire map was explored
+    """
+
+    queue = [current_datapoint_name]
+    visited = set()
+    visited.add(current_datapoint_name)
+
+    while queue:
+        current_datapoint_name = queue.pop(0)
+        connections = storage.get_datapoint_adjacent_connections_direction_filled(current_datapoint_name)
+        connections_null = storage.get_datapoint_adjacent_connections_null_connections(current_datapoint_name)
+
+        accumulated_thetas = np.zeros(DIRECTION_THETAS_SIZE)
+
+        for null_connection in connections_null:
+            direction = null_connection["direction"]
+            degrees = direction_to_degrees_atan(direction)
+            angle_percent = degrees_to_percent(degrees)
+            dir_thetas = angle_percent_to_thetas_normalized_cached(angle_percent, DIRECTION_THETAS_SIZE)
+            np.add(accumulated_thetas, dir_thetas, out=accumulated_thetas)
+
+        for connection in connections:
+            direction = connection["direction"]
+            degrees = direction_to_degrees_atan(direction)
+            angle_percent = degrees_to_percent(degrees)
+            dir_thetas = angle_percent_to_thetas_normalized_cached(angle_percent, DIRECTION_THETAS_SIZE)
+            np.add(accumulated_thetas, dir_thetas, out=accumulated_thetas)
+
+            next_datapoint_name = connection["end"]
+            if next_datapoint_name not in visited and next_datapoint_name is not None:
+                visited.add(next_datapoint_name)
+                queue.append(next_datapoint_name)
+
+        null_thetas = find_thetas_null_indexes(accumulated_thetas)
+        if len(null_thetas) > 0:
+            direction_percent = get_angle_percent_from_thetas_index(null_thetas[0], DIRECTION_THETAS_SIZE)
+            direction = generate_dxdy(direction_percent, STEP_DISTANCE * 1.5)
+            return current_datapoint_name, direction
+
+    return None, None

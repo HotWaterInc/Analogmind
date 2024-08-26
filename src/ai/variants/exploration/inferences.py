@@ -1,12 +1,12 @@
 import random
 import torch
 from src.ai.runtime_data_storage.storage_superset2 import StorageSuperset2
-from src.ai.variants.exploration.inference_policy import generate_dxdy
 from src.ai.variants.exploration.networks.images_raw_distance_predictor import ImagesRawDistancePredictor
 from src.ai.variants.exploration.others.neighborhood_network import NeighborhoodDistanceNetwork
 from typing import List
 from src.ai.variants.exploration.params import ROTATIONS
-from src.ai.variants.exploration.utils_pure_functions import generate_connection, direction_thetas_to_radians
+from src.ai.variants.exploration.utils_pure_functions import generate_connection, direction_thetas_to_radians, \
+    generate_dxdy
 from src.utils import get_device
 from torch import nn
 

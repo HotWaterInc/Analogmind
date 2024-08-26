@@ -149,7 +149,7 @@ def evaluate_distance_metric_on_already_found_connections(storage: StorageSupers
     # print("False positive distances", false_positive_distances)
 
 
-def evaluate_distance_metric(storage: StorageSuperset2, metric, new_datapoints: List[str]
+def evaluate_distance_metric(storage: StorageSuperset2, metric, new_datapoints: List[str], debug: bool = False
                              ):
     """
     Evaluate new datapoints and old datapoints with the distance metric
@@ -199,15 +199,16 @@ def evaluate_distance_metric(storage: StorageSuperset2, metric, new_datapoints: 
                 real_distance = storage.get_datapoints_real_distance(new_datapoint["name"], founddp)
                 false_positive_distances.append(real_distance)
 
-    print("")
-    print("True positive", true_positive)
-    print("True positive distant", true_positives_distant)
-    if len(true_found_datapoints) == 0:
-        print("No true found datapoints")
-    else:
-        print("Percent of true positive of actual positives", true_positive / len(true_found_datapoints))
-    print("Really bad false positive", really_bad_false_positive)
-    print("")
+    if debug:
+        print("")
+        print("True positive", true_positive)
+        print("True positive distant", true_positives_distant)
+        if len(true_found_datapoints) == 0:
+            print("No true found datapoints")
+        else:
+            print("Percent of true positive of actual positives", true_positive / len(true_found_datapoints))
+        print("Really bad false positive", really_bad_false_positive)
+        print("")
 
     return new_connections_pairs
 

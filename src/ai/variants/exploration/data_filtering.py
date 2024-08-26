@@ -7,6 +7,7 @@ from src.ai.variants.exploration.metric_builders import build_find_adjacency_heu
 from src.ai.variants.exploration.params import REDUNDANCY_CONNECTION_ANGLE
 from src.ai.variants.exploration.utils import check_datapoint_connections_completeness
 from src.ai.variants.exploration.utils_pure_functions import direction_to_degrees_atan
+from src.modules.pretty_display import pretty_display_set_and_start, pretty_display
 from src.utils import get_device
 
 
@@ -45,21 +46,20 @@ def filtering_redundancy_djakstra_based(storage: StorageSuperset2, datapoints: L
     count_not_redundant = 0
     total = 0
 
+    pretty_display_set_and_start(len(datapoints))
     for idx, datapoint in enumerate(datapoints):
+        pretty_display(idx)
         is_connection_complete = check_datapoint_connections_completeness(storage, datapoint)
         is_redundant = False
         if not is_connection_complete:
-            print("Datapoint", datapoint, "is not connected completely")
+            pass
         else:
             is_redundant = filtering_metric_djakstra(storage, datapoint)
         total += 1
 
-        print("Processing", idx, "out of", len(datapoints))
-
         if is_redundant:
             count_redundant += 1
             storage.remove_datapoint(datapoint)
-            print("Removing redundant datapoint")
         else:
             count_not_redundant += 1
 

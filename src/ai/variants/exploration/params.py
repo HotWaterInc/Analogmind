@@ -9,6 +9,7 @@ STEP_DISTANCE = 0.25
 
 # number of sampled rotations for each datapoint ( at roughly equal intervals )
 ROTATIONS = 24
+# ROTATIONS = 1
 # how many rotations are taken into account for each datapoint ( so how many cameras shot at once )
 ROTATIONS_PER_FULL = 1
 # how many offsets are included in the training of the abstraction block
@@ -30,5 +31,6 @@ THRESHOLD_SDIRDISTSTATE_NETWORK = 0.005
 
 # OTHER PARAMS
 # removes connections from the same datapoint which are too aligned
-# removes up to 90% of the connections
+
+# removes up to 80% of the connections without significant loss in the structure of the topological graph
 REDUNDANCY_CONNECTION_ANGLE = 5

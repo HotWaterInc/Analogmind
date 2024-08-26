@@ -8,8 +8,8 @@ from typing import List
 import math
 from ..variants.exploration.algorithms import build_connections_hashmap, floyd_warshall_algorithm, \
     find_minimum_distance_between_datapoints_on_graph_bfs, find_minimum_distance_between_datapoints_on_graph_djakstra
-from ..variants.exploration.params import ROTATIONS
-from ..variants.exploration.utils_pure_functions import get_real_distance_between_datapoints
+from ..variants.exploration.params import ROTATIONS, STEP_DISTANCE
+from ..variants.exploration.utils_pure_functions import get_real_distance_between_datapoints, calculate_coords_distance
 from ...modules.time_profiler import start_profiler, profiler_checkpoint
 from ...utils import get_device
 
@@ -443,16 +443,20 @@ class StorageSuperset2(StorageSuperset):
         """
         Builds the numpy array for non-adjacent data
         """
-        print("STARTED BUILDING NON ADJCENT FLOYD CONNECTIONS")
-        print("TOTAL CONNECTIONS WITH NULLITY", len(self.get_all_connections_data()))
-        print("TOTAL CONNECTIONS", len(self.get_all_connections_only_datapoints()))
+        if debug:
+            print("STARTED BUILDING NON ADJCENT FLOYD CONNECTIONS")
+            print("TOTAL CONNECTIONS WITH NULLITY", len(self.get_all_connections_data()))
+            print("TOTAL CONNECTIONS", len(self.get_all_connections_only_datapoints()))
         connections_only_datapoints = self.get_all_connections_only_datapoints_authenticity_filter()
 
-        print("FLOYD CONNECTIONS", len(connections_only_datapoints))
+        if debug:
+            print("FLOYD CONNECTIONS", len(connections_only_datapoints))
         connection_hashmap = build_connections_hashmap(connections_only_datapoints, [])
         distances = floyd_warshall_algorithm(connection_hashmap)
-        print("")
-        print("FINISHED WARSHALL")
+        if debug:
+            print("")
+            print("FINISHED WARSHALL")
+
         self._non_adjacent_distances = distances
 
         # iterates all datapoints
@@ -461,8 +465,6 @@ class StorageSuperset2(StorageSuperset):
         array = []
         total_error = 0
         total_error_samples = 0
-        print("DATAPOINTS LENGTH")
-        print(length)
 
         for start in range(length):
             for end in range(start + 1, length):
@@ -472,7 +474,7 @@ class StorageSuperset2(StorageSuperset):
                 adjacency_sample = AdjacencyDataSample(start=start_name, end=end_name, distance=distance)
                 array.append(adjacency_sample)
                 # additional checks
-                if debug and random.randint(0, 100) == 0:
+                if debug and random.randint(0, int(length * length / 100)) == 0:
                     # print(f"Floyd warshall Distance between {start_name} and {end_name} is {distance}")
                     distance_found = find_minimum_distance_between_datapoints_on_graph_djakstra(start_name, end_name,
                                                                                                 connection_hashmap)
@@ -482,7 +484,7 @@ class StorageSuperset2(StorageSuperset):
                     total_error += (distance - real_distance) ** 2
                     total_error_samples += 1
 
-        if debug:
+        if debug and total_error_samples > 0:
             print("Average error", total_error / total_error_samples)
             print("Total error samples", total_error_samples)
 
@@ -519,3 +521,15 @@ class StorageSuperset2(StorageSuperset):
                 break
 
         self._convert_raw_data_to_map()
+
+    def check_position_is_known_cheating(self, current_coords):
+        """
+        Returns if the position is known
+        """
+        datapoints = self.get_all_datapoints()
+        for datapoint in datapoints:
+            coords = self.get_datapoint_metadata_coords(datapoint)
+            if calculate_coords_distance(coords, current_coords) < STEP_DISTANCE * 1.5:
+                return True
+
+        return False

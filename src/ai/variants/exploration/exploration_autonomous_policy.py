@@ -1,6 +1,5 @@
 import copy
 from typing import Generator
-
 from src.ai.variants.exploration.data_filtering import data_filtering_redundant_connections, \
     data_filtering_redundant_datapoints
 from src.ai.variants.exploration.inferences import fill_augmented_connections_distances, \
@@ -20,8 +19,9 @@ from src.ai.variants.exploration.others.neighborhood_network import Neighborhood
 from src.ai.variants.exploration.params import STEP_DISTANCE, ROTATIONS
 from src.ai.variants.exploration.temporary import augment_data_testing_network_distance
 from src.ai.variants.exploration.utils import get_collected_data_image, get_collected_data_distances, \
-    check_direction_distance_validity_north, storage_to_manifold
-from src.ai.variants.exploration.utils_pure_functions import get_direction_between_datapoints, flag_data_authenticity
+    check_direction_distance_validity_north, storage_to_manifold, find_frontier_datapoint_and_direction
+from src.ai.variants.exploration.utils_pure_functions import get_direction_between_datapoints, flag_data_authenticity, \
+    generate_dxdy
 from src.modules.save_load_handlers.ai_models_handle import save_ai_manually
 from src.modules.save_load_handlers.data_handle import write_other_data_to_file
 from src.action_robot_controller import detach_robot_sample_distance, detach_robot_teleport_relative, \
@@ -117,19 +117,14 @@ def get_random_movement():
     return distance, direction
 
 
-def generate_dxdy(direction: float, distance):
-    # direction in radians
-    dx = -distance * math.sin(direction)
-    dy = distance * math.cos(direction)
+def check_position_is_known_cheating(random_walk_datapoints):
+    global storage_raw
+    current_datapoint = random_walk_datapoints[-1]
+    current_x = current_datapoint["params"]["x"]
+    current_y = current_datapoint["params"]["y"]
+    is_known = storage_raw.check_position_is_known_cheating([current_x, current_y])
 
-    return dx, dy
-
-
-def check_position_is_known():
-    global abstraction_block
-    # checks current position by reconstruction loss, and similar positioning heuristic
-    # TODO IMPLEMENT
-    return False
+    return is_known
 
 
 def random_move_policy():
@@ -313,16 +308,19 @@ def random_walk_policy(random_walk_datapoints, random_walk_connections):
 
 
 def phase_explore(random_walk_datapoints, random_walk_connections, first_walk, max_steps):
+    print("STARTED NEW PAHSE EXPLORE")
     for step in range(max_steps):
         collect_data = collect_current_data_and_add_connections(random_walk_datapoints, random_walk_connections)
         yield from collect_data
-        move_randomly = random_move_policy()
-        yield from move_randomly
 
         if first_walk == False:
-            position_check = check_position_is_known()
+            position_check = check_position_is_known_cheating(random_walk_datapoints)
             if position_check:
                 break
+
+        if step != max_steps - 1:
+            move_randomly = random_move_policy()
+            yield from move_randomly
 
 
 def copy_storage(storage_to_copy: StorageSuperset2, storage_to_copy_into: StorageSuperset2):
@@ -378,13 +376,63 @@ def exploration_policy_autonomous_data_filtering(step: int):
     total_connections_found = fill_augmented_connections_distances_cheating(total_connections_found, storage_raw)
     total_connections_found = fill_augmented_connections_directions_cheating(total_connections_found,
                                                                              storage_raw)
-    print(len(total_connections_found))
     storage_raw.incorporate_new_data([], total_connections_found)
 
     print("DATA PURGING")
     data_filtering_redundant_connections(storage_raw)
     data_filtering_redundant_datapoints(storage_raw)
     storage_raw.build_non_adjacent_distances_from_connections(debug=True)
+
+
+def exploration_policy_autonomous_exploration(step: int):
+    global storage_raw, first_walk
+
+    random_walk_datapoints = []
+    random_walk_connections = []
+
+    print(f"EXPLORING RANDOM WALK ITER {step}")
+    if first_walk:
+        print("IT'S FIRST TIME !!")
+
+    yield from phase_explore(random_walk_datapoints, random_walk_connections, first_walk, max_steps=3)
+
+    first_walk = False
+    flag_data_authenticity(random_walk_connections)
+    storage_raw.incorporate_new_data(random_walk_datapoints, random_walk_connections)
+    random_walk_datapoints_names = [datapoint["name"] for datapoint in random_walk_datapoints]
+
+    new_connnections = augment_data_cheating_heuristic(storage_raw, random_walk_datapoints_names)
+    total_connections_found = []
+    total_connections_found.extend(new_connnections)
+    flag_data_authenticity(total_connections_found)
+
+    total_connections_found = fill_augmented_connections_distances_cheating(total_connections_found, storage_raw)
+    total_connections_found = fill_augmented_connections_directions_cheating(total_connections_found,
+                                                                             storage_raw)
+    storage_raw.incorporate_new_data([], total_connections_found)
+
+    print("DATA PURGING")
+    # data_filtering_redundant_connections(storage_raw)
+    # data_filtering_redundant_datapoints(storage_raw)
+    storage_raw.build_non_adjacent_distances_from_connections(debug=False)
+
+    last_dp = random_walk_datapoints[-1]
+    frontier_datapoint, frontier_direction = find_frontier_datapoint_and_direction(storage_raw,
+                                                                                   last_dp["name"])
+    if frontier_datapoint is None:
+        print("NO FRONTIER FOUND, EXPLORATION FINISHED")
+        return
+
+    # move to frontier
+    coords = storage_raw.get_datapoint_metadata_coords(frontier_datapoint)
+    detach_robot_teleport_absolute(coords[0], coords[1])
+    yield
+    print("TELEPORTED TO FRONTIER")
+    time.sleep(1)
+    detach_robot_teleport_relative(frontier_direction[0], frontier_direction[1])
+    yield
+    print("TELEPORTED TO RELATIVE")
+    time.sleep(1)
 
 
 def exploration_policy_autonomous_step(step: int, train_networks=True):
@@ -502,9 +550,9 @@ def exploration_policy_autonomous() -> Generator[None, None, None]:
         step += 1
 
         # yield from exploration_policy_autonomous_step(step, train_networks=False)
-        exploration_policy_autonomous_data_filtering(step)
-
-        break
+        # exploration_policy_autonomous_data_filtering(step)
+        generator = exploration_policy_autonomous_exploration(step)
+        yield from generator
 
     yield
 
