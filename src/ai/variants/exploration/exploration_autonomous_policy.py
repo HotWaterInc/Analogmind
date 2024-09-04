@@ -16,10 +16,12 @@ from src.ai.variants.exploration.networks.images_raw_distance_predictor import I
     train_images_raw_distance_predictor_until_threshold
 from src.ai.variants.exploration.others.images_distance_predictor import train_images_distance_predictor_until_threshold
 from src.ai.variants.exploration.others.neighborhood_network import NeighborhoodDistanceNetwork
-from src.ai.variants.exploration.params import STEP_DISTANCE, ROTATIONS
+from src.ai.variants.exploration.params import STEP_DISTANCE, ROTATIONS, STEP_DISTANCE_NULL_CONNECTION, \
+    STEP_DISTANCE_LOWER_BOUNDARY, STEP_DISTANCE_UPPER_BOUNDARY
 from src.ai.variants.exploration.temporary import augment_data_testing_network_distance
 from src.ai.variants.exploration.utils import get_collected_data_image, get_collected_data_distances, \
-    check_direction_distance_validity_north, storage_to_manifold, find_frontier_datapoint_and_direction
+    check_direction_distance_validity_north, storage_to_manifold, find_frontier_closest_datapoint_and_direction, \
+    find_frontier_all_datapoint_and_direction
 from src.ai.variants.exploration.utils_pure_functions import get_direction_between_datapoints, flag_data_authenticity, \
     generate_dxdy
 from src.modules.save_load_handlers.ai_models_handle import save_ai_manually
@@ -105,7 +107,7 @@ def create_datapoint(name: str, data: List[any], coords: List[float]) -> Dict[st
 
 movement_type = 0
 
-movement_distances = np.random.uniform(STEP_DISTANCE / 2, STEP_DISTANCE * 2, 500)
+movement_distances = np.random.uniform(STEP_DISTANCE_LOWER_BOUNDARY, STEP_DISTANCE_UPPER_BOUNDARY, 500)
 index = 0
 
 
@@ -212,9 +214,9 @@ def null_connections_to_raw_connections_data(name, null_connections):
         valid = null_connection["valid"]
         # if we bump into something we create a null connections
         if valid == False:
-            dx, dy = generate_dxdy(angle, STEP_DISTANCE_CLOSE_THRESHOLD)
+            dx, dy = generate_dxdy(angle, STEP_DISTANCE_NULL_CONNECTION)
             direction = [dx, dy]
-            distance = STEP_DISTANCE_CLOSE_THRESHOLD
+            distance = STEP_DISTANCE_NULL_CONNECTION
             connection = {
                 "start": name,
                 "end": None,
@@ -246,7 +248,7 @@ def collect_data_rotations_and_create_datapoint():
         distances, angle, coords = get_collected_data_distances()
 
         # sensors oriented in the direction of the robot, so we can only check the north assuming it is rotated in the direction we want
-        distance = STEP_DISTANCE * 2
+        distance = STEP_DISTANCE_NULL_CONNECTION
         direction = 0
         valid = check_direction_distance_validity_north(distance, direction, distances)
 
@@ -335,6 +337,27 @@ def augment_data_cheating_heuristic(storage: StorageSuperset2, random_walk_datap
     return new_connections
 
 
+def augment_data_cheating_heuristic_simple(storage: StorageSuperset2) -> any:
+    all_datapoints = storage.get_all_datapoints()
+    new_connections = []
+
+    for idx_i, datapoint_i in enumerate(all_datapoints):
+        for idx_j, datapoint_j in enumerate(all_datapoints):
+            if idx_i == idx_j:
+                continue
+            distance = get_real_distance_between_datapoints(datapoint_i, datapoint_j)
+            direction = get_direction_between_datapoints(datapoint_i, datapoint_j)
+            connection = {
+                "start": datapoint_i["name"],
+                "end": datapoint_j["name"],
+                "distance": distance,
+                "direction": direction
+            }
+            storage.add_connection(connection)
+
+    return new_connections
+
+
 def augment_data_raw_heuristic(storage: StorageSuperset2, random_walk_datapoints) -> any:
     distance_metric = build_find_adjacency_heursitic_raw_data(storage)
     new_connections = evaluate_distance_metric(storage, distance_metric, random_walk_datapoints)
@@ -385,7 +408,7 @@ def exploration_policy_autonomous_data_filtering(step: int):
     storage_raw.build_non_adjacent_distances_from_connections(debug=True)
 
 
-def exploration_policy_autonomous_exploration(step: int):
+def exploration_policy_autonomous_exploration_cheating(step: int):
     global storage_raw, first_walk, exploring
 
     random_walk_datapoints = []
@@ -395,7 +418,7 @@ def exploration_policy_autonomous_exploration(step: int):
     if first_walk:
         print("IT'S FIRST TIME !!")
 
-    yield from phase_explore(random_walk_datapoints, random_walk_connections, first_walk, max_steps=10, skip_checks=1)
+    yield from phase_explore(random_walk_datapoints, random_walk_connections, first_walk, max_steps=10, skip_checks=2)
 
     first_walk = False
     flag_data_authenticity(random_walk_connections)
@@ -413,20 +436,27 @@ def exploration_policy_autonomous_exploration(step: int):
     storage_raw.incorporate_new_data([], total_connections_found)
 
     print("DATA PURGING")
-    data_filtering_redundant_connections(storage_raw)
-    data_filtering_redundant_datapoints(storage_raw)
+    data_filtering_redundant_connections(storage_raw, verbose=False)
+    # data_filtering_redundant_datapoints(storage_raw, verbose=False)
     storage_raw.build_non_adjacent_distances_from_connections(debug=False)
 
     last_dp = random_walk_datapoints[-1]
-    frontier_datapoint, frontier_direction = find_frontier_datapoint_and_direction(storage_raw,
-                                                                                   last_dp["name"])
-    if frontier_datapoint is None:
+    frontier_connection = find_frontier_all_datapoint_and_direction(
+        storage=storage_raw,
+        return_first=True,
+        starting_point=last_dp["name"]
+    )
+
+    if frontier_connection is None:
         print("NO FRONTIER FOUND, EXPLORATION FINISHED")
         exploring = False
         write_other_data_to_file(f"step{step}_datapoints_autonomous_walk.json", storage_raw.get_raw_environment_data())
         write_other_data_to_file(f"step{step}_connections_autonomous_walk_augmented_filled.json",
                                  storage_raw.get_raw_connections_data())
         return
+
+    frontier_datapoint = frontier_connection["start"]
+    frontier_direction = frontier_connection["direction"]
 
     # move to frontier
     coords = storage_raw.get_datapoint_metadata_coords(frontier_datapoint)
@@ -556,7 +586,7 @@ def exploration_policy_autonomous() -> Generator[None, None, None]:
 
         # yield from exploration_policy_autonomous_step(step, train_networks=False)
         # exploration_policy_autonomous_data_filtering(step)
-        generator = exploration_policy_autonomous_exploration(step)
+        generator = exploration_policy_autonomous_exploration_cheating(step)
         yield from generator
 
     yield

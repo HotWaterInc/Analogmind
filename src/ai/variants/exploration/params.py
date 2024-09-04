@@ -5,9 +5,15 @@ DISTANCE_THETAS_SIZE = 100
 # max distance that can go int SDDS network
 MAX_DISTANCE = 3
 # what is considered the standard step. The robot distance sensors will detect null when they are smaller than step*2
-STEP_DISTANCE = 0.35
-STEP_DISTANCE_CLOSE_THRESHOLD = 2 * STEP_DISTANCE
-STEP_DISTANCE_BASIC_STEP = 2 * STEP_DISTANCE
+
+STEP_DISTANCE = 0.5
+
+STEP_DISTANCE_LOWER_BOUNDARY = STEP_DISTANCE / 2
+STEP_DISTANCE_UPPER_BOUNDARY = STEP_DISTANCE * 2
+
+STEP_DISTANCE_CLOSE_THRESHOLD = STEP_DISTANCE * 2
+STEP_DISTANCE_NULL_CONNECTION = STEP_DISTANCE
+STEP_DISTANCE_BASIC_STEP = STEP_DISTANCE
 
 # number of sampled rotations for each datapoint ( at roughly equal intervals )
 ROTATIONS = 24
@@ -36,3 +42,6 @@ THRESHOLD_SDIRDISTSTATE_NETWORK = 0.005
 
 # removes up to 80% of the connections without significant loss in the structure of the topological graph
 REDUNDANCY_CONNECTION_ANGLE = 5
+
+# different experimental parameters
+EXPERIMENTAL_BINARY_SIZE = 24

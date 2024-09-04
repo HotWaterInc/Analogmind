@@ -114,9 +114,9 @@ def floyd_warshall_algorithm(connections_hashmap: Dict):
         for connection in connections_hashmap[node]:
             distances[node][connection["end"]] = connection["distance"]
 
-    pretty_display_set_and_start(len(nodes))
+    # pretty_display_set_and_start(len(nodes))
     for idx, k in enumerate(nodes):
-        pretty_display(idx)
+        # pretty_display(idx)
         for i in nodes:
             for j in nodes:
                 distances[i][j] = min(distances[i][j], distances[i][k] + distances[k][j])

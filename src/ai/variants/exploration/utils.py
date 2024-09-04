@@ -1,8 +1,10 @@
 from src.ai.variants.exploration.networks.abstract_base_autoencoder_model import BaseAutoencoderModel
-from src.ai.variants.exploration.params import DIRECTION_THETAS_SIZE, STEP_DISTANCE, STEP_DISTANCE_BASIC_STEP
+from src.ai.variants.exploration.params import DIRECTION_THETAS_SIZE, STEP_DISTANCE, STEP_DISTANCE_BASIC_STEP, \
+    EXPERIMENTAL_BINARY_SIZE
 from src.ai.variants.exploration.utils_pure_functions import direction_to_degrees_atan, degrees_to_percent, \
     angle_percent_to_thetas_normalized_cached, direction_thetas_to_radians, find_thetas_null_indexes, \
     get_angle_percent_from_thetas_index, generate_dxdy, angle_percent_to_radians
+from src.modules.policies.navigation8x8_v1_distance import radians_to_degrees
 from src.modules.policies.testing_image_data import process_webots_image_to_embedding, \
     squeeze_out_resnet_output
 from src.ai.runtime_data_storage.storage_superset2 import StorageSuperset2
@@ -21,7 +23,7 @@ def get_missing_connections_based_on_distance(storage: StorageSuperset2, datapoi
     current_x = datapoint["params"]["x"]
     current_y = datapoint["params"]["y"]
     current_name = datapoint["name"]
-    adjcent_names = storage.get_datapoint_adjacent_datapoints_at_most_n_deg(current_name, 2)
+    adjcent_names = storage.get_datapoint_adjacent_datapoints_at_most_n_deg_authentic(current_name, 2)
     adjcent_names.append(current_name)
 
     found_connections = []
@@ -153,6 +155,31 @@ def get_collected_data_image() -> tuple[torch.Tensor, float, list[float]]:
     return current_embedding, angle, coords
 
 
+def value_to_binary_array(value: int, bits_count: int) -> list:
+    # Create a list to store the binary digits
+    binary_array = [0] * bits_count
+
+    # Iterate through the bits
+    for i in range(bits_count):
+        # Use bitwise AND to check if the bit is set
+        if value & (1 << i):
+            binary_array[bits_count - 1 - i] = 1
+    return binary_array
+
+
+def data_to_binary_data(data: torch.Tensor, index: int):
+    new_data = torch.zeros(data.shape[0], EXPERIMENTAL_BINARY_SIZE)
+    for idx, val in enumerate(data):
+        new_data[idx] = torch.tensor(value_to_binary_array(index, EXPERIMENTAL_BINARY_SIZE))
+
+    return new_data
+
+
+def storage_to_binary_data(storage: StorageSuperset2):
+    storage.set_transformation(data_to_binary_data)
+    storage.transform_raw_data()
+
+
 def storage_to_manifold(storage: StorageSuperset2, manifold_network: BaseAutoencoderModel):
     manifold_network.eval()
     manifold_network = manifold_network.to(get_device())
@@ -164,6 +191,8 @@ def storage_to_manifold(storage: StorageSuperset2, manifold_network: BaseAutoenc
 def check_datapoint_connections_completeness(storage: StorageSuperset2, datapoint_name: str):
     direction_thetas_accumulated = np.zeros(DIRECTION_THETAS_SIZE)
     connections = storage.get_datapoint_adjacent_connections_direction_filled(datapoint_name)
+    connections_non_null = [connection for connection in connections if connection["end"] is not None]
+    connections = connections_non_null
 
     for connection in connections:
         direction = connection["direction"]
@@ -184,7 +213,87 @@ def check_datapoint_connections_completeness(storage: StorageSuperset2, datapoin
     return connection_completeness
 
 
-def find_frontier_datapoint_and_direction(storage: StorageSuperset2, current_datapoint_name):
+def check_datapoint_density(storage: StorageSuperset2, datapoint_name: str):
+    connections = storage.get_datapoint_adjacent_connections_direction_filled(datapoint_name)
+    connections_non_null = [connection for connection in connections if connection["end"] is not None]
+    connections = connections_non_null
+    connections_null = storage.get_datapoint_adjacent_connections_null_connections(datapoint_name)
+
+    return len(connections) > 20 and len(connections_null) == 0
+
+
+def find_frontier_all_datapoint_and_direction(storage: StorageSuperset2, return_first: bool = False,
+                                              starting_point=None):
+    """
+    Finds empty connections gaps and goes there to explore, starting from the current datapoint
+    If no gaps are found it means the entire map was explored
+    """
+
+    current_datapoint_name = None
+    if starting_point is not None:
+        current_datapoint_name = starting_point
+    else:
+        current_datapoint_name = storage.get_all_datapoints()[0]
+
+    queue = [current_datapoint_name]
+    visited = set()
+    visited.add(current_datapoint_name)
+
+    possible_frontiers = []
+
+    def add_frontier(datapoint_name, direction):
+        distance = STEP_DISTANCE_BASIC_STEP
+        possible_frontiers.append({
+            "start": datapoint_name,
+            "end": None,
+            "direction": direction,
+            "distance": distance
+        })
+
+    while queue:
+        current_datapoint_name = queue.pop(0)
+        connections = storage.get_datapoint_adjacent_connections_direction_filled(current_datapoint_name)
+        connections_null = storage.get_datapoint_adjacent_connections_null_connections(current_datapoint_name)
+
+        accumulated_thetas = np.zeros(DIRECTION_THETAS_SIZE)
+
+        for null_connection in connections_null:
+            direction = null_connection["direction"]
+            degrees = direction_to_degrees_atan(direction)
+            angle_percent = degrees_to_percent(degrees)
+            dir_thetas = angle_percent_to_thetas_normalized_cached(angle_percent, DIRECTION_THETAS_SIZE)
+            np.add(accumulated_thetas, dir_thetas, out=accumulated_thetas)
+
+        for connection in connections:
+            direction = connection["direction"]
+            degrees = direction_to_degrees_atan(direction)
+            angle_percent = degrees_to_percent(degrees)
+            dir_thetas = angle_percent_to_thetas_normalized_cached(angle_percent, DIRECTION_THETAS_SIZE)
+            np.add(accumulated_thetas, dir_thetas, out=accumulated_thetas)
+
+            next_datapoint_name = connection["end"]
+            if next_datapoint_name not in visited and next_datapoint_name is not None:
+                visited.add(next_datapoint_name)
+                queue.append(next_datapoint_name)
+
+        null_thetas = []
+        null_thetas = find_thetas_null_indexes(accumulated_thetas)
+
+        for null_theta in null_thetas:
+            direction_percent = get_angle_percent_from_thetas_index(null_theta, DIRECTION_THETAS_SIZE)
+            direction_radians = angle_percent_to_radians(direction_percent)
+            direction = generate_dxdy(direction_radians, STEP_DISTANCE_BASIC_STEP)
+            add_frontier(current_datapoint_name, direction)
+            if return_first:
+                return possible_frontiers[0]
+
+    if return_first:
+        return None
+
+    return possible_frontiers
+
+
+def find_frontier_closest_datapoint_and_direction(storage: StorageSuperset2, current_datapoint_name):
     """
     Finds empty connections gaps and goes there to explore, starting from the current datapoint
     If no gaps are found it means the entire map was explored
@@ -221,10 +330,11 @@ def find_frontier_datapoint_and_direction(storage: StorageSuperset2, current_dat
                 queue.append(next_datapoint_name)
 
         null_thetas = find_thetas_null_indexes(accumulated_thetas)
+
         if len(null_thetas) > 0:
             direction_percent = get_angle_percent_from_thetas_index(null_thetas[0], DIRECTION_THETAS_SIZE)
             direction_radians = angle_percent_to_radians(direction_percent)
-            direction = generate_dxdy(direction_radians, STEP_DISTANCE_BASIC_STEP / 2)
+            direction = generate_dxdy(direction_radians, STEP_DISTANCE_BASIC_STEP)
             return current_datapoint_name, direction
 
     return None, None

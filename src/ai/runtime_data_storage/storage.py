@@ -58,18 +58,14 @@ class Storage:
     Meant as an intermediary between the AI and data processing / handling at runtime
     Any data including the one that might come continously from the environment will flow through here
     """
-    metadata: Dict[str, any] = {
-        "sensor_distance": 8,
-    }
-    raw_env_data: List[RawEnvironmentData] = []
-    raw_connections_data: List[RawConnectionData] = []
-
-    raw_env_data_map: Dict[str, RawEnvironmentData] = {}  # uid -> data
-
-    custom_data: Dict[str, any] = {}
 
     def __init__(self):
-        pass
+        self.raw_env_data: List[RawEnvironmentData] = []
+        self.raw_connections_data: List[RawConnectionData] = []
+
+        self.raw_env_data_map: Dict[str, RawEnvironmentData] = {}  # uid -> data
+
+        self.custom_data: Dict[str, any] = {}
 
     def _convert_raw_data_to_map(self):
         """
@@ -194,7 +190,8 @@ class Storage:
         Samples a number of adjacent datapoints at a certain degree relative to datapoint name
         """
 
-        adjacent_datapoints: List[str] = self.get_datapoint_adjacent_datapoints_at_most_n_deg(datapoint_name, degree)
+        adjacent_datapoints: List[str] = self.get_datapoint_adjacent_datapoints_at_most_n_deg_authentic(datapoint_name,
+                                                                                                        degree)
 
         sampled_adjacencies = np.random.choice(adjacent_datapoints, sample_size, replace=False)
         return sampled_adjacencies
@@ -225,7 +222,7 @@ class Storage:
         # connections of degree 1
         degree1_adjacent: List[str] = [item["end"] for item in degree1_adjacent]
 
-        degree1and2_adjacent: List[str] = self.get_datapoint_adjacent_datapoints_at_most_n_deg(anchor, 2)
+        degree1and2_adjacent: List[str] = self.get_datapoint_adjacent_datapoints_at_most_n_deg_authentic(anchor, 2)
         # connections of degree 2
         degree2_adjacent: List[str] = [item for item in degree1and2_adjacent if
                                        item not in degree1_adjacent]
@@ -450,6 +447,21 @@ class Storage:
         self._connection_cache[datapoint_name] = found_connections
         return found_connections
 
+    def remove_null_connections(self, start: str):
+        """
+        Removes a connection from the storage
+        """
+        found = True
+        while found:
+            found = False
+            for idx, connection in enumerate(self.raw_connections_data):
+                if connection["start"] == start and connection["end"] == None:
+                    self.raw_connections_data.pop(idx)
+                    found = True
+                    break
+
+        return 0
+
     def remove_connection(self, start: str, end: str):
         """
         Removes a connection from the storage
@@ -463,6 +475,12 @@ class Storage:
                 return 1
 
         return 0
+
+    def get_all_connections_null_data(self) -> List[RawConnectionData]:
+        """
+        Returns the connections that have null data
+        """
+        return [item for item in self.raw_connections_data if item["end"] == None]
 
     def get_datapoint_adjacent_connections_null_connections(self, datapoint_name: str) -> List[RawConnectionData]:
         """
@@ -511,7 +529,7 @@ class Storage:
 
         return found_connections
 
-    def get_datapoint_adjacent_connections(self, datapoint_name: str) -> List[RawConnectionData]:
+    def get_datapoint_adjacent_connections(self, datapoint_name: str, null: bool = False) -> List[RawConnectionData]:
         """
         Returns the adjacent connections of a datapoint ( the connections that start or end with the datapoint )
         """
@@ -522,6 +540,9 @@ class Storage:
             connection_copy = connection.copy()
             start = connection_copy["start"]
             end = connection_copy["end"]
+
+            if not null and end == None:
+                continue
 
             if start == datapoint_name:
                 found_connections.append(connection_copy)
@@ -582,8 +603,6 @@ class Storage:
         """
         found_connections = []
         connections_data = self.get_all_connections_only_datapoints()
-        # if datapoint_name in self._connection_cache:
-        #     return self._connection_cache[datapoint_name]
 
         for connection in connections_data:
             connection_copy = connection.copy()
@@ -614,7 +633,6 @@ class Storage:
 
                 found_connections.append(connection_copy)
 
-        # self._connection_cache[datapoint_name] = found_connections
         return found_connections
 
     _connection_directed_cache: Dict[str, List[RawConnectionData]] = {}
@@ -651,6 +669,26 @@ class Storage:
         """
         new_datapoints = []
         for datapoint in datapoints:
+            connections = self.get_datapoint_adjacent_connections(datapoint, null=False)
+            for connection in connections:
+                start = connection["start"]
+                end = connection["end"]
+                if start == datapoint:
+                    new_datapoints.append(end)
+                if end == datapoint:
+                    new_datapoints.append(start)
+
+        # remove duplicates
+        new_datapoints = list(set(new_datapoints))
+
+        return new_datapoints
+
+    def _expand_existing_datapoints_with_adjacent_authentic(self, datapoints: List[str]):
+        """
+        Expands the datapoints with the adjacent ones
+        """
+        new_datapoints = []
+        for datapoint in datapoints:
             connections = self.get_datapoint_adjacent_connections_authentic(datapoint)
             for connection in connections:
                 start = connection["start"]
@@ -673,10 +711,10 @@ class Storage:
             return 0
 
         degree = 1
-        adjacent_datapoints = self.get_datapoint_adjacent_datapoints_at_most_n_deg(datapoint1, degree)
+        adjacent_datapoints = self.get_datapoint_adjacent_datapoints_at_most_n_deg_authentic(datapoint1, degree)
         while datapoint2 not in adjacent_datapoints:
             degree += 1
-            adjacent_datapoints = self.get_datapoint_adjacent_datapoints_at_most_n_deg(datapoint1, degree)
+            adjacent_datapoints = self.get_datapoint_adjacent_datapoints_at_most_n_deg_authentic(datapoint1, degree)
 
         return degree
 
@@ -706,13 +744,41 @@ class Storage:
 
         return found_data_points
 
+    def get_datapoint_adjacent_datapoints_at_most_n_deg_authentic(self, datapoint_name, distance_degree: int) -> List[
+        str]:
+        """
+        Returns the connections of a datapoint that are at a certain distance degree from it
+        """
+        if distance_degree == 0:
+            return [datapoint_name]
+
+        found_data_points: List[str] = []
+        found_data_points_map: Dict[str, bool] = {}
+        found_data_points_map[datapoint_name] = True
+
+        new_data_points: List[str] = [datapoint_name]
+
+        for degree in range(1, distance_degree + 1):
+            # expands the datapoints with 1 layer of adjacent datapoints (1 degree unique datapoints)
+            new_data_points = self._expand_existing_datapoints_with_adjacent_authentic(new_data_points)
+
+            # checks for duplicates with the already found data points since it can also expand
+            # inwards (we are interested only in outward)
+            for new_data_point in new_data_points:
+                if new_data_point not in found_data_points_map:
+                    found_data_points_map[new_data_point] = True
+                    found_data_points.append(new_data_point)
+
+        return found_data_points
+
     def get_datapoints_adjacent_at_degree_n_as_raw_connection_data(self, datapoint_name: str, degree: int) -> List[
         RawConnectionData]:
         """
         Returns the datapoints that are adjacent to a certain datapoint at a certain degree
         """
-        adjacent_degree_n = self.get_datapoint_adjacent_datapoints_at_most_n_deg(datapoint_name, degree)
-        adjacent_degree_n_minus_1 = self.get_datapoint_adjacent_datapoints_at_most_n_deg(datapoint_name, degree - 1)
+        adjacent_degree_n = self.get_datapoint_adjacent_datapoints_at_most_n_deg_authentic(datapoint_name, degree)
+        adjacent_degree_n_minus_1 = self.get_datapoint_adjacent_datapoints_at_most_n_deg_authentic(datapoint_name,
+                                                                                                   degree - 1)
         adjacent_data_points = [item for item in adjacent_degree_n if item not in adjacent_degree_n_minus_1]
 
         adjacent_at_deg_raw_connection_data = []
@@ -741,10 +807,11 @@ class Storage:
         """
         Returns the datapoints that are adjacent to a certain datapoint at a certain degree
         """
-        adjacent_datapoints = self.get_datapoint_adjacent_datapoints_at_most_n_deg(datapoint_name, degree)
+        adjacent_datapoints = self.get_datapoint_adjacent_datapoints_at_most_n_deg_authentic(datapoint_name, degree)
         adjacent_datapoints = [item for item in adjacent_datapoints if
-                               item not in self.get_datapoint_adjacent_datapoints_at_most_n_deg(datapoint_name,
-                                                                                                degree - 1)]
+                               item not in self.get_datapoint_adjacent_datapoints_at_most_n_deg_authentic(
+                                   datapoint_name,
+                                   degree - 1)]
 
         return adjacent_datapoints
 
@@ -849,3 +916,17 @@ class Storage:
 
     def get_datapoints_coordinates_map(self):
         return self._datapoints_coordinates_map
+
+    def get_all_connections_possible_directions(self):
+        datapoints = self.get_all_datapoints()
+
+        for datapoint in datapoints:
+            connections = self.get_datapoint_adjacent_connections_authentic(datapoint)
+            for connection in connections:
+                direction = connection["direction"]
+                if direction == None:
+                    perror(f"Direction is None for connection {connection}")
+                    continue
+                if direction[0] == 0 and direction[1] == 0:
+                    perror(f"Direction is 0 for connection {connection}")
+                    continue

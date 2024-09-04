@@ -23,7 +23,7 @@ from src.ai.variants.blocks import ResidualBlockSmallBatchNorm, _make_layer_no_b
 
 class ManifoldNetwork(BaseAutoencoderModel):
     def __init__(self, dropout_rate: float = 0.2, embedding_size: int = MANIFOLD_SIZE, input_output_size: int = 512,
-                 hidden_size: int = 512, num_blocks: int = 1):
+                 hidden_size: int = 2048, num_blocks: int = 2):
         super(ManifoldNetwork, self).__init__()
         self.embedding_size = embedding_size
 
@@ -189,7 +189,7 @@ def non_adjacent_distance_handling(autoencoder: BaseAutoencoderModel, storage: S
 def _train_autoencoder_with_distance_constraint(manifold_network: BaseAutoencoderModel, storage: StorageSuperset2,
                                                 epochs: int, stop_at_threshold: bool = False) -> BaseAutoencoderModel:
     # PARAMETERS
-    optimizer = optim.Adam(manifold_network.parameters(), lr=0.0005)
+    optimizer = optim.Adam(manifold_network.parameters(), lr=0.00020)
 
     num_epochs = epochs
 
@@ -208,7 +208,7 @@ def _train_autoencoder_with_distance_constraint(manifold_network: BaseAutoencode
     adjacent_average_loss = 0
     permutation_average_loss = 0
 
-    epoch_print_rate = 500
+    epoch_print_rate = 1000
     DISTANCE_SCALING_FACTOR = 1
     EMBEDDING_SCALING_FACTOR = 0.1
 
@@ -216,6 +216,8 @@ def _train_autoencoder_with_distance_constraint(manifold_network: BaseAutoencode
     train_data = array_to_tensor(np.array(storage.get_pure_permuted_raw_env_data())).to(get_device())
     manifold_network = manifold_network.to(get_device())
 
+    print("STARTED TRAINING")
+    pretty_display_reset()
     pretty_display_set(epoch_print_rate, "Epoch batch")
     pretty_display_start(0)
 
@@ -227,7 +229,6 @@ def _train_autoencoder_with_distance_constraint(manifold_network: BaseAutoencode
         if epoch % SHUFFLE_RATE == 0:
             storage.build_permuted_data_random_rotations()
             # storage.build_permuted_data_random_rotations_rotation0()
-            train_data = array_to_tensor(np.array(storage.get_pure_permuted_raw_env_data())).to(get_device())
 
         reconstruction_loss = torch.tensor(0.0)
         adjacent_distance_loss = torch.tensor(0.0)
@@ -314,7 +315,7 @@ def train_manifold_network(manifold_network: BaseAutoencoderModel, storage: Stor
     manifold_network = _train_autoencoder_with_distance_constraint(
         manifold_network=manifold_network,
         storage=storage,
-        epochs=10000,
+        epochs=15000,
         stop_at_threshold=False
     )
 

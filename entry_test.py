@@ -282,7 +282,7 @@ def _get_mse_losses_seen_network_on_dataset(storage: StorageSuperset2,
 
     data_arr = torch.stack(data_arr).to(get_device())
     data_reconstruction = network.forward_inference(data_arr).to(get_device())
-    mse_loss = torch.norm(data_reconstruction - data_arr, p=2, dim=1)
+    mse_loss = torch.norm(data_reconstruction - data_arr, p=1, dim=1)
 
     datapoints_reconstructions = []
     for i in range(lng):
@@ -612,10 +612,9 @@ def visualize_connections_distances(connections):
 
 
 if __name__ == "__main__":
-    connections = get_manifold_datapoint_distances()
-    visualize_connections_distances(connections)
+    # connections = get_manifold_datapoint_distances()
+    # visualize_connections_distances(connections)
 
-    # datapoints = get_reconstructions_seen_network()
-    # visualize_datapoints_reconstructions(datapoints)
-
+    datapoints = get_reconstructions_seen_network()
+    visualize_datapoints_reconstructions(datapoints)
     pass

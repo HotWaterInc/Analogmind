@@ -20,9 +20,8 @@ class StorageSuperset2(StorageSuperset):
     [ [1, 2, 3], [4, 5, 6], [7, 8, 9] ] instead of [1,2,3]
     """
 
-    permutor = None
-
     def __init__(self):
+        self.permutor = None
 
         super().__init__()
 
@@ -45,6 +44,22 @@ class StorageSuperset2(StorageSuperset):
             permuted_data: torch.Tensor = self.permutor(new_data)
             permuted_data_raw = permuted_data.tolist()
 
+            self.raw_env_data[index]["data"] = permuted_data_raw
+
+        # rebuilds map with new values
+        self._convert_raw_data_to_map()
+
+    def transform_raw_data(self) -> None:
+        """
+        Returns the data point by its name
+        """
+        for index, datapoint in enumerate(self.raw_env_data):
+            data_tensor = torch.tensor(np.array(datapoint["data"]), dtype=torch.float32, device=get_device())
+            manifold_position = self.permutor(data_tensor, index)
+            if isinstance(manifold_position, tuple):
+                manifold_position = manifold_position[0]
+
+            permuted_data_raw = manifold_position.tolist()
             self.raw_env_data[index]["data"] = permuted_data_raw
 
         # rebuilds map with new values
@@ -511,9 +526,11 @@ class StorageSuperset2(StorageSuperset):
         Removes a datapoint by its name
         """
         associated_connections = []
+
         associated_connections = self.get_datapoint_adjacent_connections(name)
         for connection in associated_connections:
             self.remove_connection(connection["start"], connection["end"])
+        self.remove_null_connections(name)
 
         for idx, datapoint in enumerate(self.raw_env_data):
             if datapoint["name"] == name:

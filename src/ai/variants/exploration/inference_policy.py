@@ -9,7 +9,7 @@ from src.ai.variants.exploration.utils import get_collected_data_distances, chec
     storage_to_manifold
 from src.ai.variants.exploration.utils_pure_functions import distance_percent_to_distance_thetas, \
     angle_percent_to_thetas_normalized_cached, direction_to_degrees_atan, degrees_to_percent, \
-    direction_thetas_to_radians
+    direction_thetas_to_radians, generate_dxdy
 from src.global_data_buffer import GlobalDataBuffer, empty_global_data_buffer
 from src.modules.save_load_handlers.data_handle import write_other_data_to_file
 from src.action_robot_controller import detach_robot_sample_distance, detach_robot_sample_image, \

@@ -294,7 +294,7 @@ def direction_thetas_to_radians(thetas):
 def find_thetas_null_indexes(thetas):
     null_indexes = []
     for i in range(len(thetas)):
-        if thetas[i] < 1e-5:
+        if thetas[i] <= 0:
             null_indexes.append(i)
 
     return null_indexes

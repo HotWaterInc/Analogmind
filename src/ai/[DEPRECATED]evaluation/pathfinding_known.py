@@ -16,7 +16,7 @@ def pathfinding_step_super_ab(model: BaseAutoencoderModel, storage: StorageSuper
 
     """
     # get closest pos within max_search_distance
-    datapoints_within_distance: List[str] = storage.get_datapoint_adjacent_datapoints_at_most_n_deg(
+    datapoints_within_distance: List[str] = storage.get_datapoint_adjacent_datapoints_at_most_n_deg_authentic(
         current_position_name,
         max_search_distance)
 
@@ -63,7 +63,7 @@ def pathfinding_step_super(model: BaseAutoencoderModel, storage: StorageSuperset
 
     """
     # get closest pos within max_search_distance
-    datapoints_within_distance: List[str] = storage.get_datapoint_adjacent_datapoints_at_most_n_deg(
+    datapoints_within_distance: List[str] = storage.get_datapoint_adjacent_datapoints_at_most_n_deg_authentic(
         current_position_name,
         max_search_distance)
 
@@ -103,7 +103,7 @@ def pathfinding_step(model: BaseAutoencoderModel, storage: Storage, current_posi
 
     """
     # get closest pos within max_search_distance
-    datapoints_within_distance: List[str] = storage.get_datapoint_adjacent_datapoints_at_most_n_deg(
+    datapoints_within_distance: List[str] = storage.get_datapoint_adjacent_datapoints_at_most_n_deg_authentic(
         current_position_name,
         max_search_distance)
 

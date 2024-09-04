@@ -2,6 +2,7 @@ from src.ai.variants.exploration.exploration_evaluations import evaluate_distanc
 from src.ai.runtime_data_storage.storage_superset2 import *
 from src.ai.variants.exploration.metric_builders import build_find_adjacency_heursitic_adjacency_network, \
     build_find_adjacency_heursitic_raw_data
+from src.ai.variants.exploration.utils_pure_functions import flag_data_authenticity
 from src.utils import get_device
 from torch import nn
 
@@ -19,12 +20,9 @@ def data_augmentation_network_heuristic(storage: StorageSuperset2, adjacency_net
     return new_connections
 
 
-def load_storage_with_base_data(storage: StorageSuperset2):
-    random_walk_datapoints = []
-    random_walk_connections = []
-
-    random_walk_datapoints = read_other_data_from_file(f"datapoints_random_walks_300_24rot.json")
-    random_walk_connections = read_other_data_from_file(f"datapoints_connections_random_walks_300_24rot.json")
+def load_storage_with_base_data(storage: StorageSuperset2, datapoints_filename: str, connections_filename: str) -> any:
+    random_walk_datapoints = read_other_data_from_file(datapoints_filename)
+    random_walk_connections = read_other_data_from_file(connections_filename)
     flag_data_authenticity(random_walk_connections)
     storage.incorporate_new_data(random_walk_datapoints, random_walk_connections)
     return storage
@@ -54,6 +52,18 @@ def get_augmented_connections() -> any:
     new_connections2 = read_other_data_from_file(f"additional_found_connections_networkh_random_walks_300.json")
     flag_data_authenticity(new_connections2)
     return new_connections1 + new_connections2
+
+
+def storage_augment_with_saved_connections_already_augmented(storage: StorageSuperset2) -> any:
+    new_connections1 = read_other_data_from_file(
+        f"additional_found_connections_rawh_random_walks_300_distance_augmented.json")
+    flag_data_authenticity(new_connections1)
+    storage.incorporate_new_data([], new_connections1)
+    new_connections2 = read_other_data_from_file(
+        f"additional_found_connections_networkh_random_walks_300_distance_augmented.json")
+    flag_data_authenticity(new_connections2)
+    storage.incorporate_new_data([], new_connections2)
+    return storage
 
 
 def storage_augment_with_saved_connections(storage: StorageSuperset2) -> any:

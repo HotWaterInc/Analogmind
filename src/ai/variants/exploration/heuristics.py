@@ -40,7 +40,7 @@ def find_adjacency_heuristic_raw_data(storage: StorageSuperset2, datapoint: Dict
     current_name = datapoint["name"]
 
     datapoints_names = storage.get_all_datapoints()
-    adjacent_names = storage.get_datapoint_adjacent_datapoints_at_most_n_deg(current_name, 1)
+    adjacent_names = storage.get_datapoint_adjacent_datapoints_at_most_n_deg_authentic(current_name, 1)
     adjacent_names.append(current_name)
 
     current_data_arr = []
@@ -90,7 +90,7 @@ def find_adjacency_heuristic_adjacency_network(storage: StorageSuperset2, datapo
     current_name = datapoint["name"]
 
     datapoints_names = storage.get_all_datapoints()
-    adjacent_names = storage.get_datapoint_adjacent_datapoints_at_most_n_deg(current_name, 1)
+    adjacent_names = storage.get_datapoint_adjacent_datapoints_at_most_n_deg_authentic(current_name, 1)
     adjacent_names.append(current_name)
 
     current_data_arr = []
@@ -143,28 +143,25 @@ def find_adjacency_heuristic_cheating(storage: StorageSuperset2, datapoint: Dict
     current_name = datapoint["name"]
 
     datapoints_names = storage.get_all_datapoints()
-    adjacent_names = storage.get_datapoint_adjacent_datapoints_at_most_n_deg(current_name, 1)
-    adjacent_names.append(current_name)
 
     selected_names = []
 
     for name in datapoints_names:
-        if name in adjacent_names or name == current_name:
+        # other conditions
+        if name == current_name:
             continue
-
         selected_names.append(name)
 
     if len(selected_names) == 0:
         return []
 
     length = len(selected_names)
-    name_keys = {}
 
     found_additional_connections = []
     for i in range(length):
         name = selected_names[i]
         real_distance = storage.get_datapoints_real_distance(current_name, name)
-        if real_distance < 0.65:
+        if real_distance < STEP_DISTANCE_CLOSE_THRESHOLD:
             found_additional_connections.append(name)
 
     return found_additional_connections

@@ -37,7 +37,7 @@ def evaluation_distance_ground_truth_metric(storage: StorageSuperset2, new_datap
     """
     current_name = new_datapoint["name"]
     datapoints_names = storage.get_all_datapoints()
-    adjacent_names = storage.get_datapoint_adjacent_datapoints_at_most_n_deg(current_name, 1)
+    adjacent_names = storage.get_datapoint_adjacent_datapoints_at_most_n_deg_authentic(current_name, 1)
     adjacent_names.append(current_name)
 
     current_data_arr = []
@@ -149,6 +149,18 @@ def evaluate_distance_metric_on_already_found_connections(storage: StorageSupers
     # print("False positive distances", false_positive_distances)
 
 
+def check_connection_already_existing(connections_arr, start, end):
+    """
+    Check if the connection already exists
+    """
+    for conn in connections_arr:
+        if conn["start"] == start and conn["end"] == end:
+            return True
+        if conn["start"] == end and conn["end"] == start:
+            return True
+    return False
+
+
 def evaluate_distance_metric(storage: StorageSuperset2, metric, new_datapoints: List[str], debug: bool = False
                              ):
     """
@@ -157,8 +169,6 @@ def evaluate_distance_metric(storage: StorageSuperset2, metric, new_datapoints: 
     true_positive = 0
     true_positives_distant = 0
     really_bad_false_positive = 0
-
-    # new_datapoints = new_datapoints[:50]
 
     pretty_display_set(len(new_datapoints))
     pretty_display_start()
@@ -181,6 +191,11 @@ def evaluate_distance_metric(storage: StorageSuperset2, metric, new_datapoints: 
         true_found_datapoints.extend(true_datapoints_lower_end)
 
         for founddp in found_datapoints:
+            if check_connection_already_existing(new_connections_pairs, new_datapoint["name"], founddp):
+                continue
+            if check_connection_already_existing(storage.get_all_connections_data(), new_datapoint["name"], founddp):
+                continue
+
             distance = storage.get_datapoints_real_distance(new_datapoint["name"], founddp)
             new_connections_pairs.append({
                 "start": new_datapoint["name"],

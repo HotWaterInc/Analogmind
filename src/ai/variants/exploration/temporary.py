@@ -78,7 +78,7 @@ def find_adjacency_heuristic_distance_thetas(storage: StorageSuperset2, datapoin
     current_datapoint_name = datapoint["name"]
 
     datapoints_names = storage.get_all_datapoints()
-    adjacent_names = storage.get_datapoint_adjacent_datapoints_at_most_n_deg(current_datapoint_name, 1)
+    adjacent_names = storage.get_datapoint_adjacent_datapoints_at_most_n_deg_authentic(current_datapoint_name, 1)
     adjacent_names.append(current_datapoint_name)
 
     current_data_arr = []

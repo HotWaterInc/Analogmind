@@ -5,7 +5,7 @@ from src.ai.runtime_data_storage.storage_superset2 import *
 from src.ai.variants.exploration.metric_builders import build_find_adjacency_heursitic_adjacency_network, \
     build_find_adjacency_heursitic_raw_data
 from src.ai.variants.exploration.params import REDUNDANCY_CONNECTION_ANGLE
-from src.ai.variants.exploration.utils import check_datapoint_connections_completeness
+from src.ai.variants.exploration.utils import check_datapoint_connections_completeness, check_datapoint_density
 from src.ai.variants.exploration.utils_pure_functions import direction_to_degrees_atan
 from src.modules.pretty_display import pretty_display_set_and_start, pretty_display
 from src.utils import get_device
@@ -34,11 +34,34 @@ def filtering_metric_djakstra(storage: StorageSuperset2, datapoint: str) -> any:
                                                                                                     end_neighbor,
                                                                                                     connection_hashmap_without)
 
-            if distance_without_datapoint >= (distance_to_start + distance_to_end) * 1.2:
+            if distance_without_datapoint >= (distance_to_start + distance_to_end) * 1.1:
                 # not redundant if it bridges with better distance
                 is_redundant = False
 
     return is_redundant
+
+
+def filtering_redundancy_density_based(storage: StorageSuperset2, datapoints: List[str]):
+    count_redundant = 0
+    count_not_redundant = 0
+    total = 0
+
+    for idx, _ in enumerate(datapoints):
+        datapoint = datapoints[idx]
+        is_redundant = check_datapoint_density(storage, datapoint)
+
+        total += 1
+        if is_redundant:
+            count_redundant += 1
+            storage.remove_datapoint(datapoint)
+            idx -= 1
+        else:
+            count_not_redundant += 1
+
+    print("IN DJAKSTRA BASED FILTERING")
+    print("Count not redundant", count_not_redundant)
+    print("Count redundant", count_redundant)
+    print("Total", total)
 
 
 def filtering_redundancy_djakstra_based(storage: StorageSuperset2, datapoints: List[str]):
@@ -46,23 +69,25 @@ def filtering_redundancy_djakstra_based(storage: StorageSuperset2, datapoints: L
     count_not_redundant = 0
     total = 0
 
-    pretty_display_set_and_start(len(datapoints))
-    for idx, datapoint in enumerate(datapoints):
-        pretty_display(idx)
+    for idx, _ in enumerate(datapoints):
+        datapoint = datapoints[idx]
         is_connection_complete = check_datapoint_connections_completeness(storage, datapoint)
         is_redundant = False
+
         if not is_connection_complete:
             pass
         else:
             is_redundant = filtering_metric_djakstra(storage, datapoint)
-        total += 1
 
+        total += 1
         if is_redundant:
             count_redundant += 1
             storage.remove_datapoint(datapoint)
+            idx -= 1
         else:
             count_not_redundant += 1
 
+    print("IN DJAKSTRA BASED FILTERING")
     print("Count not redundant", count_not_redundant)
     print("Count redundant", count_redundant)
     print("Total", total)
@@ -83,18 +108,19 @@ def data_filtering_redundancies(storage: StorageSuperset2):
     # filtering_redundancy_neighbors_based()
 
 
-def data_filtering_redundant_datapoints(storage: StorageSuperset2):
+def data_filtering_redundant_datapoints(storage: StorageSuperset2, verbose: bool = False):
     datapoints = storage.get_all_datapoints()
-    filtering_redundancy_djakstra_based(storage, datapoints)
+    # filtering_redundancy_djakstra_based(storage, datapoints)
     # filtering_redundancy_neighbors_based()
-    pass
+    filtering_redundancy_density_based(storage, datapoints)
 
 
-def data_filtering_redundant_connections(storage: StorageSuperset2):
+def data_filtering_redundant_connections(storage: StorageSuperset2, verbose: bool = False):
     datapoints = storage.get_all_datapoints()
     count_redundant = 0
     total_count = 0
 
+    total_count = len(storage.get_all_connections_data())
     for datapoint in datapoints:
         connections = storage.get_datapoint_adjacent_connections_direction_filled(datapoint)
         connections_count = len(connections)
@@ -111,10 +137,7 @@ def data_filtering_redundant_connections(storage: StorageSuperset2):
 
                 first_angle = direction_to_degrees_atan(first_direction)
                 second_angle = direction_to_degrees_atan(second_direction)
-                total_count += 1
                 if abs(first_angle - second_angle) < REDUNDANCY_CONNECTION_ANGLE:
-                    # print("Looks like redundant")
-                    # print("Angles", first_angle, second_angle)
                     # invalidate the bigger distance
                     if first_distance > second_distance:
                         to_remove.append(first_connection)
@@ -124,5 +147,8 @@ def data_filtering_redundant_connections(storage: StorageSuperset2):
         for connection in to_remove:
             count_redundant += storage.remove_connection(datapoint, connection["end"])
 
-    print("Count redundant", count_redundant)
-    print("Total count", total_count)
+    if verbose:
+        print("IN CONNECTION REDUNDANCY FILTERING")
+        print("Count redundant", count_redundant)
+        print("Total connections before", total_count)
+        print("Total connections after", len(storage.get_all_connections_data()))
