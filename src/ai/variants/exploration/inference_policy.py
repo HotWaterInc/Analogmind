@@ -220,6 +220,21 @@ def print_closest_known_position(current_embedding, angle_percent):
     print("Closest known position:", closest)
 
 
+def calculate_positions_manifold_distance(current_name: str, target_name: str,
+                                          manifold_network: BaseAutoencoderModel, storage: StorageSuperset2):
+    manifold_network.eval()
+    manifold_network = manifold_network.to(get_device())
+
+    current_embeddings = storage.get_datapoint_data_tensor_by_name(current_name).to(get_device())
+    target_embeddings = storage.get_datapoint_data_tensor_by_name(target_name).to(get_device())
+
+    current_manifold = manifold_network.encoder_inference(current_embeddings).mean(dim=0)
+    target_manifold = manifold_network.encoder_inference(target_embeddings).mean(dim=0)
+
+    distance = torch.norm(current_manifold - target_manifold, p=2, dim=0).item()
+    return distance
+
+
 def final_angle_policy_direction_testing(current_embedding, angle_percent, target_x, target_y, distance_sensors):
     global storage, direction_network_SDirDistS
 
@@ -231,7 +246,7 @@ def final_angle_policy_direction_testing(current_embedding, angle_percent, targe
     closest_coords = storage.get_datapoint_metadata_coords(closest)
     target_coords = storage.get_datapoint_metadata_coords(target_name)
     distance = math.sqrt((closest_coords[0] - target_coords[0]) ** 2 + (closest_coords[1] - target_coords[1]) ** 2)
-    if distance < STEP_DISTANCE:
+    if distance < STEP_DISTANCE / 2:
         print("target reached")
         return None
 

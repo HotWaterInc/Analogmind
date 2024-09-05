@@ -1,12 +1,16 @@
+import numpy as np
 from manim import *
 import torch
 import logging
 import manim
 from pyglet.resource import add_font
+from scipy.interpolate import griddata
 
+from src.ai.variants.exploration.data_augmentation import load_storage_with_base_data
 from src.ai.variants.exploration.data_filtering import data_filtering_redundant_datapoints
 from src.ai.variants.exploration.exploration_autonomous_policy import augment_data_raw_heuristic, \
     augment_data_cheating_heuristic
+from src.ai.variants.exploration.inference_policy import calculate_positions_manifold_distance
 from src.ai.variants.exploration.networks.abstract_base_autoencoder_model import BaseAutoencoderModel
 from src.ai.variants.exploration.utils import find_frontier_all_datapoint_and_direction
 from src.modules.save_load_handlers.data_handle import read_data_from_file, read_other_data_from_file, \
@@ -22,7 +26,13 @@ storage: Storage = Storage()
 storage_superset2: StorageSuperset2 = StorageSuperset2()
 
 
-class IntroScene(Scene):
+class Scene3D(ThreeDScene):
+    def on_key_press(self, symbol, modifiers):
+        """Called each time a key is pressed."""
+        super().on_key_press(symbol, modifiers)
+
+
+class Scene2D(Scene):
     def on_key_press(self, symbol, modifiers):
         """Called each time a key is pressed."""
         super().on_key_press(symbol, modifiers)
@@ -166,27 +176,6 @@ def build_datapoints_topology(scene, storage: StorageSuperset2):
     # DEBUG_ARRAY = [8, 0]
     storage_global = storage
 
-    # index1 = 5
-    # index2 = 15
-    # dp1 = storage.get_datapoint_by_index(index1)["name"]
-    # dp2 = storage.get_datapoint_by_index(index2)["name"]
-    # print(dp1, dp2)
-    # dist = storage.get_datapoints_real_distance(dp1, dp2)
-    # conns = storage.get_datapoint_adjacent_connections(dp1)
-    # conns = [storage.get_datapoint_index_by_name(x["end"]) for x in conns]
-    # print(dist)
-    # print(conns)
-
-    # storage_raw: StorageSuperset2 = StorageSuperset2()
-    # random_walk_datapoints = storage.get_raw_environment_data()
-    # random_walk_datapoints_names = storage.get_all_datapoints()
-    #
-    # storage_raw.incorporate_new_data(random_walk_datapoints, [])
-    #
-    # new_connnections = augment_data_cheating_heuristic(storage_raw, random_walk_datapoints_names)
-    # total_connections_found = []
-    # total_connections_found.extend(new_connnections)
-
     # datapoints and normal connections
     add_mobjects_datapoints(scene, datapoints_coordinates_map, DISTANCE_SCALE, RADIUS, constrained=True)
     connections = storage.get_all_connections_only_datapoints()
@@ -209,7 +198,7 @@ def build_datapoints_topology(scene, storage: StorageSuperset2):
 
 
 def build_scene_autoencoded_permuted():
-    scene = IntroScene()
+    scene = Scene2D()
 
     global storage_superset2
     permutor = load_manually_saved_ai("permutor_deshift_working.pth")
@@ -268,19 +257,92 @@ def run_opengl_scene(scene):
     scene.interactive_embed()
 
 
+def build_3d_mse(scene):
+    scene.set_camera_orientation(phi=75 * DEGREES, theta=-30 * DEGREES)
+
+    manifold_network: BaseAutoencoderModel = load_manually_saved_ai("manifold_network_2048_1_0.03_0.03.pth")
+    storage = StorageSuperset2()
+    load_storage_with_base_data(
+        storage=storage,
+        datapoints_filename="step47_datapoints_autonomous_walk.json",
+        connections_filename="step47_connections_autonomous_walk_augmented_filled.json"
+    )
+
+    target_x, target_y = -1, 1
+    target_name = storage.get_closest_datapoint_to_xy(target_x, target_y)
+
+    def calculate_coords(name):
+        coords = storage.get_datapoint_metadata_coords(name)
+        x, y = coords[0], coords[1]
+        z = 0
+        z = calculate_positions_manifold_distance(
+            current_name=name,
+            target_name=target_name,
+            manifold_network=manifold_network,
+            storage=storage
+        )
+        z = z * 5
+
+        return x, y, z
+
+    # datapoints_names = storage.get_all_datapoints()
+    # datapoints_names = datapoints_names[:]
+    # dots_array = []
+    #
+    # for name in datapoints_names:
+    #     x, y, z = calculate_coords(name)
+    #     coords = np.array([x, y, z])
+    #     dot = Dot3D(point=coords, color=WHITE)
+    #     dots_array.append(dot)
+    #
+    # axes = ThreeDAxes(
+    #     x_length=6,
+    #     y_length=6,
+    #     z_length=6
+    # )
+    # scene.add(axes)
+    # for dot in dots_array:
+    #     scene.add(dot)
+
+    datapoints_names = storage.get_all_datapoints()
+    print("zipping")
+    x, y, z = zip(*[calculate_coords(name) for name in datapoints_names])
+
+    # Add axes
+    axes = ThreeDAxes(
+        x_length=6,
+        y_length=6,
+        z_length=6
+    )
+
+    z_norm = (np.array(z) - min(z)) / (max(z) - min(z))
+    scatter = VGroup(
+        *[Dot3D(point=[x[i], y[i], z[i]], radius=0.05,
+                color=color_gradient([BLUE, GREEN, YELLOW, RED], 101)[int(z_norm[i] * 100)]
+                ) for i in
+          range(len(x))])
+
+    scene.add(axes, scatter)
+
+    # Add everything to the scene
+
+    # Rotate the camera
+    # scene.begin_ambient_camera_rotation(rate=0.1)
+    # scene.wait(10)
+
+
 def build_test_scene():
-    scene = IntroScene()
-    circle = Circle()
-    scene.add(circle)
-    return scene
+    manim_configs_opengl()
+    scene = Scene3D()
+    build_3d_mse(scene)
+    run_opengl_scene(scene)
 
 
 def visualization_collected_data_photo(storage: StorageSuperset2):
     manim_configs_png()
-    scene = IntroScene()
+    scene = Scene2D()
     scene = build_datapoints_topology(scene, storage)
     scene.render()
-
     pass
 
 

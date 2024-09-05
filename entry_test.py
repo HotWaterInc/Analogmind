@@ -314,7 +314,7 @@ def _get_connection_distances_on_some_network_on_unknown_dataset(storage: Storag
     pretty_display_start()
 
     lng = len(datapoints)
-    upper_i = 50
+    upper_i = 3
 
     for i in range(lng):
         pretty_display(i)
@@ -537,13 +537,12 @@ def calculate_pearson_correlations(data: ndarray):
 
 
 def get_manifold_datapoint_distances():
-    random_walk_datapoints = read_other_data_from_file(f"datapoints_random_walks_300_24rot.json")
-    random_walk_connections = read_other_data_from_file(f"datapoints_connections_random_walks_300_24rot.json")
-    random_walk_connections = flag_data_authenticity(random_walk_connections)
+    random_walk_datapoints = read_other_data_from_file(f"step47_datapoints_autonomous_walk.json")
+    random_walk_connections = read_other_data_from_file(f"step47_connections_autonomous_walk_augmented_filled.json")
     storage: StorageSuperset2 = StorageSuperset2()
     storage.incorporate_new_data(random_walk_datapoints, random_walk_connections)
 
-    abs_network = load_custom_ai(model_name="manifold_network_034_031.pth", folder_name="exploration_inference_no_sofa")
+    abs_network = load_custom_ai(model_name="manifold_network_2048_1_0.03_0.03.pth", folder_name="manually_saved")
     connections = _get_connection_distances_on_some_network_on_unknown_dataset(storage, abs_network)
     return connections
 
@@ -612,9 +611,9 @@ def visualize_connections_distances(connections):
 
 
 if __name__ == "__main__":
-    # connections = get_manifold_datapoint_distances()
-    # visualize_connections_distances(connections)
+    connections = get_manifold_datapoint_distances()
+    visualize_connections_distances(connections)
 
-    datapoints = get_reconstructions_seen_network()
-    visualize_datapoints_reconstructions(datapoints)
+    # datapoints = get_reconstructions_seen_network()
+    # visualize_datapoints_reconstructions(datapoints)
     pass

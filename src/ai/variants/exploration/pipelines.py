@@ -5,7 +5,7 @@ from src.ai.variants.exploration.data_augmentation import load_storage_with_base
     storage_augment_with_saved_augmented_connections, get_augmented_connections, \
     storage_augment_with_saved_connections_already_augmented
 from src.ai.variants.exploration.data_filtering import data_filtering_redundancies, data_filtering_redundant_connections
-from src.ai.variants.exploration.exploration_autonomous_policy import exploration_policy_autonomous
+from src.ai.variants.exploration.exploration_autonomous_policy import exploration_policy_autonomous, SDirDistS_network
 from src.ai.variants.exploration.inference_policy import teleportation_exploring_inference
 from src.ai.variants.exploration.inferences import fill_augmented_connections_distances
 from src.ai.variants.exploration.networks.SDirDistState_network import SDirDistState, train_SDirDistS_network
@@ -76,17 +76,21 @@ def exploration_autonomous_pipeline():
     server_thread.join()
 
 
-def inference_pipeline_no_sofa():
+def inference_pipeline():
     configs_communication()
 
     storage = StorageSuperset2()
-    load_storage_with_base_data(storage)
+    load_storage_with_base_data(
+        storage=storage,
+        datapoints_filename="step47_datapoints_autonomous_walk.json",
+        connections_filename="step47_connections_autonomous_walk_augmented_filled.json"
+    )
 
     generator = teleportation_exploring_inference(
-        models_folder="exploration_inference_no_sofa",
-        manifold_encoder_name="manifold_network_034_031",
-        SSD_name="ssdir_network_02",
-        SDirDistS_name="sdirdiststate_network_001",
+        models_folder="manually_saved",
+        manifold_encoder_name="manifold_network_2048_1_0.03_0.03",
+        SSD_name="ssdir_network_0.02",
+        SDirDistS_name="sdirdiststate_network_0.001",
         storage_arg=storage
     )
 
@@ -99,22 +103,23 @@ def inference_pipeline_no_sofa():
 
 def test_pipeline():
     # exploration_autonomous_pipeline()
+    inference_pipeline()
 
-    storage = StorageSuperset2()
-    load_storage_with_base_data(
-        storage=storage,
-        datapoints_filename="step47_datapoints_autonomous_walk.json",
-        connections_filename="step47_connections_autonomous_walk_augmented_filled.json"
-    )
-    manifold_network = ManifoldNetwork()
-    manifold_network = train_manifold_network(
-        manifold_network=manifold_network,
-        storage=storage,
-    )
-
-    save_ai_manually(
-        model=manifold_network,
-        name="manifold_network_new",
-    )
+    # storage = StorageSuperset2()
+    # load_storage_with_base_data(
+    #     storage=storage,
+    #     datapoints_filename="step47_datapoints_autonomous_walk.json",
+    #     connections_filename="step47_connections_autonomous_walk_augmented_filled.json"
+    # )
+    # manifold_network = load_manually_saved_ai("manifold_network_2048_1_0.03_0.03")
+    # storage_to_manifold(storage, manifold_network)
+    #
+    # sdirdists = SDirDistState()
+    # sdirdists = train_SDirDistS_network(sdirdists, storage)
+    #
+    # save_ai_manually(
+    #     model=sdirdists,
+    #     name="sdirdiststate_network",
+    # )
 
     pass

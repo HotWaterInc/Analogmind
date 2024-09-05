@@ -315,7 +315,7 @@ def train_manifold_network(manifold_network: BaseAutoencoderModel, storage: Stor
     manifold_network = _train_autoencoder_with_distance_constraint(
         manifold_network=manifold_network,
         storage=storage,
-        epochs=15000,
+        epochs=13000,
         stop_at_threshold=False
     )
 
