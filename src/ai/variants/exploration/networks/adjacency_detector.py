@@ -10,7 +10,8 @@ import random
 from src.ai.runtime_data_storage.storage_superset2 import StorageSuperset2, RawConnectionData
 from src.ai.variants.exploration.networks.abstract_base_autoencoder_model import BaseAutoencoderModel
 from src.ai.variants.exploration.params import THRESHOLD_ADJACENCY_DETECTOR, ROTATIONS
-from src.ai.variants.exploration.utils_pure_functions import sample_n_elements, calculate_coords_distance
+from src.ai.variants.exploration.utils_pure_functions import sample_n_elements, calculate_coords_distance, \
+    check_connection_already_existing
 from src.modules.save_load_handlers.ai_models_handle import load_manually_saved_ai, save_ai_manually
 from src.modules.time_profiler import start_profiler, profiler_checkpoint
 from src.utils import array_to_tensor, get_device
@@ -56,9 +57,10 @@ def embedding_policy(data):
     return start_embedding
 
 
-def adjacency_detector_loss(direction_network, storage, sample_rate=None):
-    connections: RawConnectionData = storage.get_all_connections_only_datapoints_authenticity_filter(
+def adjacency_detector_loss(direction_network, storage: StorageSuperset2, sample_rate=None):
+    connections: List[RawConnectionData] = storage.get_all_connections_only_datapoints_authenticity_filter(
         authentic_distance=True)
+
     if sample_rate == None:
         sample_rate = len(connections)
     sample_rate = min(sample_rate, len(connections))
@@ -108,6 +110,9 @@ def adjacency_detector_loss(direction_network, storage, sample_rate=None):
     for pair in pairs:
         start = pair[0]
         end = pair[1]
+        if check_connection_already_existing(connections, start, end):
+            continue
+
         start_data = storage.get_datapoint_data_tensor_by_name_permuted(start)
         end_data = storage.get_datapoint_data_tensor_by_name_permuted(end)
         start_embedding = embedding_policy(start_data)

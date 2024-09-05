@@ -1,4 +1,6 @@
 import numpy as np
+
+from src.ai.variants.exploration.utils_pure_functions import check_connection_already_existing
 import torch
 from src.ai.runtime_data_storage import Storage
 from src.ai.runtime_data_storage.storage_superset2 import StorageSuperset2
@@ -149,19 +151,7 @@ def evaluate_distance_metric_on_already_found_connections(storage: StorageSupers
     # print("False positive distances", false_positive_distances)
 
 
-def check_connection_already_existing(connections_arr, start, end):
-    """
-    Check if the connection already exists
-    """
-    for conn in connections_arr:
-        if conn["start"] == start and conn["end"] == end:
-            return True
-        if conn["start"] == end and conn["end"] == start:
-            return True
-    return False
-
-
-def evaluate_distance_metric(storage: StorageSuperset2, metric, new_datapoints: List[str], debug: bool = False
+def evaluate_distance_metric(storage: StorageSuperset2, metric, new_datapoints: List[str], debug: bool = True
                              ):
     """
     Evaluate new datapoints and old datapoints with the distance metric

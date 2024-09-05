@@ -40,15 +40,13 @@ def find_adjacency_heuristic_raw_data(storage: StorageSuperset2, datapoint: Dict
     current_name = datapoint["name"]
 
     datapoints_names = storage.get_all_datapoints()
-    adjacent_names = storage.get_datapoint_adjacent_datapoints_at_most_n_deg_authentic(current_name, 1)
-    adjacent_names.append(current_name)
 
     current_data_arr = []
     other_datapoints_data_arr = []
     selected_names = []
 
     for name in datapoints_names:
-        if name in adjacent_names or name == current_name:
+        if name == current_name:
             continue
 
         for i in range(ROTATIONS):
@@ -90,15 +88,13 @@ def find_adjacency_heuristic_adjacency_network(storage: StorageSuperset2, datapo
     current_name = datapoint["name"]
 
     datapoints_names = storage.get_all_datapoints()
-    adjacent_names = storage.get_datapoint_adjacent_datapoints_at_most_n_deg_authentic(current_name, 1)
-    adjacent_names.append(current_name)
 
     current_data_arr = []
     other_datapoints_data_arr = []
     selected_names = []
 
     for name in datapoints_names:
-        if name in adjacent_names or name == current_name:
+        if name == current_name:
             continue
 
         for i in range(ROTATIONS):

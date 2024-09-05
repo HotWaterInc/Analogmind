@@ -243,10 +243,7 @@ def final_angle_policy_direction_testing(current_embedding, angle_percent, targe
     target_manifold = storage.get_datapoint_data_tensor_by_name(target_name)[0].to(get_device())
 
     closest = find_closest_known_position(current_manifold, angle_percent)
-    closest_coords = storage.get_datapoint_metadata_coords(closest)
-    target_coords = storage.get_datapoint_metadata_coords(target_name)
-    distance = math.sqrt((closest_coords[0] - target_coords[0]) ** 2 + (closest_coords[1] - target_coords[1]) ** 2)
-    if distance < STEP_DISTANCE / 2:
+    if closest == target_name:
         print("target reached")
         return None
 

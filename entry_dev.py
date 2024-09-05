@@ -5,7 +5,6 @@ if __name__ == "__main__":
     # exploration_pipeline()
     # exploration_autonomous_pipeline()
 
-    build_test_scene()
-    # test_pipeline()
+    test_pipeline()
 
     pass

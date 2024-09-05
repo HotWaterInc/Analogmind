@@ -102,8 +102,8 @@ def inference_pipeline():
 
 
 def test_pipeline():
-    # exploration_autonomous_pipeline()
-    inference_pipeline()
+    exploration_autonomous_pipeline()
+    # inference_pipeline()
 
     # storage = StorageSuperset2()
     # load_storage_with_base_data(

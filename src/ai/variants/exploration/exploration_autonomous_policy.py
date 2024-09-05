@@ -2,6 +2,7 @@ import copy
 from typing import Generator
 from src.ai.variants.exploration.data_filtering import data_filtering_redundant_connections, \
     data_filtering_redundant_datapoints
+from src.ai.variants.exploration.inference_policy_during_exploration import exploration_inference
 from src.ai.variants.exploration.inferences import fill_augmented_connections_distances, \
     fill_augmented_connections_distances_cheating, fill_augmented_connections_directions_cheating
 from src.ai.variants.exploration.metric_builders import build_find_adjacency_heursitic_raw_data, \
@@ -12,6 +13,7 @@ from src.ai.variants.exploration.networks.SSDir_network import SSDirNetwork, tra
     train_SSDirection_until_threshold
 from src.ai.variants.exploration.networks.adjacency_detector import AdjacencyDetector, \
     train_adjacency_network_until_threshold
+from src.ai.variants.exploration.networks.images_direction_predictor import ImagesDirectionPredictor
 from src.ai.variants.exploration.networks.images_raw_distance_predictor import ImagesRawDistancePredictor, \
     train_images_raw_distance_predictor_until_threshold
 from src.ai.variants.exploration.others.images_distance_predictor import train_images_distance_predictor_until_threshold
@@ -309,17 +311,20 @@ def random_walk_policy(random_walk_datapoints, random_walk_connections):
 
 
 def phase_explore(random_walk_datapoints, random_walk_connections, first_walk, max_steps, skip_checks=0):
+    if not first_walk:
+        max_steps /= 10
+
     for step in range(max_steps):
         collect_data = collect_current_data_and_add_connections(random_walk_datapoints, random_walk_connections)
         yield from collect_data
 
-        if first_walk == False and skip_checks == 0:
-            position_check = check_position_is_known_cheating(random_walk_datapoints)
-            if position_check:
-                break
-
-        if skip_checks != 0:
-            skip_checks -= 1
+        # if first_walk == False and skip_checks == 0:
+        #     position_check = check_position_is_known_cheating(random_walk_datapoints)
+        #     if position_check:
+        #         break
+        #
+        # if skip_checks != 0:
+        #     skip_checks -= 1
 
         if step != max_steps - 1:
             move_randomly = random_move_policy()
@@ -406,6 +411,124 @@ def exploration_policy_autonomous_data_filtering(step: int):
     data_filtering_redundant_connections(storage_raw)
     data_filtering_redundant_datapoints(storage_raw)
     storage_raw.build_non_adjacent_distances_from_connections(debug=True)
+
+
+def exploration_policy_autonomous_exploration_full(step: int):
+    global storage_raw, first_walk, exploring
+    global adjacency_network, image_distance_network, manifold_network, SSDir_network, SDirDistS_network
+
+    random_walk_datapoints = []
+    random_walk_connections = []
+
+    print(f"EXPLORING RANDOM WALK ITER {step}")
+    if first_walk:
+        print("IT'S FIRST TIME !!")
+
+    yield from phase_explore(random_walk_datapoints, random_walk_connections, first_walk, max_steps=30, skip_checks=3)
+
+    first_walk = False
+    flag_data_authenticity(random_walk_connections)
+
+    storage_raw.incorporate_new_data(random_walk_datapoints, random_walk_connections)
+    random_walk_datapoints_names = [datapoint["name"] for datapoint in random_walk_datapoints]
+
+    adjacency_network = train_adjacency_network_until_threshold(
+        adjacency_network=adjacency_network,
+        storage=storage_raw
+    )
+
+    print("AUGMENTING DATA")
+    new_connections_raw = augment_data_raw_heuristic(storage_raw, random_walk_datapoints_names)
+    new_connections_adjacency_network = augment_data_network_heuristic(storage_raw, random_walk_datapoints_names,
+                                                                       adjacency_network)
+
+    total_connections_found = []
+    total_connections_found.extend(new_connections_raw)
+    total_connections_found.extend(new_connections_adjacency_network)
+    flag_data_authenticity(total_connections_found)
+
+    evaluate_distance_metric_on_already_found_connections(storage_raw, random_walk_datapoints_names,
+                                                          total_connections_found)
+    print("FINISHING AUGMENTING CONNECTIONS")
+    print("TRAINING DISTANCES NETWORK")
+
+    image_distance_network = train_images_raw_distance_predictor_until_threshold(
+        image_distance_predictor_network=image_distance_network,
+        storage=storage_raw
+    )
+
+    print("ADDING SYNTHETIC DISTANCES")
+    total_new_connections_filled = fill_augmented_connections_distances(
+        additional_connections=total_connections_found,
+        storage=storage_raw,
+        image_distance_network=image_distance_network)
+
+    storage_raw.incorporate_new_data([], total_new_connections_filled)
+
+    print("DATA PURGING")
+    # data_filtering_redundant_connections(storage_raw, verbose=False)
+    # datapoints purging not implemented properly yet
+    storage_raw.build_non_adjacent_distances_from_connections(debug=False)
+
+    train_manifold_network_until_thresholds(
+        manifold_network=manifold_network,
+        storage=storage_raw,
+    )
+
+    print("FINISHED TRAINING MANIFOLD NETWORK")
+    print("CREATING MANIFOLD STORAGE")
+    copy_storage(
+        storage_to_copy=storage_raw,
+        storage_to_copy_into=storage_manifold
+    )
+
+    storage_to_manifold(
+        storage=storage_manifold,
+        manifold_network=manifold_network
+    )
+
+    last_dp = random_walk_datapoints[-1]
+    frontier_connection = find_frontier_all_datapoint_and_direction(
+        storage=storage_raw,
+        return_first=True,
+        starting_point=last_dp["name"]
+    )
+
+    if frontier_connection is None:
+        print("NO FRONTIER FOUND, EXPLORATION FINISHED")
+        exploring = False
+        return
+
+    write_other_data_to_file(f"step{step}_datapoints_autonomous_walk.json", storage_raw.get_raw_environment_data())
+    write_other_data_to_file(f"step{step}_connections_autonomous_walk_augmented_filled.json",
+                             storage_raw.get_raw_connections_data())
+
+    frontier_datapoint = frontier_connection["start"]
+    frontier_direction = frontier_connection["direction"]
+
+    print("TRAINING SSDIR NETWORK")
+    train_SSDirection_until_threshold(
+        SSDir_network=SSDir_network,
+        storage=storage_manifold
+    )
+    print("TRAINING SDirDistState NETWORK")
+    train_SDirDistS_network_until_threshold(
+        SDirDistState_network=SDirDistState_network,
+        storage=storage_manifold
+    )
+
+    yield from exploration_inference(
+        storage_arg=storage_manifold,
+        manifold_network_arg=manifold_network,
+        direction_network_SSD_arg=SSDir_network,
+        network_SDirDistS_arg=SDirDistState_network,
+        target_name=frontier_datapoint
+    )
+
+    detach_robot_teleport_relative(frontier_direction[0], frontier_direction[1])
+    yield
+    print("TELEPORTED TO RELATIVE")
+    time.sleep(1)
 
 
 def exploration_policy_autonomous_exploration_cheating(step: int):
@@ -586,7 +709,8 @@ def exploration_policy_autonomous() -> Generator[None, None, None]:
 
         # yield from exploration_policy_autonomous_step(step, train_networks=False)
         # exploration_policy_autonomous_data_filtering(step)
-        generator = exploration_policy_autonomous_exploration_cheating(step)
+        # generator = exploration_policy_autonomous_exploration_cheating(step)
+        generator = exploration_policy_autonomous_exploration_full(step)
         yield from generator
 
     yield

@@ -6,16 +6,12 @@ import numpy as np
 from src.ai.runtime_data_storage.storage_superset2 import StorageSuperset2, RawConnectionData, calculate_coords_distance
 from src.ai.variants.exploration.params import MAX_DISTANCE, ROTATIONS, \
     THRESHOLD_IMAGE_DISTANCE_NETWORK, DIRECTION_THETAS_SIZE
-from src.ai.variants.exploration.utils_pure_functions import sample_n_elements
+from src.ai.variants.exploration.utils_pure_functions import sample_n_elements, distance_percent_to_distance_thetas
 from src.modules.time_profiler import start_profiler, profiler_checkpoint
 from src.utils import array_to_tensor, get_device
 from typing import List
 import torch.nn.functional as F
 from src.modules.pretty_display import pretty_display, pretty_display_set, pretty_display_start, pretty_display_reset
-from src.ai.runtime_data_storage.storage_superset2 import direction_thetas_to_radians, \
-    angle_percent_to_thetas_normalized_cached, \
-    radians_to_degrees, atan2_to_standard_radians, radians_to_percent, coordinate_pair_to_radians_cursed_tranform, \
-    direction_to_degrees_atan, distance_percent_to_distance_thetas, distance_thetas_to_distance_percent
 from src.ai.variants.blocks import ResidualBlockSmallBatchNorm
 
 
@@ -50,7 +46,7 @@ class ImagesDirectionPredictor(nn.Module):
         return output
 
 
-def direction_loss(image_distance_predictor_network, storage, sample_rate: int = None):
+def direction_loss(image_direction_predictor_network, storage, sample_rate: int = None):
     loss = torch.tensor(0.0)
 
     connections: RawConnectionData = storage.get_all_connections_only_datapoints_authenticity_filter(
@@ -86,8 +82,8 @@ def direction_loss(image_distance_predictor_network, storage, sample_rate: int =
     end_embeddings_batch = torch.stack(end_embeddings_batch).to(get_device())
     target_distances_batch = torch.stack(target_distances_batch).to(get_device())
 
-    predicted_distances = image_distance_predictor_network.forward_training(start_embeddings_batch,
-                                                                            end_embeddings_batch)
+    predicted_distances = image_direction_predictor_network.forward_training(start_embeddings_batch,
+                                                                             end_embeddings_batch)
     criterion = torch.nn.KLDivLoss(reduction='batchmean')
     loss = criterion(predicted_distances, target_distances_batch)
     return loss

@@ -310,3 +310,15 @@ def generate_dxdy(direction: float, distance):
     dy = distance * math.cos(direction)
 
     return dx, dy
+
+
+def check_connection_already_existing(connections_arr, start, end):
+    """
+    Check if the connection already exists
+    """
+    for conn in connections_arr:
+        if conn["start"] == start and conn["end"] == end:
+            return True
+        if conn["start"] == end and conn["end"] == start:
+            return True
+    return False
