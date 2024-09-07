@@ -9,7 +9,7 @@ from src.ai.variants.exploration.utils import get_collected_data_distances, chec
     storage_to_manifold
 from src.ai.variants.exploration.utils_pure_functions import distance_percent_to_distance_thetas, \
     angle_percent_to_thetas_normalized_cached, direction_to_degrees_atan, degrees_to_percent, \
-    direction_thetas_to_radians, generate_dxdy
+    direction_thetas_to_radians, generate_dxdy, calculate_manifold_distances
 from src.global_data_buffer import GlobalDataBuffer, empty_global_data_buffer
 from src.modules.save_load_handlers.data_handle import write_other_data_to_file
 from src.action_robot_controller import detach_robot_sample_distance, detach_robot_sample_image, \
@@ -125,6 +125,12 @@ def final_angle_policy_direction_testing(current_embedding, angle_percent, targe
         if distance < best_distance:
             best_distance = distance
             best_next_manifold = predicted_manifold
+
+    previous_best_distance = calculate_manifold_distances(target_manifold, current_manifold)
+    next_best_distance = calculate_manifold_distances(target_manifold, best_next_manifold)
+    if next_best_distance > previous_best_distance:
+        print("target reached")
+        return None
 
     final_angle = policy_thetas_navigation_next_manifold(current_manifold, best_next_manifold)
     return final_angle

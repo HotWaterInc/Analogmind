@@ -530,6 +530,7 @@ class StorageSuperset2(StorageSuperset):
         associated_connections = self.get_datapoint_adjacent_connections(name)
         for connection in associated_connections:
             self.remove_connection(connection["start"], connection["end"])
+
         self.remove_null_connections(name)
 
         for idx, datapoint in enumerate(self.raw_env_data):
@@ -550,3 +551,12 @@ class StorageSuperset2(StorageSuperset):
                 return True
 
         return False
+
+    def get_datapoints_walking_distance(self, start_name, end_name):
+        """
+        Returns the walking distance between two datapoints
+        """
+        if self._non_adjacent_distances is None:
+            self.build_non_adjacent_distances_from_connections(debug=False)
+
+        return self._non_adjacent_distances[start_name][end_name]

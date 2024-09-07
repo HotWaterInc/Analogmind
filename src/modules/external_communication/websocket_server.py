@@ -8,19 +8,16 @@ from typing import Dict
 PORT = 8080
 websocket_global = None
 
-"""
-String to json and json to string conversion should be handled here
-( Or in the server implementation in general ) 
-Communication Interface works with json right now
-"""
-
 
 async def listen(websocket):
     global websocket_global
     websocket_global = websocket
     set_server_started()
-    async for message in websocket:
-        receive_data(json.loads(message))
+    try:
+        async for message in websocket:
+            receive_data(json.loads(message))
+    finally:
+        websocket_global = None
 
 
 async def send_data_string_websockets(websocket, message):
@@ -30,14 +27,10 @@ async def send_data_string_websockets(websocket, message):
 def send_data_websockets(json_data: Dict[str, any]):
     global websocket_global
     websocket = websocket_global
-
+    if websocket is None:
+        print("WebSocket not connected. Unable to send data.")
+        return
     message = json.dumps(json_data)
-
-    # data is sometimes sent by the main thread ( which needs to create a new asyncio event loop ) or by the thread
-    # which runs the server ( for example in send_pending_data, the server thread calls this callback which calls
-    # send again )
-
-    # We need to cover both cases
     try:
         loop = asyncio.get_running_loop()
         loop.create_task(send_data_string_websockets(websocket, message))
@@ -46,9 +39,18 @@ def send_data_websockets(json_data: Dict[str, any]):
 
 
 async def start_websockets_server():
-    server = await websockets.serve(listen, "localhost", PORT)
-    print("Server started at ws://localhost:" + str(PORT) + ", waiting for connections")
-    await server.wait_closed()
+    try:
+        server = await websockets.serve(
+            listen,
+            "localhost",
+            PORT,
+            ping_interval=None,  # Disable ping/pong mechanism
+            ping_timeout=None
+        )
+        print(f"Server started at ws://localhost:{PORT}, waiting for connections")
+        await server.wait_closed()
+    except Exception as e:
+        print(f"Server error: {e}. ")
 
 
 def start_websockets(set_server_started_cb=(lambda: None)):

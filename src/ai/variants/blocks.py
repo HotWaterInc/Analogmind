@@ -67,9 +67,9 @@ class ResidualBlockSmallBatchNorm(nn.Module):
         return x + self.block(x)
 
 
-class ResidualBlock(nn.Module):
+class ResidualBlockBatchNorm(nn.Module):
     def __init__(self, hidden_size, dropout_rate):
-        super(ResidualBlock, self).__init__()
+        super(ResidualBlockBatchNorm, self).__init__()
         self.block = nn.Sequential(
             nn.Linear(hidden_size, hidden_size),
             nn.BatchNorm1d(hidden_size),

@@ -1,4 +1,3 @@
-from multiprocessing.forkserver import set_forkserver_preload
 from typing import List, Dict
 import matplotlib.pyplot as plt
 from numpy import ndarray
@@ -9,6 +8,7 @@ from pyglet.input.linux.evdev import get_devices
 import torch
 
 from src.ai.runtime_data_storage.storage_superset2 import StorageSuperset2
+from src.ai.variants.exploration.data_augmentation import load_storage_with_base_data
 from src.ai.variants.exploration.networks.abstract_base_autoencoder_model import BaseAutoencoderModel
 from src.ai.variants.exploration.params import MAX_DISTANCE
 from src.ai.variants.exploration.utils_pure_functions import distance_thetas_to_distance_percent, flag_data_authenticity
@@ -48,8 +48,8 @@ def eval_data_changes(storage: StorageSuperset2, seen_network: any) -> any:
         start_embeddings = seen_network.encoder_inference(torch.stack(start_rotations_arr).to(get_device()))
         end_embeddings = seen_network.encoder_inference(torch.stack(end_rotations_arr).to(get_device()))
 
-        same_position_difference += torch.norm(start_embeddings[0] - start_embeddings[2], p=2, dim=0).mean().item()
-        raw_diff = torch.norm(start_embeddings[0] - end_embeddings[2], p=2, dim=0).item()
+        same_position_difference += torch.norm(start_embeddings[0] - start_embeddings[12], p=2, dim=0).mean().item()
+        raw_diff = torch.norm(start_embeddings[0] - end_embeddings[12], p=2, dim=0).item()
 
         different_position_difference += raw_diff
 
@@ -314,17 +314,15 @@ def _get_connection_distances_on_some_network_on_unknown_dataset(storage: Storag
     pretty_display_start()
 
     lng = len(datapoints)
-    upper_i = 3
+    upper_i = 100
 
     for i in range(lng):
         pretty_display(i)
         for j in range(i + 1, min(i + upper_i, lng)):
             start_name = datapoints[i]
             end_name = datapoints[j]
-            distance = storage.get_datapoints_real_distance(start_name, end_name)
+            distance = storage.get_datapoints_walking_distance(start_name, end_name)
 
-            # start_data = storage.get_datapoint_data_selected_rotation_tensor_by_name(start_name, 0)
-            # end_data = storage.get_datapoint_data_selected_rotation_tensor_by_name(end_name, 0)
             start_data = storage.get_datapoint_data_random_rotation_tensor_by_name(start_name)
             end_data = storage.get_datapoint_data_random_rotation_tensor_by_name(end_name)
 
@@ -537,19 +535,19 @@ def calculate_pearson_correlations(data: ndarray):
 
 
 def get_manifold_datapoint_distances():
-    random_walk_datapoints = read_other_data_from_file(f"step47_datapoints_autonomous_walk.json")
-    random_walk_connections = read_other_data_from_file(f"step47_connections_autonomous_walk_augmented_filled.json")
+    random_walk_datapoints = read_other_data_from_file(f"(1)_datapoints_autonomous_walk.json")
+    random_walk_connections = read_other_data_from_file(f"(1)_connections_autonomous_walk_augmented_filled.json")
     storage: StorageSuperset2 = StorageSuperset2()
     storage.incorporate_new_data(random_walk_datapoints, random_walk_connections)
 
-    abs_network = load_custom_ai(model_name="manifold_network_2048_1_0.03_0.03.pth", folder_name="manually_saved")
+    abs_network = load_custom_ai(model_name="manifold_network_normal", folder_name="manually_saved")
     connections = _get_connection_distances_on_some_network_on_unknown_dataset(storage, abs_network)
     return connections
 
 
 def get_reconstructions_seen_network():
-    random_walk_datapoints = read_other_data_from_file(f"datapoints_random_walks_300_24rot.json")
-    random_walk_connections = read_other_data_from_file(f"datapoints_connections_random_walks_300_24rot.json")
+    random_walk_datapoints = read_other_data_from_file(f"(1)_datapoints_autonomous_walk.json")
+    random_walk_connections = read_other_data_from_file(f"(1)_connections_autonomous_walk_augmented_filled.json")
     random_walk_connections = flag_data_authenticity(random_walk_connections)
     storage: StorageSuperset2 = StorageSuperset2()
     storage.incorporate_new_data(random_walk_datapoints, random_walk_connections)
@@ -578,7 +576,7 @@ def visualize_datapoints_reconstructions(datapoints_recons):
     filtered_data = data_array
 
     # Create the plot
-    plt.figure(figsize=(12, 4))
+    plt.figure(figsize=(4, 4))
 
     plot_datapoints(131, filtered_data[:, 0], filtered_data[:, 1], "X axis coords", "Reconstruction error",
                     "Real vs Data Distance", "blue")
@@ -598,12 +596,14 @@ def visualize_connections_distances(connections):
     filtered_data = data_array
 
     # Create the plot
-    plt.figure(figsize=(12, 4))
+    plt.figure(figsize=(5, 4))
 
-    plot_datapoints(131, filtered_data[:, 0], filtered_data[:, 1], "Real Distance", "Data Distance",
-                    "Real vs Data Distance", "blue")
-    plot_datapoints(132, filtered_data[:, 0], filtered_data[:, 2], "Real Distance", "Embeddings Distance",
-                    "Real vs Embeddings Distance", "red")
+    # plot_datapoints(132, filtered_data[:, 0], filtered_data[:, 2], "Walking Distance", "S Distance",
+    #                 "Walking distance vs S distances", "red")
+    plt.scatter(filtered_data[:, 0], filtered_data[:, 2], color="red", alpha=0.7)
+    plt.title("Walking distance vs S distances")
+    plt.xlabel("Walking Distance")
+    plt.ylabel("S Distance")
 
     plt.tight_layout()
     plt.show()

@@ -9,7 +9,7 @@ from src.ai.variants.exploration.utils import get_collected_data_distances, chec
     storage_to_manifold
 from src.ai.variants.exploration.utils_pure_functions import distance_percent_to_distance_thetas, \
     angle_percent_to_thetas_normalized_cached, direction_to_degrees_atan, degrees_to_percent, \
-    direction_thetas_to_radians, generate_dxdy
+    direction_thetas_to_radians, generate_dxdy, calculate_manifold_distances
 from src.global_data_buffer import GlobalDataBuffer, empty_global_data_buffer
 from src.modules.save_load_handlers.data_handle import write_other_data_to_file
 from src.action_robot_controller import detach_robot_sample_distance, detach_robot_sample_image, \
@@ -33,19 +33,16 @@ from src.modules.policies.utils_lib import webots_radians_to_normal, radians_to_
 import torch
 
 
-def load_everything(models_folder: str, manifold_encoder_name: str, SSD_name: str, SDS_name: str):
-    global direction_network_SSD, direction_network_SDirDistS, manifold_network
+def load_everything(models_folder: str, manifold_encoder_name: str, SDS_name: str):
+    global direction_network_SDirDistS, manifold_network
 
     manifold_network = load_custom_ai(manifold_encoder_name, models_folder)
-    direction_network_SSD = load_custom_ai(SSD_name, models_folder)
     direction_network_SDirDistS = load_custom_ai(SDS_name, models_folder)
 
     manifold_network.eval()
-    direction_network_SSD.eval()
     direction_network_SDirDistS.eval()
 
     manifold_network = manifold_network.to(get_device())
-    direction_network_SSD = direction_network_SSD.to(get_device())
     direction_network_SDirDistS = direction_network_SDirDistS.to(get_device())
 
 
@@ -204,17 +201,6 @@ def next_embedding_policy_search_closest(current_embedding, current_theta_percen
     return potential_current_embedding
 
 
-def policy_thetas_navigation_next_manifold(current_manifold: torch.Tensor, next_manifold: torch.Tensor):
-    global direction_network_SSD
-
-    direction_network_SSD = direction_network_SSD.to(get_device())
-    direction_network_SSD.eval()
-
-    thetas_direction = direction_network_SSD(current_manifold.unsqueeze(0), next_manifold.unsqueeze(0)).squeeze(0)
-    final_angle = direction_thetas_to_radians(thetas_direction)
-    return final_angle
-
-
 def print_closest_known_position(current_embedding, angle_percent):
     closest = find_closest_known_position(current_embedding, angle_percent)
     print("Closest known position:", closest)
@@ -243,18 +229,21 @@ def final_angle_policy_direction_testing(current_embedding, angle_percent, targe
     target_manifold = storage.get_datapoint_data_tensor_by_name(target_name)[0].to(get_device())
 
     closest = find_closest_known_position(current_manifold, angle_percent)
-    if closest == target_name:
-        print("target reached")
-        return None
+    # if closest == target_name:
+    #     print("target reached")
+    #     return None
 
     directions = []
     distances = []
     directions_radians = []
 
+    previous_best_distance = calculate_manifold_distances(target_manifold, current_manifold)
+
     for angle in range(0, 360, 15):
         directions.append(generate_dxdy(math.radians(angle), STEP_DISTANCE))
         directions_radians.append(math.radians(angle))
-        distances.append(STEP_DISTANCE)
+        adjusting_factor = 0.5 if previous_best_distance < 0.1 else 1
+        distances.append(STEP_DISTANCE * adjusting_factor)
 
     directions_percent = [degrees_to_percent(direction_to_degrees_atan(direction)) for direction in directions]
     directions_thetas = [angle_percent_to_thetas_normalized_cached(direction, DIRECTION_THETAS_SIZE) for direction in
@@ -273,6 +262,8 @@ def final_angle_policy_direction_testing(current_embedding, angle_percent, targe
     best_distance = 100000
     best_direction = None
     best_next_manifold = None
+    best_next_angle = None
+
     for i, predicted_manifold in enumerate(predicted_manifolds):
         # check if direction is valid
         if not check_direction_distance_validity_north(distances[i] * 1.5, directions_radians[i],
@@ -284,33 +275,29 @@ def final_angle_policy_direction_testing(current_embedding, angle_percent, targe
         if distance < best_distance:
             best_distance = distance
             best_next_manifold = predicted_manifold
+            best_next_angle = directions_radians[i]
 
-    final_angle = policy_thetas_navigation_next_manifold(current_manifold, best_next_manifold)
-    return final_angle
+    # if the chosen manifold is further from the target, it means we reached a local minima
+    next_best_distance = calculate_manifold_distances(target_manifold, best_next_manifold)
 
-
-def final_angle_policy_abn(current_embedding, angle_percent, target_i, target_j):
-    current_manifold = manifold_network.encoder_inference(current_embedding.unsqueeze(0)).squeeze()
-    closest = find_closest_known_position_to_manifold_north(current_manifold, angle_percent)
-    if closest == f"{target_i}_{target_j}":
+    print("Previous best distance:", previous_best_distance)
+    if (next_best_distance > previous_best_distance and previous_best_distance < 0.05) or previous_best_distance < 0.02:
         print("target reached")
         return None
 
-    target_manifold = storage.get_datapoint_data_tensor_by_name(f"{target_i}_{target_j}")[0].to(get_device())
-    next_manifold_location = next_embedding_policy_ab(current_manifold, target_manifold)
-
-    final_angle = policy_thetas_navigation_next_manifold(current_manifold, next_manifold_location)
+    final_angle = best_next_angle
+    # final_angle = policy_thetas_navigation_next_manifold(current_manifold, best_next_manifold)
     return final_angle
 
 
-def teleportation_exploring_inference(models_folder: str, manifold_encoder_name: str, SSD_name: str,
+def teleportation_exploring_inference(models_folder: str, manifold_encoder_name: str,
                                       SDirDistS_name: str,
                                       storage_arg: StorageSuperset2) -> \
         Generator[
             None, None, None]:
-    global direction_network_SSD, manifold_network, storage
+    global manifold_network, storage
     storage = storage_arg
-    load_everything(models_folder, manifold_encoder_name, SSD_name, SDirDistS_name)
+    load_everything(models_folder, manifold_encoder_name, SDirDistS_name)
     storage_to_manifold(storage, manifold_network)
 
     target_reached = False
@@ -361,6 +348,5 @@ def teleportation_exploring_inference(models_folder: str, manifold_encoder_name:
 
 
 storage: StorageSuperset2 = None
-direction_network_SSD: nn.Module = None
 direction_network_SDirDistS: nn.Module = None
 manifold_network: BaseAutoencoderModel = None

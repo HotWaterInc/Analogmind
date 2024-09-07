@@ -5,7 +5,7 @@ import torch.optim as optim
 import numpy as np
 from src.ai.variants.exploration.networks.abstract_base_autoencoder_model import BaseAutoencoderModel
 from src.ai.variants.exploration.params import MANIFOLD_SIZE, THRESHOLD_MANIFOLD_PERMUTATION_LOSS, \
-    THRESHOLD_MANIFOLD_NON_ADJACENT_LOSS, EXPERIMENTAL_BINARY_SIZE
+    THRESHOLD_MANIFOLD_NON_ADJACENT_LOSS
 from src.modules.save_load_handlers.ai_models_handle import save_ai, save_ai_manually, load_latest_ai, \
     load_manually_saved_ai
 from src.modules.save_load_handlers.parameters import *
@@ -21,8 +21,8 @@ from src.ai.variants.blocks import ResidualBlockSmallBatchNorm, _make_layer_no_b
 
 class ManifoldNetworkBinary(BaseAutoencoderModel):
     def __init__(self, dropout_rate: float = 0.2, embedding_size: int = MANIFOLD_SIZE,
-                 input_output_size: int = EXPERIMENTAL_BINARY_SIZE,
-                 hidden_size: int = 256, num_blocks: int = 1):
+                 input_output_size: int = MANIFOLD_SIZE,
+                 hidden_size: int = 512, num_blocks: int = 1):
         super(ManifoldNetworkBinary, self).__init__()
         self.embedding_size = embedding_size
 
@@ -31,6 +31,7 @@ class ManifoldNetworkBinary(BaseAutoencoderModel):
             [ResidualBlockSmallBatchNorm(hidden_size, dropout_rate) for _ in range(num_blocks)])
 
         self.manifold_encoder = _make_layer_no_batchnorm_leaky(hidden_size, embedding_size)
+
         self.manifold_decoder = _make_layer_no_batchnorm_leaky(embedding_size, hidden_size)
 
         self.decoding_blocks = nn.ModuleList(
@@ -126,8 +127,8 @@ def permutation_adjustion_handling(autoencoder: BaseAutoencoderModel, storage: S
     """
     Keeps the permutation of the data points close to each other
     """
-    datapoint: List[str] = storage.sample_n_random_datapoints(samples)
-    datapoints_data = [storage.get_datapoint_data_tensor_by_name(name) for name in datapoint]
+    datapoints: List[str] = storage.sample_n_random_datapoints(samples)
+    datapoints_data = [storage.get_datapoint_data_tensor_by_name(name) for name in datapoints]
     accumulated_loss = torch.tensor(0.0, device=get_device())
 
     datapoints_data = torch.stack(datapoints_data).to(get_device())
@@ -208,7 +209,7 @@ def _train_autoencoder_with_distance_constraint(manifold_network: BaseAutoencode
     adjacent_average_loss = 0
     permutation_average_loss = 0
 
-    epoch_print_rate = 100
+    epoch_print_rate = 500
     DISTANCE_SCALING_FACTOR = 1
     EMBEDDING_SCALING_FACTOR = 0.1
 
@@ -250,7 +251,7 @@ def _train_autoencoder_with_distance_constraint(manifold_network: BaseAutoencode
                                                                     distance_scaling_factor=DISTANCE_SCALING_FACTOR,
                                                                     embedding_scaling_factor=EMBEDDING_SCALING_FACTOR)
         # PERMUTATION ADJUST LOSS
-        permutation_adjustion_loss = permutation_adjustion_handling(manifold_network, storage, permutation_sample_size)
+        # permutation_adjustion_loss = permutation_adjustion_handling(manifold_network, storage, permutation_sample_size)
 
         accumulated_loss = reconstruction_loss + non_adjacent_distance_loss + adjacent_distance_loss + permutation_adjustion_loss
         accumulated_loss.backward()
@@ -315,7 +316,7 @@ def train_manifold_network_binary(manifold_network: BaseAutoencoderModel, storag
     manifold_network = _train_autoencoder_with_distance_constraint(
         manifold_network=manifold_network,
         storage=storage,
-        epochs=10000,
+        epochs=10001,
         stop_at_threshold=False
     )
 

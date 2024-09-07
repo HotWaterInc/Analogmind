@@ -189,7 +189,7 @@ def non_adjacent_distance_handling(autoencoder: BaseAutoencoderModel, storage: S
 def _train_autoencoder_with_distance_constraint(manifold_network: BaseAutoencoderModel, storage: StorageSuperset2,
                                                 epochs: int, stop_at_threshold: bool = False) -> BaseAutoencoderModel:
     # PARAMETERS
-    optimizer = optim.Adam(manifold_network.parameters(), lr=0.00020)
+    optimizer = optim.Adam(manifold_network.parameters(), lr=0.0002)
 
     num_epochs = epochs
 
@@ -315,7 +315,7 @@ def train_manifold_network(manifold_network: BaseAutoencoderModel, storage: Stor
     manifold_network = _train_autoencoder_with_distance_constraint(
         manifold_network=manifold_network,
         storage=storage,
-        epochs=13000,
+        epochs=5001,
         stop_at_threshold=False
     )
 

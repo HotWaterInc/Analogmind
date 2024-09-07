@@ -166,6 +166,7 @@ def add_mobjects_datapoints(scene, mapped_data: Dict, distance_scale: float,
 
 def build_datapoints_topology(scene, storage: StorageSuperset2):
     storage.build_sparse_datapoints_coordinates_map_based_on_xy(percent=1)
+    storage.recenter_datapoints_coordinates_map()
     datapoints_coordinates_map = storage.get_datapoints_coordinates_map()
 
     DISTANCE_SCALE = 1
@@ -258,17 +259,18 @@ def run_opengl_scene(scene):
 
 
 def build_3d_mse(scene):
-    scene.set_camera_orientation(phi=75 * DEGREES, theta=-30 * DEGREES)
+    scene.set_camera_orientation(phi=45 * DEGREES, theta=-45 * DEGREES)
 
-    manifold_network: BaseAutoencoderModel = load_manually_saved_ai("manifold_network_2048_1_0.03_0.03.pth")
+    # manifold_network: BaseAutoencoderModel = load_manually_saved_ai("manifold_network_2048_1_0.03_0.03.pth")
+    manifold_network: BaseAutoencoderModel = load_manually_saved_ai("manifold_network_normal.pth")
     storage = StorageSuperset2()
     load_storage_with_base_data(
         storage=storage,
-        datapoints_filename="step47_datapoints_autonomous_walk.json",
-        connections_filename="step47_connections_autonomous_walk_augmented_filled.json"
+        datapoints_filename="(1)_datapoints_autonomous_walk.json",
+        connections_filename="(1)_connections_autonomous_walk_augmented_filled.json"
     )
 
-    target_x, target_y = -1, 1
+    target_x, target_y = -1, 2
     target_name = storage.get_closest_datapoint_to_xy(target_x, target_y)
 
     def calculate_coords(name):
@@ -284,25 +286,6 @@ def build_3d_mse(scene):
         z = z * 5
 
         return x, y, z
-
-    # datapoints_names = storage.get_all_datapoints()
-    # datapoints_names = datapoints_names[:]
-    # dots_array = []
-    #
-    # for name in datapoints_names:
-    #     x, y, z = calculate_coords(name)
-    #     coords = np.array([x, y, z])
-    #     dot = Dot3D(point=coords, color=WHITE)
-    #     dots_array.append(dot)
-    #
-    # axes = ThreeDAxes(
-    #     x_length=6,
-    #     y_length=6,
-    #     z_length=6
-    # )
-    # scene.add(axes)
-    # for dot in dots_array:
-    #     scene.add(dot)
 
     datapoints_names = storage.get_all_datapoints()
     print("zipping")
@@ -322,7 +305,16 @@ def build_3d_mse(scene):
                 ) for i in
           range(len(x))])
 
-    scene.add(axes, scatter)
+    print("scatter done")
+
+    lines = VGroup(
+        *[Line(start=[x[i], y[i], 0], end=[x[i], y[i], z[i] - 0.05], color=WHITE, stroke_width=1, stroke_opacity=0.5)
+          for i in range(len(x))]
+    )
+
+    print("lines done")
+
+    scene.add(axes, scatter, lines)
 
     # Add everything to the scene
 
@@ -332,10 +324,12 @@ def build_3d_mse(scene):
 
 
 def build_test_scene():
-    manim_configs_opengl()
+    # manim_configs_opengl()
+    manim_configs_png()
     scene = Scene3D()
     build_3d_mse(scene)
-    run_opengl_scene(scene)
+    scene.render()
+    # run_opengl_scene(scene)
 
 
 def visualization_collected_data_photo(storage: StorageSuperset2):

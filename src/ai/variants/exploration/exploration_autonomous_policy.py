@@ -311,20 +311,20 @@ def random_walk_policy(random_walk_datapoints, random_walk_connections):
 
 
 def phase_explore(random_walk_datapoints, random_walk_connections, first_walk, max_steps, skip_checks=0):
-    if not first_walk:
-        max_steps /= 10
+    # if not first_walk:
+    #     max_steps /= 10
 
     for step in range(max_steps):
         collect_data = collect_current_data_and_add_connections(random_walk_datapoints, random_walk_connections)
         yield from collect_data
 
-        # if first_walk == False and skip_checks == 0:
-        #     position_check = check_position_is_known_cheating(random_walk_datapoints)
-        #     if position_check:
-        #         break
-        #
-        # if skip_checks != 0:
-        #     skip_checks -= 1
+        if first_walk == False and skip_checks == 0:
+            position_check = check_position_is_known_cheating(random_walk_datapoints)
+            if position_check:
+                break
+
+        if skip_checks != 0:
+            skip_checks -= 1
 
         if step != max_steps - 1:
             move_randomly = random_move_policy()
@@ -541,7 +541,7 @@ def exploration_policy_autonomous_exploration_cheating(step: int):
     if first_walk:
         print("IT'S FIRST TIME !!")
 
-    yield from phase_explore(random_walk_datapoints, random_walk_connections, first_walk, max_steps=10, skip_checks=2)
+    yield from phase_explore(random_walk_datapoints, random_walk_connections, first_walk, max_steps=20, skip_checks=2)
 
     first_walk = False
     flag_data_authenticity(random_walk_connections)
@@ -573,10 +573,11 @@ def exploration_policy_autonomous_exploration_cheating(step: int):
     if frontier_connection is None:
         print("NO FRONTIER FOUND, EXPLORATION FINISHED")
         exploring = False
-        write_other_data_to_file(f"step{step}_datapoints_autonomous_walk.json", storage_raw.get_raw_environment_data())
-        write_other_data_to_file(f"step{step}_connections_autonomous_walk_augmented_filled.json",
-                                 storage_raw.get_raw_connections_data())
         return
+
+    write_other_data_to_file(f"step{step}_datapoints_autonomous_walk.json", storage_raw.get_raw_environment_data())
+    write_other_data_to_file(f"step{step}_connections_autonomous_walk_augmented_filled.json",
+                             storage_raw.get_raw_connections_data())
 
     frontier_datapoint = frontier_connection["start"]
     frontier_direction = frontier_connection["direction"]
@@ -709,8 +710,8 @@ def exploration_policy_autonomous() -> Generator[None, None, None]:
 
         # yield from exploration_policy_autonomous_step(step, train_networks=False)
         # exploration_policy_autonomous_data_filtering(step)
-        # generator = exploration_policy_autonomous_exploration_cheating(step)
-        generator = exploration_policy_autonomous_exploration_full(step)
+        generator = exploration_policy_autonomous_exploration_cheating(step)
+        # generator = exploration_policy_autonomous_exploration_full(step)
         yield from generator
 
     yield

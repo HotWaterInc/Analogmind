@@ -65,7 +65,7 @@ class Storage:
 
         self.raw_env_data_map: Dict[str, RawEnvironmentData] = {}  # uid -> data
 
-        self.custom_data: Dict[str, any] = {}
+        self.other_data: Dict[str, any] = {}
 
     def _convert_raw_data_to_map(self):
         """
@@ -151,7 +151,7 @@ class Storage:
         """
         Adds custom data to the storage
         """
-        self.custom_data[key] = data
+        self.other_data[key] = data
 
     def sample_adjacent_datapoints_connections_raw_data(self, sample_size: int) -> List[RawConnectionData]:
         """
@@ -475,6 +475,12 @@ class Storage:
                 return 1
 
         return 0
+
+    def set_other_data(self, data, key):
+        self.other_data[key] = data
+
+    def get_other_data(self, key):
+        return self.other_data[key]
 
     def get_all_connections_null_data(self) -> List[RawConnectionData]:
         """

@@ -1,6 +1,6 @@
 from src.ai.variants.exploration.networks.abstract_base_autoencoder_model import BaseAutoencoderModel
 from src.ai.variants.exploration.params import DIRECTION_THETAS_SIZE, STEP_DISTANCE, STEP_DISTANCE_BASIC_STEP, \
-    EXPERIMENTAL_BINARY_SIZE
+    EXPERIMENTAL_BINARY_SIZE, MANIFOLD_SIZE
 from src.ai.variants.exploration.utils_pure_functions import direction_to_degrees_atan, degrees_to_percent, \
     angle_percent_to_thetas_normalized_cached, direction_thetas_to_radians, find_thetas_null_indexes, \
     get_angle_percent_from_thetas_index, generate_dxdy, angle_percent_to_radians
@@ -175,8 +175,23 @@ def data_to_binary_data(data: torch.Tensor, index: int):
     return new_data
 
 
+def data_to_random_manifold(data, index: int):
+    new_data = torch.zeros(data.shape[0], MANIFOLD_SIZE)
+    random_manifold = torch.rand(MANIFOLD_SIZE)
+
+    for idx, val in enumerate(data):
+        new_data[idx] = random_manifold
+
+    return new_data
+
+
 def storage_to_binary_data(storage: StorageSuperset2):
     storage.set_transformation(data_to_binary_data)
+    storage.transform_raw_data()
+
+
+def storage_to_random_manifold(storage: StorageSuperset2):
+    storage.set_transformation(data_to_random_manifold)
     storage.transform_raw_data()
 
 

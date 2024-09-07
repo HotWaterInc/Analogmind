@@ -322,3 +322,7 @@ def check_connection_already_existing(connections_arr, start, end):
         if conn["start"] == end and conn["end"] == start:
             return True
     return False
+
+
+def calculate_manifold_distances(manifold1: torch.Tensor, manifold2: torch.Tensor) -> float:
+    return torch.norm(manifold1 - manifold2, p=2, dim=0).item()

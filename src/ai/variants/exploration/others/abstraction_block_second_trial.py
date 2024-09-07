@@ -21,14 +21,15 @@ import torch.nn as nn
 
 
 class AbstractionBlockSecondTrial(BaseAutoencoderModel):
-    def __init__(self, dropout_rate: float = 0.2, position_embedding_size: int = 64,
-                 thetas_embedding_size: int = 64,
-                 hidden_size: int = 1024 * 2, num_blocks: int = 1, input_output_size=512 * ROTATIONS_PER_FULL):
+    def __init__(self, dropout_rate: float = 0.2, position_embedding_size: int = 512,
+                 thetas_embedding_size: int = 512,
+                 hidden_size: int = 1024 * 4, num_blocks: int = 1,
+                 input_output_size=512 * ROTATIONS_PER_FULL):
         super(AbstractionBlockSecondTrial, self).__init__()
 
         self.input_layer = _make_layer(input_output_size, hidden_size)
         self.encoding_blocks = nn.ModuleList(
-            [ResidualBlockSmallBatchNormWithAttention(hidden_size, dropout_rate) for _ in range(num_blocks)])
+            [ResidualBlockSmallBatchNorm(hidden_size, dropout_rate) for _ in range(num_blocks)])
 
         self.positional_encoder = _make_layer(hidden_size, position_embedding_size)
         self.thetas_encoder = _make_layer(hidden_size, thetas_embedding_size)
@@ -36,7 +37,7 @@ class AbstractionBlockSecondTrial(BaseAutoencoderModel):
         self.decoder_initial_layer = _make_layer(position_embedding_size + thetas_embedding_size,
                                                  hidden_size)
         self.decoding_blocks = nn.ModuleList(
-            [ResidualBlockSmallBatchNormWithAttention(hidden_size, dropout_rate) for _ in range(num_blocks)])
+            [ResidualBlockSmallBatchNorm(hidden_size, dropout_rate) for _ in range(num_blocks)])
 
         self.output_layer = _make_layer_no_batchnorm_leaky(hidden_size, input_output_size)
         self.embedding_size = position_embedding_size
@@ -171,7 +172,9 @@ def same_rotation_handling(autoencoder: BaseAutoencoderModel, storage: StorageSu
 
 def reconstruction_handling(autoencoder: BaseAutoencoderModel, storage: StorageSuperset2) -> any:
     global _cache_reconstruction_loss, _cache_thetas
-    sampled_count = 100
+    sampled_count = 200
+    datapoints = storage.get_all_datapoints()
+    sampled_count = min(sampled_count, len(datapoints))
     sampled_points = storage.sample_n_random_datapoints(sampled_count)
 
     loss_reconstruction_same_position = torch.tensor(0.0, device=get_device())
@@ -259,13 +262,14 @@ def _train_autoencoder_abstraction_block(abstraction_block: AbstractionBlockSeco
                                          epochs: int,
                                          pretty_print: bool = False) -> AbstractionBlockSecondTrial:
     # PARAMETERS
-    optimizer = optim.Adam(abstraction_block.parameters(), lr=0.0001, amsgrad=True)
+    optimizer = optim.Adam(abstraction_block.parameters(), lr=0.00020, amsgrad=True)
     abstraction_block = abstraction_block.to(device=get_device())
+    abstraction_block.train()
 
     num_epochs = epochs
 
     epoch_average_loss = 0
-    scale_cdist_loss = 0.25
+    scale_reconstruction_loss = 3
 
     non_adjacent_sample_size = 100
 
@@ -275,7 +279,7 @@ def _train_autoencoder_abstraction_block(abstraction_block: AbstractionBlockSeco
     average_loss_reconstruction_same_rotation = 0
     average_loss_linearity = 0
 
-    epoch_print_rate = 250
+    epoch_print_rate = 500
 
     if pretty_print:
         pretty_display_set(epoch_print_rate, "Epoch batch")
@@ -287,13 +291,14 @@ def _train_autoencoder_abstraction_block(abstraction_block: AbstractionBlockSeco
             storage.build_permuted_data_random_rotations()
 
         epoch_loss = 0.0
+        linearity_loss = torch.tensor(0.0, device=get_device())
         optimizer.zero_grad()
 
         # RECONSTRUCTION LOSS
         losses_json = reconstruction_handling(
             abstraction_block,
             storage)
-        linearity_loss = linearity_distance_handling(abstraction_block, storage, non_adjacent_sample_size)
+        # linearity_loss = linearity_distance_handling(abstraction_block, storage, non_adjacent_sample_size)
 
         reconstruction_loss_same_position = losses_json["loss_reconstruction_same_position"]
         cdist_positional_encoding_same_position = losses_json["cdist_positional_encoding_same_position"]
@@ -305,10 +310,16 @@ def _train_autoencoder_abstraction_block(abstraction_block: AbstractionBlockSeco
         ratio_position_encoding_loss = cdist_positional_encoding_same_position / cdist_positional_encoding_same_rotation
         ratio_rotation_encoding_loss = cdist_rotational_encoding_same_rotation / cdist_rotational_encoding_same_position
 
+        reconstruction_loss_same_position *= scale_reconstruction_loss
+        reconstruction_loss_same_rotation *= scale_reconstruction_loss
+
         accumulated_loss = reconstruction_loss_same_position + cdist_positional_encoding_same_position + reconstruction_loss_same_rotation + cdist_rotational_encoding_same_rotation + ratio_position_encoding_loss + ratio_rotation_encoding_loss
         accumulated_loss.backward()
 
         optimizer.step()
+
+        reconstruction_loss_same_position /= scale_reconstruction_loss
+        reconstruction_loss_same_rotation /= scale_reconstruction_loss
 
         epoch_average_loss += reconstruction_loss_same_position.item() + cdist_positional_encoding_same_position.item() + reconstruction_loss_same_rotation.item() + cdist_rotational_encoding_same_rotation.item() + linearity_loss.item()
 
@@ -353,7 +364,7 @@ def _train_autoencoder_abstraction_block(abstraction_block: AbstractionBlockSeco
     return abstraction_block
 
 
-def run_abstraction_block_second_trial(abstraction_network: AbstractionBlockSecondTrial,
-                                       storage: StorageSuperset2) -> AbstractionBlockSecondTrial:
-    abstraction_network = _train_autoencoder_abstraction_block(abstraction_network, storage, 15000, True)
+def train_abstraction_block_second_trial(abstraction_network: AbstractionBlockSecondTrial,
+                                         storage: StorageSuperset2) -> AbstractionBlockSecondTrial:
+    abstraction_network = _train_autoencoder_abstraction_block(abstraction_network, storage, 2501, True)
     return abstraction_network
