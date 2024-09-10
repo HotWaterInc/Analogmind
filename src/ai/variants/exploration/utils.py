@@ -86,7 +86,7 @@ def check_direction_distance_validity_north(distance, direction, distance_sensor
     sensors_count = len(distance_sensors)
     sensor_index_left = int(direction_percentage * sensors_count)
     sensor_index_right = (sensor_index_left + 1) % sensors_count
-    wideness = 3
+    wideness = 4
 
     for offset in range(wideness):
         left_index = sensor_index_left - offset

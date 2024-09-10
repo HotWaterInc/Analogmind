@@ -1,4 +1,6 @@
 import numpy as np
+import matplotlib.pyplot as plt
+from numpy import ndarray
 from manim import *
 import torch
 import logging
@@ -198,6 +200,155 @@ def build_datapoints_topology(scene, storage: StorageSuperset2):
     return scene
 
 
+def plot_histogram(data, bins=30, title='Histogram', xlabel='Value', ylabel='Frequency',
+                   color='skyblue', edgecolor='black', alpha=0.7, figsize=(10, 6),
+                   show_mean=True, show_median=True, show_stats=True,
+                   xlim=None, ylim=None, xticks=None, yticks=None):
+    """
+    Create and display a histogram using Matplotlib.
+
+    ... [previous docstring content] ...
+
+    xlim (tuple): Tuple of (min, max) for x-axis limits
+    ylim (tuple): Tuple of (min, max) for y-axis limits
+    xticks (list): List of tick locations for x-axis
+    yticks (list): List of tick locations for y-axis
+
+    Returns:
+    matplotlib.figure.Figure: The created figure
+    """
+    fig, ax = plt.subplots(figsize=figsize)
+
+    # Plot the histogram
+    n, bins, patches = ax.hist(data, bins=bins, color=color, edgecolor=edgecolor, alpha=alpha)
+
+    # Customize the plot
+    ax.set_title(title)
+    ax.set_xlabel(xlabel)
+    ax.set_ylabel(ylabel)
+
+    # Set axis limits if provided
+    if xlim:
+        ax.set_xlim(xlim)
+    if ylim:
+        ax.set_ylim(ylim)
+
+    # Set axis ticks if provided
+    if xticks:
+        ax.set_xticks(xticks)
+        ax.set_xticklabels([str(tick) for tick in xticks])
+    if yticks:
+        ax.set_yticks(yticks)
+        ax.set_yticklabels([str(tick) for tick in yticks])
+
+    # Calculate statistics
+    mean = np.mean(data)
+    median = np.median(data)
+    std = np.std(data)
+
+    # Add mean line
+    if show_mean:
+        ax.axvline(mean, color='red', linestyle='dashed', linewidth=1, label=f'Mean ({mean:.2f})')
+
+    # Add median line
+    if show_median:
+        ax.axvline(median, color='green', linestyle='dashed', linewidth=1, label=f'Median ({median:.2f})')
+
+    # Add legend if mean or median is shown
+    if show_mean or show_median:
+        ax.legend()
+
+    # Add text with statistics
+    if show_stats:
+        stats_text = f'Mean: {mean:.2f}\nMedian: {median:.2f}\nStd Dev: {std:.2f}'
+        ax.text(0.95, 0.95, stats_text, transform=ax.transAxes, verticalalignment='top',
+                horizontalalignment='right', bbox=dict(boxstyle='round', facecolor='white', alpha=0.5))
+
+    plt.tight_layout()
+    return fig
+
+
+def build_inference_navigation(scene):
+    DISTANCE_SCALE = 1
+    RADIUS = 0.2
+    inference_policy_data = read_other_data_from_file("inference_policy_results_no_noise.json")
+    STEPS_TO_WIN = inference_policy_data["STEPS_TO_WIN"]
+    DISTANCE_FROM_TRUE_TARGET = inference_policy_data["DISTANCE_FROM_TRUE_TARGET"]
+    WINS = inference_policy_data["WINS"]
+    RECORDED_STEPS = inference_policy_data["RECORDED_STEPS"]
+    ORIGINAL_TARGETS = inference_policy_data["ORIGINAL_TARGETS"]
+    ACTUAL_POSITIONS = inference_policy_data["ACTUAL_POSITIONS"]
+
+    WALK_INDEX = 0
+    count = 1
+
+    for idx, steps in enumerate(RECORDED_STEPS):
+        if len(steps) < 25 and len(steps) > 20:
+            if count == 0:
+                count += 1
+                continue
+            WALK_INDEX = idx
+            break
+
+    # Create a group to hold all elements
+    all_elements = VGroup()
+
+    # add target circle
+    target_circle = Circle(radius=RADIUS, color=RED)
+    x_target = ORIGINAL_TARGETS[WALK_INDEX][0]
+    y_target = ORIGINAL_TARGETS[WALK_INDEX][1]
+    target_circle.move_to(x_target * DISTANCE_SCALE * RIGHT + y_target * DISTANCE_SCALE * UP)
+    all_elements.add(target_circle)
+
+    # add starting circle
+    starting_circle = Circle(radius=RADIUS, color=BLUE)
+    x_start = ACTUAL_POSITIONS[WALK_INDEX][0][0]
+    y_start = ACTUAL_POSITIONS[WALK_INDEX][0][1]
+    starting_circle.move_to(x_start * DISTANCE_SCALE * RIGHT + y_start * DISTANCE_SCALE * UP)
+    all_elements.add(starting_circle)
+
+    # add end path circle
+    end_circle = Circle(radius=RADIUS, color=GREEN)
+    x_end = ACTUAL_POSITIONS[WALK_INDEX][-1][0]
+    y_end = ACTUAL_POSITIONS[WALK_INDEX][-1][1]
+    end_circle.move_to(x_end * DISTANCE_SCALE * RIGHT + y_end * DISTANCE_SCALE * UP)
+    all_elements.add(end_circle)
+
+    # add path
+    current_x, current_y = x_start, y_start
+    for step in RECORDED_STEPS[WALK_INDEX]:
+        dx, dy = step[0], step[1]
+        line = Arrow(
+            start=current_x * DISTANCE_SCALE * RIGHT + current_y * DISTANCE_SCALE * UP,
+            end=(current_x + dx) * DISTANCE_SCALE * RIGHT + (current_y + dy) * DISTANCE_SCALE * UP,
+            color=WHITE
+        )
+        all_elements.add(line)
+        current_x += dx
+        current_y += dy
+
+    # Scale the entire group to fit the screen
+    screen_width = config.frame_width
+    screen_height = config.frame_height
+    group_width = all_elements.width
+    group_height = all_elements.height
+
+    scale_factor = min(
+        (screen_width - 1) / group_width,
+        (screen_height - 1) / group_height
+    )
+
+    all_elements.scale(scale_factor)
+
+    # Center the scaled group
+    all_elements.move_to(ORIGIN)
+
+    # Add the scaled and centered group to the scene
+    scene.add(all_elements)
+
+    return scene
+
+
 def build_scene_autoencoded_permuted():
     scene = Scene2D()
 
@@ -323,7 +474,7 @@ def build_3d_mse(scene):
     # scene.wait(10)
 
 
-def build_test_scene():
+def visualization_3d_target_surface():
     # manim_configs_opengl()
     manim_configs_png()
     scene = Scene3D()
@@ -332,12 +483,20 @@ def build_test_scene():
     # run_opengl_scene(scene)
 
 
-def visualization_collected_data_photo(storage: StorageSuperset2):
+def visualization_topological_graph(storage: StorageSuperset2):
     manim_configs_png()
     scene = Scene2D()
     scene = build_datapoints_topology(scene, storage)
     scene.render()
-    pass
+
+
+def visualization_inference_navigation():
+    # manim_configs_opengl()
+    manim_configs_png()
+    scene = Scene2D()
+    scene = build_inference_navigation(scene)
+    scene.render()
+    # run_opengl_scene(scene)
 
 
 DEBUG_ARRAY = None

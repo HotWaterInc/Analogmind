@@ -1,6 +1,4 @@
 import time
-from wsgiref.simple_server import server_version
-
 from entry_test import visualize_datapoints_reconstructions
 from src.ai.runtime_data_storage.storage_superset2 import StorageSuperset2
 from src.ai.variants.exploration.data_augmentation import load_storage_with_base_data, \
@@ -9,7 +7,8 @@ from src.ai.variants.exploration.data_augmentation import load_storage_with_base
     storage_augment_with_saved_connections_already_augmented
 from src.ai.variants.exploration.data_filtering import data_filtering_redundancies, data_filtering_redundant_connections
 from src.ai.variants.exploration.exploration_autonomous_policy import exploration_policy_autonomous, SDirDistS_network
-from src.ai.variants.exploration.inference_policy import teleportation_exploring_inference
+from src.ai.variants.exploration.inference_policy import teleportation_exploring_inference, \
+    teleportation_exploring_inference_evaluator
 from src.ai.variants.exploration.inferences import fill_augmented_connections_distances
 from src.ai.variants.exploration.networks.SDirDistState_network import SDirDistState, train_SDirDistS_network
 from src.ai.variants.exploration.networks.SSDir_network import SSDirNetwork, train_SSDirection
@@ -34,7 +33,8 @@ from src.modules.policies.data_collection import grid_data_collection
 from src.ai.variants.camera1_full_forced.policy_images_simple import get_closest_point_policy
 from src.modules.save_load_handlers.ai_models_handle import save_ai_manually, load_manually_saved_ai
 from src.modules.save_load_handlers.data_handle import write_other_data_to_file, read_other_data_from_file
-from src.modules.visualizations.entry import visualization_collected_data_photo, build_test_scene
+from src.modules.visualizations.entry import visualization_topological_graph, visualization_3d_target_surface, \
+    visualization_inference_navigation
 
 
 def start_server_thread():
@@ -78,11 +78,12 @@ def inference_pipeline():
         connections_filename="(1)_connections_autonomous_walk_augmented_filled.json"
     )
 
-    generator = teleportation_exploring_inference(
+    generator = teleportation_exploring_inference_evaluator(
         models_folder="manually_saved",
-        manifold_encoder_name="manifold_mapper",
-        SDirDistS_name="sdirdiststate_network_postmapper",
-        storage_arg=storage
+        manifold_encoder_name="manifold_network_normal",
+        SDirDistS_name="sdirdiststate_network_0.001",
+        storage_arg=storage,
+        noise=True
     )
 
     config_data_collection_pipeline(generator)
@@ -95,15 +96,8 @@ def inference_pipeline():
 def test_pipeline():
     # exploration_autonomous_pipeline()
 
-    storage = StorageSuperset2()
-    load_storage_with_base_data(
-        storage=storage,
-        datapoints_filename="(1)_datapoints_autonomous_walk.json",
-        connections_filename="(1)_connections_autonomous_walk_augmented_filled.json"
-    )
-
-    build_test_scene()
+    # build_test_scene()
     # visualization_collected_data_photo(storage)
-
+    visualization_inference_navigation()
     # inference_pipeline()
     pass

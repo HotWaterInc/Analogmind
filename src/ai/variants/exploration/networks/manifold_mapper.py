@@ -22,7 +22,7 @@ from src.ai.variants.blocks import ResidualBlockSmallBatchNorm, _make_layer_no_b
 class ManifoldMapper(BaseAutoencoderModel):
     def __init__(self, dropout_rate: float = 0.2, embedding_size: int = MANIFOLD_SIZE,
                  input_output_size: int = IMAGE_EMBEDDING_SIZE,
-                 hidden_size: int = 512, num_blocks: int = 1):
+                 hidden_size: int = 1024 * 4, num_blocks: int = 1):
         super(ManifoldMapper, self).__init__()
         self.embedding_size = embedding_size
 
@@ -151,7 +151,6 @@ def _train_manifold_mapper(manifold_network: BaseAutoencoderModel, storage: Stor
         if epoch % SHUFFLE_RATE == 0:
             storage.build_permuted_data_random_rotations()
             # storage.build_permuted_data_random_rotations_rotation0()
-            train_data = array_to_tensor(np.array(storage.get_pure_permuted_raw_env_data())).to(get_device())
             pass
 
         reconstruction_loss = torch.tensor(0.0)
@@ -201,7 +200,7 @@ def train_manifold_mapper(manifold_mapper: BaseAutoencoderModel, storage: Storag
     manifold_mapper = _train_manifold_mapper(
         manifold_network=manifold_mapper,
         storage=storage,
-        epochs=1,
+        epochs=10000,
         stop_at_threshold=False
     )
 

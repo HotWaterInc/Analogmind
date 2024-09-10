@@ -280,7 +280,6 @@ def final_angle_policy_direction_testing(current_embedding, angle_percent, targe
     # if the chosen manifold is further from the target, it means we reached a local minima
     next_best_distance = calculate_manifold_distances(target_manifold, best_next_manifold)
 
-    print("Previous best distance:", previous_best_distance)
     if (next_best_distance > previous_best_distance and previous_best_distance < 0.05) or previous_best_distance < 0.02:
         print("target reached")
         return None
@@ -345,6 +344,140 @@ def teleportation_exploring_inference(models_folder: str, manifold_encoder_name:
             dx, dy = generate_dxdy(final_angle, STEP_DISTANCE / 2)
             detach_robot_teleport_relative(dx, dy)
             yield
+
+
+def teleportation_exploring_inference_evaluator(models_folder: str, manifold_encoder_name: str,
+                                                SDirDistS_name: str,
+                                                storage_arg: StorageSuperset2, noise: bool = False) -> \
+        Generator[
+            None, None, None]:
+    global manifold_network, storage
+    storage = storage_arg
+    load_everything(models_folder, manifold_encoder_name, SDirDistS_name)
+    storage_to_manifold(storage, manifold_network)
+
+    target_reached = False
+    detach_robot_teleport_absolute(0, 0)
+    yield
+
+    x_min, y_min = -2, -1
+    x_max, y_max = 1.5, 3.5
+    TOTAL_TRIALS = 50
+    STEPS = 50
+
+    FAIL = 0
+    WIN = 0
+
+    STEPS_TO_WIN = []
+    DISTANCE_FROM_TRUE_TARGET = []
+    WINS = []
+    RECORDED_STEPS = []
+    ORIGINAL_TARGETS = []
+    ACTUAL_POSITIONS = []
+
+    for trial in range(TOTAL_TRIALS):
+        x = x_min + (x_max - x_min) * np.random.rand()
+        y = y_min + (y_max - y_min) * np.random.rand()
+        target_reached = False
+        steps_count = 0
+
+        x_c = 0
+        y_c = 0
+        RECORDED_STEPS.append([])
+        ACTUAL_POSITIONS.append([])
+
+        while target_reached is False:
+            time.sleep(0.25)
+            detach_robot_sample_image_inference()
+            yield
+
+            global_data_buffer: GlobalDataBuffer = GlobalDataBuffer.get_instance()
+            buffer = global_data_buffer.buffer
+            image_data = buffer["data"]
+            empty_global_data_buffer()
+
+            nd_array_data = np.array(image_data)
+            angle = buffer["params"]["angle"]
+            angle = webots_radians_to_normal(angle)
+            current_x, current_y = buffer["params"]["x"], buffer["params"]["y"]
+            x_c, y_c = current_x, current_y
+
+            angle_percent = angle / (2 * math.pi)
+
+            current_embedding = process_webots_image_to_embedding(nd_array_data).to(get_device())
+            current_embedding = squeeze_out_resnet_output(current_embedding)
+
+            detach_robot_sample_distance()
+            yield
+            distance_sensors, angle, coords = get_collected_data_distances()
+            final_angle = final_angle_policy_direction_testing(current_embedding, angle_percent, x, y, distance_sensors)
+
+            ACTUAL_POSITIONS[-1].append((current_x, current_y))
+
+            if final_angle is None:
+                target_reached = True
+                continue
+
+            if noise:
+                valid = False
+                while not valid:
+                    new_final_angle = final_angle + np.random.normal(0, 1)
+                    new_final_angle = new_final_angle % (2 * math.pi)
+                    if check_direction_distance_validity_north(STEP_DISTANCE / 2, new_final_angle,
+                                                               adjust_distance_sensors_according_to_rotation(
+                                                                   distance_sensors,
+                                                                   angle_percent)):
+                        valid = True
+                        final_angle = new_final_angle
+
+            detach_robot_rotate_absolute(final_angle)
+            yield
+
+            dx, dy = generate_dxdy(final_angle, STEP_DISTANCE / 2)
+            detach_robot_teleport_relative(dx, dy)
+            yield
+
+            RECORDED_STEPS[-1].append((dx, dy))
+
+            steps_count += 1
+            if steps_count > STEPS:
+                break
+
+        target_name = storage.get_closest_datapoint_to_xy(x, y)
+        true_coords = storage.get_datapoint_metadata_coords(target_name)
+        x = true_coords[0]
+        y = true_coords[1]
+        ORIGINAL_TARGETS.append((x, y))
+
+        STEPS_TO_WIN.append(steps_count)
+        dist_target = math.sqrt((x_c - x) ** 2 + (y_c - y) ** 2)
+        DISTANCE_FROM_TRUE_TARGET.append(dist_target)
+
+        if dist_target < 0.35:
+            WIN += 1
+            WINS.append(1)
+        else:
+            FAIL += 1
+            WINS.append(0)
+
+        print("steps", steps_count, " dist_target", dist_target)
+
+    print("TOTAL TRIALS", TOTAL_TRIALS)
+    print("WIN", WIN)
+    print("FAIL", FAIL)
+    print("WINRATE", WIN / TOTAL_TRIALS)
+
+    write_other_data_to_file(
+        file_name="inference_policy_results.json",
+        data={
+            "STEPS_TO_WIN": STEPS_TO_WIN,
+            "DISTANCE_FROM_TRUE_TARGET": DISTANCE_FROM_TRUE_TARGET,
+            "WINS": WINS,
+            "RECORDED_STEPS": RECORDED_STEPS,
+            "ORIGINAL_TARGETS": ORIGINAL_TARGETS,
+            "ACTUAL_POSITIONS": ACTUAL_POSITIONS
+        }
+    )
 
 
 storage: StorageSuperset2 = None
