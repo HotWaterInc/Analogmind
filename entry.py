@@ -6,47 +6,13 @@ from src.modules.policies.navigation8x8_v1_distance import navigation8x8
 from src.modules.policies.directed_data_collection import directed_data_collection
 
 
+def thread1():
+    print("thread1")
+
+
 def start_server_thread():
-    server_thread = threading.Thread(target=start_server)
-    server_thread.start()
-
-
-def data_collection_pipeline():
-    """
-    Pipeline for collecting data from the robots
-    Binds the server, and uses a generator like policy which sends data and awaits for response to call next(gen)
-    """
-    configs_communication()
-
-    generator = grid_data_collection(3, 3, 15, 0, 0.5, 24, type="image")
-
-    config_data_collection_pipeline(generator)
-    server_thread = threading.Thread(target=start_server, name="ServerThread")
-    server_thread.start()
-
-    server_thread.join()
-
-
-def navigation8x8pipeline():
-    configs_communication()
-    generator = navigation8x8()
-
-    config_data_collection_pipeline(generator)
-    server_thread = threading.Thread(target=start_server, name="ServerThread")
-    server_thread.start()
-
-    server_thread.join()
-
-
-def directed_data_collection_pipeline():
-    configs_communication()
-    generator = directed_data_collection()
-
-    config_data_collection_pipeline(generator)
-    server_thread = threading.Thread(target=start_server, name="ServerThread")
-    server_thread.start()
-
-    server_thread.join()
+    thread1 = threading.Thread(target=start_server)
+    thread1.start()
 
 
 if __name__ == "__main__":

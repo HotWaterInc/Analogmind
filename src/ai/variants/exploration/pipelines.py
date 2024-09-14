@@ -61,8 +61,8 @@ def data_collection_pipeline():
 def exploration_autonomous_pipeline():
     configs_communication()
     generator = exploration_policy_autonomous()
-
     config_data_collection_pipeline(generator)
+
     server_thread = threading.Thread(target=start_server, name="ServerThread")
     server_thread.start()
     server_thread.join()
