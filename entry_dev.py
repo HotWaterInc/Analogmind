@@ -12,8 +12,8 @@ if __name__ == "__main__":
     st = StorageRuntimeData()
     print(st)
 
-    st.subscribe_to_crud_operations(
-        data_type=TypeAlias.NODE_DATA,
+    st.subscribe_to_crud_operation(
+        data_alias=TypeAlias.NODE_DATA,
         operation_type=OperationsAlias.CREATE,
         subscriber=randf
     )

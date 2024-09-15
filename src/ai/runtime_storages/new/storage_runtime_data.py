@@ -4,6 +4,9 @@ from typing import List, Dict, Union, Tuple
 import random
 from typing_extensions import TypedDict
 import numpy as np
+
+from src.ai.runtime_storages.new.cache_abstract import CacheAbstract
+from src.ai.runtime_storages.new.cache_map_nodes import CacheMapNodes
 from src.ai.runtime_storages.new.types import NodeData, ConnectionData, TypeAlias, OperationsAlias
 from src.ai.runtime_storages.new.storage_decorators import crud_operation
 
@@ -19,10 +22,10 @@ class StorageRuntimeData:
     def __init__(self):
         self.raw_env_data: List[NodeData] = []
         self.raw_connections_data: List[ConnectionData] = []
-        self.caches = {}
+        self.caches: Dict[str, CacheAbstract] = {}
         self.DATA_CRUD_SUBSCRIBERS = {}
-
         self.create_baseline_caches()
+
         self.subscribers_list_initialization(
             data_type=TypeAlias.NODE_DATA,
         )
@@ -35,7 +38,14 @@ class StorageRuntimeData:
         """
         Creates caches which are simple and relied upon by many functions
         """
-        self.cache_map_create_new(self.NODE_CACHE_MAP_ID)
+        self.cache_map_create_new(self.NODE_CACHE_MAP_ID, CacheMapNodes())
+        self.subscribe_to_crud_operations(
+            data_alias=TypeAlias.NODE_DATA,
+            operation_type=OperationsAlias.CREATE,
+            create_subscriber=self.caches[self.NODE_CACHE_MAP_ID].create,
+            update_subscriber=self.caches[self.NODE_CACHE_MAP_ID].update,
+            delete_subscriber=self.caches[self.NODE_CACHE_MAP_ID].delete
+        )
 
     def subscribers_list_initialization(self, data_type: TypeAlias):
         self.DATA_CRUD_SUBSCRIBERS[data_type] = {
@@ -45,11 +55,29 @@ class StorageRuntimeData:
             OperationsAlias.READ: [],
         }
 
-    def subscribe_to_crud_operations(self, data_type: TypeAlias, operation_type: OperationsAlias, subscriber):
-        self.DATA_CRUD_SUBSCRIBERS[data_type][operation_type].append(subscriber)
+    def subscribe_to_crud_operations(self, data_alias: TypeAlias, operation_type: OperationsAlias, create_subscriber,
+                                     update_subscriber, delete_subscriber):
+        self.subscribe_to_crud_operation(
+            data_alias=data_alias,
+            operation_type=OperationsAlias.CREATE,
+            subscriber=create_subscriber
+        )
+        self.subscribe_to_crud_operation(
+            data_alias=data_alias,
+            operation_type=OperationsAlias.UPDATE,
+            subscriber=update_subscriber
+        )
+        self.subscribe_to_crud_operation(
+            data_alias=data_alias,
+            operation_type=OperationsAlias.DELETE,
+            subscriber=delete_subscriber
+        )
 
-    def cache_map_create_new(self, name: str):
-        self.caches[name] = {}
+    def subscribe_to_crud_operation(self, data_alias: TypeAlias, operation_type: OperationsAlias, subscriber):
+        self.DATA_CRUD_SUBSCRIBERS[data_alias][operation_type].append(subscriber)
+
+    def cache_map_create_new(self, name: str, cache: CacheAbstract):
+        self.caches[name] = cache
 
     def cache_array_create_new(self, name: str):
         self.caches[name] = np.array([])

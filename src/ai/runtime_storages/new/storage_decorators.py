@@ -8,12 +8,12 @@ def crud_operation(data_alias: TypeAlias, operation_alias: OperationsAlias):
         def wrapper(*args, **kwargs):
             storage = args[0]
 
-            result = func(*args, **kwargs)
+            element = func(*args, **kwargs)
             subscribers = storage.DATA_CRUD_SUBSCRIBERS[data_alias][operation_alias]
             for subscriber in subscribers:
-                subscriber(result)
+                subscriber(storage, element)
 
-            return result
+            return element
 
         return wrapper
 
