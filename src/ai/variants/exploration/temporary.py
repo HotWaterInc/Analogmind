@@ -9,10 +9,6 @@ from src.ai.variants.exploration.others.neighborhood_network import Neighborhood
 from src.ai.variants.exploration.params import STEP_DISTANCE, ROTATIONS, MAX_DISTANCE
 from src.modules.pretty_display import pretty_display_start, pretty_display_set_and_start, pretty_display
 from src.modules.save_load_handlers.data_handle import write_other_data_to_file
-from src.action_robot_controller import detach_robot_sample_distance, detach_robot_teleport_relative, \
-    detach_robot_rotate_absolute, detach_robot_teleport_absolute, \
-    detach_robot_sample_image_inference
-import time
 import torch.nn as nn
 from src.ai.runtime_data_storage.storage_superset2 import *
 from typing import List, Dict

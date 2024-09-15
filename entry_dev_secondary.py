@@ -2,7 +2,7 @@ from src.ai.runtime_data_storage.storage_superset2 import StorageSuperset2
 from src.ai.variants.exploration.exploration_autonomous_policy import augment_data_raw_heuristic
 from src.ai.variants.exploration.exploration_evaluations import evaluate_distance_metric_on_already_found_connections
 from src.ai.variants.exploration.pipelines import test_pipeline2
-from src.modules.external_communication import start_server
+from src.modules.agent_communication import start_server
 from src.configs_setup import configs_communication, config_data_collection_pipeline
 import threading
 from src.modules.policies.data_collection import grid_data_collection
@@ -14,7 +14,7 @@ from src.ai.variants.camera1_full_forced.direction_network_SS import run_directi
 from src.ai.variants.camera1_full_forced.direction_network_SDS import run_direction_post_autoencod_SDS
 from src.ai.variants.camera1_full_forced.vae_abstract_block_image import run_vae_abstract_block
 from src.ai.runtime_data_storage.storage_superset2 import StorageSuperset2
-from src.modules.external_communication import start_server
+from src.modules.agent_communication import start_server
 from src.configs_setup import configs_communication, config_data_collection_pipeline
 import threading
 from src.modules.policies.data_collection import grid_data_collection
@@ -30,7 +30,7 @@ from src.modules.visualizations import run_visualization
 from src.ai.runtime_data_storage.storage import AdjacencyDataSample
 from src.ai.runtime_data_storage.storage_superset2 import StorageSuperset2
 from src.ai.variants.exploration.networks.adjacency_detector import AdjacencyDetector
-from src.modules.external_communication import start_server
+from src.modules.agent_communication import start_server
 from src.configs_setup import configs_communication, config_data_collection_pipeline
 import threading
 from src.modules.policies.data_collection import grid_data_collection

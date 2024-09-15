@@ -1,11 +1,11 @@
 import time
 import math
 from typing import Dict, TypedDict, Generator, List
-from src.action_ai_controller import ActionAIController
+from src.response_controller import ResponseController
 from src.ai.runtime_data_storage.storage_superset2 import StorageSuperset2
 from src.ai.variants.exploration.networks.abstract_base_autoencoder_model import BaseAutoencoderModel
-from src.global_data_buffer import GlobalDataBuffer, empty_global_data_buffer
-from src.action_robot_controller import detach_robot_sample_distance, detach_robot_sample_image, \
+from src.global_data_buffer import AgentResponseDataBuffer, empty_global_data_buffer
+from src.agent_actions import detach_robot_sample_distance, detach_robot_sample_image, \
     detach_robot_teleport_relative, \
     detach_robot_rotate_absolute, detach_robot_rotate_relative, detach_robot_teleport_absolute, \
     detach_robot_rotate_continuous_absolute, detach_robot_forward_continuous, detach_robot_sample_image_inference
@@ -367,7 +367,7 @@ def get_closest_point_policy() -> Generator[None, None, None]:
             detach_robot_sample_image_inference()
             yield
 
-            global_data_buffer: GlobalDataBuffer = GlobalDataBuffer.get_instance()
+            global_data_buffer: AgentResponseDataBuffer = AgentResponseDataBuffer.get_instance()
             buffer = global_data_buffer.buffer
             image_data = buffer["data"]
             empty_global_data_buffer()
@@ -409,7 +409,7 @@ def navigation_image_1camera_vae() -> Generator[None, None, None]:
             detach_robot_sample_image_inference()
             yield
 
-            global_data_buffer: GlobalDataBuffer = GlobalDataBuffer.get_instance()
+            global_data_buffer: AgentResponseDataBuffer = AgentResponseDataBuffer.get_instance()
             buffer = global_data_buffer.buffer
             # print("Buffer:", buffer)
             image_data = buffer["data"]

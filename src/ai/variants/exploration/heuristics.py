@@ -1,22 +1,12 @@
 import time
 import math
 from typing import Dict, TypedDict, Generator, List, Tuple, Any
-from src.action_ai_controller import ActionAIController
 from src.ai.variants.exploration.networks.adjacency_detector import AdjacencyDetector
 from src.ai.variants.exploration.exploration_evaluations import evaluate_distance_metric
 from src.ai.variants.exploration.others.neighborhood_network import NeighborhoodDistanceNetwork, \
     run_neighborhood_network
 from src.ai.variants.exploration.others.neighborhood_network_thetas import NeighborhoodNetworkThetas
 from src.ai.variants.exploration.params import MAX_DISTANCE, STEP_DISTANCE
-from src.global_data_buffer import GlobalDataBuffer, empty_global_data_buffer
-from src.modules.save_load_handlers.data_handle import write_other_data_to_file, serialize_object_other, \
-    deserialize_object_other
-from src.action_robot_controller import detach_robot_sample_distance, detach_robot_sample_image, \
-    detach_robot_teleport_relative, \
-    detach_robot_rotate_absolute, detach_robot_rotate_relative, detach_robot_teleport_absolute, \
-    detach_robot_rotate_continuous_absolute, detach_robot_forward_continuous, detach_robot_sample_image_inference
-import threading
-import torch
 import time
 import torch.nn as nn
 import torch.optim as optim
@@ -28,9 +18,6 @@ from src.ai.runtime_data_storage.storage_superset2 import *
 from src.ai.runtime_data_storage import Storage
 from typing import List, Dict, Union
 from src.utils import array_to_tensor
-from src.modules.policies.testing_image_data import test_images_accuracy, process_webots_image_to_embedding, \
-    squeeze_out_resnet_output
-from src.modules.policies.utils_lib import webots_radians_to_normal, radians_to_degrees
 import torch
 from src.utils import get_device
 

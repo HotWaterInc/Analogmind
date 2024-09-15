@@ -1,7 +1,6 @@
 import time
 import math
 from typing import Dict, TypedDict, Generator, List
-from src.action_ai_controller import ActionAIController
 from src.ai.variants.exploration.networks.abstract_base_autoencoder_model import BaseAutoencoderModel
 from src.ai.variants.exploration.params import STEP_DISTANCE, MAX_DISTANCE, DISTANCE_THETAS_SIZE, DIRECTION_THETAS_SIZE
 from src.ai.variants.exploration.utils import get_collected_data_distances, check_direction_distance_validity_north, \
@@ -10,14 +9,7 @@ from src.ai.variants.exploration.utils import get_collected_data_distances, chec
 from src.ai.variants.exploration.utils_pure_functions import distance_percent_to_distance_thetas, \
     angle_percent_to_thetas_normalized_cached, direction_to_degrees_atan, degrees_to_percent, \
     direction_thetas_to_radians, generate_dxdy, calculate_manifold_distances
-from src.global_data_buffer import GlobalDataBuffer, empty_global_data_buffer
 from src.modules.save_load_handlers.data_handle import write_other_data_to_file
-from src.action_robot_controller import detach_robot_sample_distance, detach_robot_sample_image, \
-    detach_robot_teleport_relative, \
-    detach_robot_rotate_absolute, detach_robot_rotate_relative, detach_robot_teleport_absolute, \
-    detach_robot_rotate_continuous_absolute, detach_robot_forward_continuous, detach_robot_sample_image_inference
-import threading
-import torch
 import time
 import torch.nn as nn
 import torch.optim as optim
@@ -315,7 +307,7 @@ def teleportation_exploring_inference(models_folder: str, manifold_encoder_name:
             detach_robot_sample_image_inference()
             yield
 
-            global_data_buffer: GlobalDataBuffer = GlobalDataBuffer.get_instance()
+            global_data_buffer: AgentResponseDataBuffer = AgentResponseDataBuffer.get_instance()
             buffer = global_data_buffer.buffer
             image_data = buffer["data"]
             empty_global_data_buffer()
@@ -391,7 +383,7 @@ def teleportation_exploring_inference_evaluator(models_folder: str, manifold_enc
             detach_robot_sample_image_inference()
             yield
 
-            global_data_buffer: GlobalDataBuffer = GlobalDataBuffer.get_instance()
+            global_data_buffer: AgentResponseDataBuffer = AgentResponseDataBuffer.get_instance()
             buffer = global_data_buffer.buffer
             image_data = buffer["data"]
             empty_global_data_buffer()

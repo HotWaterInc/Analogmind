@@ -9,67 +9,28 @@ from src.ai.variants.exploration.data_filtering import data_filtering_redundanci
 from src.ai.variants.exploration.exploration_autonomous_policy import exploration_policy_autonomous, SDirDistS_network
 from src.ai.variants.exploration.inference_policy import teleportation_exploring_inference, \
     teleportation_exploring_inference_evaluator
-from src.ai.variants.exploration.inferences import fill_augmented_connections_distances
-from src.ai.variants.exploration.networks.SDirDistState_network import SDirDistState, train_SDirDistS_network
-from src.ai.variants.exploration.networks.SSDir_network import SSDirNetwork, train_SSDirection
-from src.ai.variants.exploration.networks.images_raw_distance_predictor import ImagesRawDistancePredictor, \
-    train_images_raw_distance_predictor
-from src.ai.variants.exploration.networks.manifold_mapper import ManifoldMapper, train_manifold_mapper
-from src.ai.variants.exploration.networks.manifold_network import train_manifold_network, ManifoldNetwork, \
-    train_manifold_network_until_thresholds
-from src.ai.variants.exploration.networks.manifold_network_binary import ManifoldNetworkBinary, \
-    train_manifold_network_binary
-from src.ai.variants.exploration.networks.seen_network import train_seen_network, SeenNetwork
-from src.ai.variants.exploration.others.abstraction_block_second_trial import train_abstraction_block_second_trial, \
-    AbstractionBlockSecondTrial
-from src.ai.variants.exploration.others.images_distance_predictor import train_images_distance_predictor, \
-    ImagesDistancePredictor
-from src.ai.variants.exploration.temporary import augment_data_testing_network_distance
-from src.ai.variants.exploration.utils import storage_to_manifold, storage_to_binary_data, storage_to_random_manifold
-from src.modules.external_communication import start_server
-from src.configs_setup import configs_communication, config_data_collection_pipeline
+from src.configs_setup import config_simulation_communication
+from src.modules.agent_communication import start_server
 import threading
-from src.modules.policies.data_collection import grid_data_collection
-from src.ai.variants.camera1_full_forced.policy_images_simple import get_closest_point_policy
-from src.modules.save_load_handlers.ai_models_handle import save_ai_manually, load_manually_saved_ai
-from src.modules.save_load_handlers.data_handle import write_other_data_to_file, read_other_data_from_file
-from src.modules.visualizations.entry import visualization_topological_graph, visualization_3d_target_surface, \
-    visualization_inference_navigation
+
+from src.modules.agent_communication.action_detach import detach_robot_teleport_absolute
+from src.modules.agent_communication.communication_controller import set_response_event
 
 
 def start_server_thread():
-    server_thread = threading.Thread(target=start_server)
-    server_thread.start()
-
-
-def data_collection_pipeline():
-    """
-    Pipeline for collecting data from the robots
-    Binds the server, and uses a generator like policy which sends data and awaits for response to call next(gen)
-    """
-    configs_communication()
-
-    generator = grid_data_collection(3, 3, 5, 0, 0.5, 24, type="image")
-
-    config_data_collection_pipeline(generator)
     server_thread = threading.Thread(target=start_server, name="ServerThread")
     server_thread.start()
-
-    server_thread.join()
+    print("server thread started")
 
 
 def exploration_autonomous_pipeline():
-    configs_communication()
-    generator = exploration_policy_autonomous()
-    config_data_collection_pipeline(generator)
-
-    server_thread = threading.Thread(target=start_server, name="ServerThread")
-    server_thread.start()
-    server_thread.join()
+    config_simulation_communication(set_response_event)
+    start_server_thread()
+    exploration_policy_autonomous()
 
 
 def inference_pipeline():
-    configs_communication()
+    config_simulation_communication(set_response_event)
 
     storage = StorageSuperset2()
     load_storage_with_base_data(
@@ -78,7 +39,9 @@ def inference_pipeline():
         connections_filename="(1)_connections_autonomous_walk_augmented_filled.json"
     )
 
-    generator = teleportation_exploring_inference_evaluator(
+    start_server_thread()
+
+    teleportation_exploring_inference_evaluator(
         models_folder="manually_saved",
         manifold_encoder_name="manifold_network_normal",
         SDirDistS_name="sdirdiststate_network_0.001",
@@ -86,18 +49,8 @@ def inference_pipeline():
         noise=True
     )
 
-    config_data_collection_pipeline(generator)
-    server_thread = threading.Thread(target=start_server, name="ServerThread")
-    server_thread.start()
-
-    server_thread.join()
-
 
 def test_pipeline():
-    # exploration_autonomous_pipeline()
+    exploration_autonomous_pipeline()
 
-    # build_test_scene()
-    # visualization_collected_data_photo(storage)
-    visualization_inference_navigation()
-    # inference_pipeline()
     pass

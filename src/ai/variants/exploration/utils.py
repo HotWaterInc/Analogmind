@@ -4,16 +4,14 @@ from src.ai.variants.exploration.params import DIRECTION_THETAS_SIZE, STEP_DISTA
 from src.ai.variants.exploration.utils_pure_functions import direction_to_degrees_atan, degrees_to_percent, \
     angle_percent_to_thetas_normalized_cached, direction_thetas_to_radians, find_thetas_null_indexes, \
     get_angle_percent_from_thetas_index, generate_dxdy, angle_percent_to_radians
-from src.modules.policies.navigation8x8_v1_distance import radians_to_degrees
+from src.modules.agent_communication.response_data_buffer_class import AgentResponseDataBuffer, \
+    response_data_empty_buffer
 from src.modules.policies.testing_image_data import process_webots_image_to_embedding, \
     squeeze_out_resnet_output
 from src.ai.runtime_data_storage.storage_superset2 import StorageSuperset2
-
 import torch
 import numpy as np
 import math
-
-from src.global_data_buffer import GlobalDataBuffer, empty_global_data_buffer
 from src.modules.policies.utils_lib import webots_radians_to_normal
 from src.utils import get_device
 
@@ -113,10 +111,10 @@ def distance_sensors_transform(distance):
 
 
 def get_collected_data_distances() -> tuple[torch.Tensor, float, list[float]]:
-    global_data_buffer: GlobalDataBuffer = GlobalDataBuffer.get_instance()
+    global_data_buffer: AgentResponseDataBuffer = AgentResponseDataBuffer.get_instance()
     buffer = global_data_buffer.buffer
     distances = buffer["data"]
-    empty_global_data_buffer()
+    response_data_empty_buffer()
 
     nd_array_data = np.array(distances)
     angle = buffer["params"]["angle"]
@@ -132,10 +130,10 @@ def get_collected_data_distances() -> tuple[torch.Tensor, float, list[float]]:
 
 
 def get_collected_data_image() -> tuple[torch.Tensor, float, list[float]]:
-    global_data_buffer: GlobalDataBuffer = GlobalDataBuffer.get_instance()
+    global_data_buffer: AgentResponseDataBuffer = AgentResponseDataBuffer.get_instance()
     buffer = global_data_buffer.buffer
     image_data = buffer["data"]
-    empty_global_data_buffer()
+    response_data_empty_buffer()
 
     nd_array_data = np.array(image_data)
     angle = buffer["params"]["angle"]

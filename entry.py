@@ -1,4 +1,4 @@
-from src.modules.external_communication import start_server
+from src.modules.agent_communication import start_server
 from src.configs_setup import configs_communication, config_data_collection_pipeline
 import threading
 from src.modules.policies.data_collection import grid_data_collection

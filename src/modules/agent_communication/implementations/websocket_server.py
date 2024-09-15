@@ -1,9 +1,10 @@
 import asyncio
 import websockets
 import json
-from .communication_interface import receive_data
-from .communication_interface import set_server_started, CommunicationInterface
 from typing import Dict
+
+from src.modules.agent_communication import ai_receive_response
+from src.modules.agent_communication.communication_controller import set_server_started
 
 PORT = 8080
 websocket_global = None
@@ -15,7 +16,7 @@ async def listen(websocket):
     set_server_started()
     try:
         async for message in websocket:
-            receive_data(json.loads(message))
+            ai_receive_response(json.loads(message))
     finally:
         websocket_global = None
 
@@ -38,7 +39,7 @@ def send_data_websockets(json_data: Dict[str, any]):
         asyncio.run(send_data_string_websockets(websocket, message))
 
 
-async def start_websockets_server():
+async def _start_websockets_server():
     try:
         server = await websockets.serve(
             listen,
@@ -53,9 +54,5 @@ async def start_websockets_server():
         print(f"Server error: {e}. ")
 
 
-def start_websockets(set_server_started_cb=(lambda: None)):
-    asyncio.run(start_websockets_server())
-
-
-if __name__ == "__main__":
-    start_websockets()
+def start_websockets():
+    asyncio.run(_start_websockets_server())

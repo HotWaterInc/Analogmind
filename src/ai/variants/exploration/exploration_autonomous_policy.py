@@ -26,11 +26,11 @@ from src.ai.variants.exploration.utils import get_collected_data_image, get_coll
     find_frontier_all_datapoint_and_direction
 from src.ai.variants.exploration.utils_pure_functions import get_direction_between_datapoints, flag_data_authenticity, \
     generate_dxdy
+from src.modules.agent_communication.action_detach import detach_robot_teleport_absolute, \
+    detach_robot_teleport_relative, detach_robot_sample_image, detach_robot_sample_distance, \
+    detach_robot_rotate_absolute
 from src.modules.save_load_handlers.ai_models_handle import save_ai_manually
 from src.modules.save_load_handlers.data_handle import write_other_data_to_file
-from src.action_robot_controller import detach_robot_sample_distance, detach_robot_teleport_relative, \
-    detach_robot_rotate_absolute, detach_robot_teleport_absolute, \
-    detach_robot_sample_image_inference
 import time
 import torch.nn as nn
 from src.ai.runtime_data_storage.storage_superset2 import *
@@ -57,30 +57,25 @@ def initial_setup():
 
 
 def collect_data_generator():
-    detach_robot_sample_image_inference()
-    yield
+    detach_robot_sample_image()
 
 
 def collect_distance_data_generator_without_sleep():
     detach_robot_sample_distance()
-    yield
 
 
 def collect_distance_data_generator_with_sleep():
     time.sleep(0.05)
     detach_robot_sample_distance()
-    yield
 
 
 def collect_image_data_generator_without_sleep():
-    detach_robot_sample_image_inference()
-    yield
+    detach_robot_sample_image()
 
 
 def collect_image_data_generator_with_sleep():
     time.sleep(0.1)
-    detach_robot_sample_image_inference()
-    yield
+    detach_robot_sample_image()
 
 
 def create_datapoint_multiple_rotations(name: str, data: list[list[any]], coords: list[float]) -> dict[str, any]:
@@ -138,7 +133,7 @@ def random_move_policy():
     global walk_directions_stack
     # collects sensor data and finds a valid move direction
     detach_robot_sample_distance()
-    yield
+
     distance_sensors, angle, coords = get_collected_data_distances()
 
     valid = False
@@ -152,7 +147,6 @@ def random_move_policy():
 
     dx, dy = generate_dxdy(direction, distance)
     detach_robot_teleport_relative(dx, dy)
-    yield
 
 
 def add_connections_to_last_datapoint(random_walk_datapoints, random_walk_connections):
@@ -198,7 +192,7 @@ def relative_difference(a, b):
 
 def display_sensor_data():
     detach_robot_sample_distance()
-    yield
+
     distance_sensors, angle, coords = get_collected_data_distances()
 
     valid = False
@@ -235,18 +229,17 @@ def collect_data_rotations_and_create_datapoint():
     data_arr = []
     coords = None
     null_connections_tests = []
+
     for k in range(ROTATIONS):
         angle = k * rotation_step
-        detach_robot_rotate_absolute(angle)
-        yield
 
-        collect_data = collect_image_data_generator_without_sleep()
-        yield from collect_data
+        detach_robot_rotate_absolute(angle)
+        collect_image_data_generator_without_sleep()
+
         image_embedding, angle, coords = get_collected_data_image()
         data_arr.append(image_embedding.tolist())
 
-        collect_distance_generator = collect_distance_data_generator_without_sleep()
-        yield from collect_distance_generator
+        collect_distance_data_generator_without_sleep()
         distances, angle, coords = get_collected_data_distances()
 
         # sensors oriented in the direction of the robot, so we can only check the north assuming it is rotated in the direction we want
@@ -283,7 +276,7 @@ def return_global_buffer1() -> any:
 
 def collect_current_data_and_add_connections(random_walk_datapoints, random_walk_connections):
     global global_register1
-    yield from collect_data_rotations_and_create_datapoint()
+    collect_data_rotations_and_create_datapoint()
 
     datapoint = return_global_buffer1()
     null_connections_test = return_global_buffer2()
@@ -295,8 +288,7 @@ def collect_current_data_and_add_connections(random_walk_datapoints, random_walk
 
 
 def random_walk_policy(random_walk_datapoints, random_walk_connections):
-    collect_data = collect_image_data_generator_with_sleep()
-    yield from collect_data
+    collect_image_data_generator_with_sleep()
 
     image_embedding, angle, coords = get_collected_data_image()
     name = f"{coords[0]:.3f}_{coords[1]:.3f}"
@@ -306,8 +298,7 @@ def random_walk_policy(random_walk_datapoints, random_walk_connections):
     random_walk_datapoints.append(datapoint)
     add_connections_to_last_datapoint(random_walk_datapoints, random_walk_connections)
 
-    move = random_move_policy()
-    yield from move
+    random_move_policy()
 
 
 def phase_explore(random_walk_datapoints, random_walk_connections, first_walk, max_steps, skip_checks=0):
@@ -315,8 +306,7 @@ def phase_explore(random_walk_datapoints, random_walk_connections, first_walk, m
     #     max_steps /= 10
 
     for step in range(max_steps):
-        collect_data = collect_current_data_and_add_connections(random_walk_datapoints, random_walk_connections)
-        yield from collect_data
+        collect_current_data_and_add_connections(random_walk_datapoints, random_walk_connections)
 
         if first_walk == False and skip_checks == 0:
             position_check = check_position_is_known_cheating(random_walk_datapoints)
@@ -327,8 +317,7 @@ def phase_explore(random_walk_datapoints, random_walk_connections, first_walk, m
             skip_checks -= 1
 
         if step != max_steps - 1:
-            move_randomly = random_move_policy()
-            yield from move_randomly
+            random_move_policy()
 
 
 def copy_storage(storage_to_copy: StorageSuperset2, storage_to_copy_into: StorageSuperset2):
@@ -388,7 +377,7 @@ def exploration_policy_autonomous_data_filtering(step: int):
     if first_walk:
         print("IT'S FIRST TIME !!")
 
-    # yield from phase_explore(random_walk_datapoints, random_walk_connections, first_walk, max_steps=3)
+    #  phase_explore(random_walk_datapoints, random_walk_connections, first_walk, max_steps=3)
     random_walk_datapoints = read_other_data_from_file("datapoints_random_walks_300_24rot.json")
     random_walk_connections = read_other_data_from_file("datapoints_connections_random_walks_300_24rot.json")
 
@@ -424,7 +413,7 @@ def exploration_policy_autonomous_exploration_full(step: int):
     if first_walk:
         print("IT'S FIRST TIME !!")
 
-    yield from phase_explore(random_walk_datapoints, random_walk_connections, first_walk, max_steps=30, skip_checks=3)
+    phase_explore(random_walk_datapoints, random_walk_connections, first_walk, max_steps=30, skip_checks=3)
 
     first_walk = False
     flag_data_authenticity(random_walk_connections)
@@ -517,7 +506,7 @@ def exploration_policy_autonomous_exploration_full(step: int):
         storage=storage_manifold
     )
 
-    yield from exploration_inference(
+    exploration_inference(
         storage_arg=storage_manifold,
         manifold_network_arg=manifold_network,
         direction_network_SSD_arg=SSDir_network,
@@ -526,7 +515,7 @@ def exploration_policy_autonomous_exploration_full(step: int):
     )
 
     detach_robot_teleport_relative(frontier_direction[0], frontier_direction[1])
-    yield
+
     print("TELEPORTED TO RELATIVE")
     time.sleep(1)
 
@@ -541,7 +530,7 @@ def exploration_policy_autonomous_exploration_cheating(step: int):
     if first_walk:
         print("IT'S FIRST TIME !!")
 
-    yield from phase_explore(random_walk_datapoints, random_walk_connections, first_walk, max_steps=20, skip_checks=2)
+    phase_explore(random_walk_datapoints, random_walk_connections, first_walk, max_steps=20, skip_checks=2)
 
     first_walk = False
     flag_data_authenticity(random_walk_connections)
@@ -585,11 +574,11 @@ def exploration_policy_autonomous_exploration_cheating(step: int):
     # move to frontier
     coords = storage_raw.get_datapoint_metadata_coords(frontier_datapoint)
     detach_robot_teleport_absolute(coords[0], coords[1])
-    yield
+
     print("TELEPORTED TO FRONTIER")
     time.sleep(1)
     detach_robot_teleport_relative(frontier_direction[0], frontier_direction[1])
-    yield
+
     print("TELEPORTED TO RELATIVE")
     time.sleep(1)
 
@@ -605,7 +594,7 @@ def exploration_policy_autonomous_step(step: int, train_networks=True):
     if first_walk:
         print("IT'S FIRST TIME !!")
 
-    yield from phase_explore(random_walk_datapoints, random_walk_connections, first_walk, max_steps=3)
+    phase_explore(random_walk_datapoints, random_walk_connections, first_walk, max_steps=3)
     first_walk = False
     flag_data_authenticity(random_walk_connections)
     storage_raw.incorporate_new_data(random_walk_datapoints, random_walk_connections)
@@ -693,13 +682,12 @@ def exploration_policy_autonomous_step(step: int, train_networks=True):
     print("ALL DATA WAS SAVED")
 
 
-def exploration_policy_autonomous() -> Generator[None, None, None]:
+def exploration_policy_autonomous():
     initial_setup()
     global storage_raw, storage_manifold, first_walk, exploring
     global adjacency_network, image_distance_network, manifold_network, SSDir_network, SDirDistS_network
 
     detach_robot_teleport_absolute(0, 0)
-    yield
 
     exploring = True
     first_walk = True
@@ -708,13 +696,10 @@ def exploration_policy_autonomous() -> Generator[None, None, None]:
     while exploring:
         step += 1
 
-        # yield from exploration_policy_autonomous_step(step, train_networks=False)
+        #  exploration_policy_autonomous_step(step, train_networks=False)
         # exploration_policy_autonomous_data_filtering(step)
-        generator = exploration_policy_autonomous_exploration_cheating(step)
+        exploration_policy_autonomous_exploration_cheating(step)
         # generator = exploration_policy_autonomous_exploration_full(step)
-        yield from generator
-
-    yield
 
 
 storage_raw: StorageSuperset2 = None

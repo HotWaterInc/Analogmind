@@ -4,7 +4,7 @@ import json
 import time
 import os
 import sys
-from src.modules.external_communication.communication_interface import CommunicationInterface
+from src.modules.agent_communication.communication_controller import CommunicationController
 
 
 def string_to_json(data):
@@ -52,7 +52,7 @@ def perror(*args, **kwargs):
 
 
 def get_instance():
-    return CommunicationInterface.get_instance()
+    return CommunicationController.get_instance()
 
 
 def get_device():
@@ -62,4 +62,4 @@ def get_device():
     return device
 
 
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+device = None
