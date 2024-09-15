@@ -326,3 +326,26 @@ def check_connection_already_existing(connections_arr, start, end):
 
 def calculate_manifold_distances(manifold1: torch.Tensor, manifold2: torch.Tensor) -> float:
     return torch.norm(manifold1 - manifold2, p=2, dim=0).item()
+
+
+def calculate_angle(x_vector, y_vector):
+    dot_product = x_vector[0] * y_vector[0] + x_vector[1] * y_vector[1]
+    determinant = x_vector[0] * y_vector[1] - x_vector[1] * y_vector[0]
+    angle = math.atan2(determinant, dot_product)
+    return angle
+
+
+def degrees_to_radians(degrees: float) -> float:
+    return degrees * math.pi / 180
+
+
+def webots_radians_to_normal(x: float) -> float:
+    if x < 0:
+        x += 2 * math.pi
+    return x
+
+
+def normal_radians_to_webots(x: float) -> float:
+    if x > math.pi:
+        x -= 2 * math.pi
+    return x
