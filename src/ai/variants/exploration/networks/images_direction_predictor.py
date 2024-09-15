@@ -3,7 +3,7 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 import numpy as np
-from src.ai.runtime_data_storage.storage_superset2 import StorageSuperset2, RawConnectionData, calculate_coords_distance
+from src.ai.runtime_storages.storage_superset2 import StorageSuperset2, RawConnectionData, calculate_coords_distance
 from src.ai.variants.exploration.params import MAX_DISTANCE, ROTATIONS, \
     THRESHOLD_IMAGE_DISTANCE_NETWORK, DIRECTION_THETAS_SIZE
 from src.ai.variants.exploration.utils_pure_functions import sample_n_elements, distance_percent_to_distance_thetas

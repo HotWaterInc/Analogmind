@@ -11,8 +11,8 @@ from src.ai.variants.exploration.params import MANIFOLD_SIZE, THRESHOLD_MANIFOLD
 from src.modules.save_load_handlers.ai_models_handle import save_ai, save_ai_manually, load_latest_ai, \
     load_manually_saved_ai
 from src.modules.save_load_handlers.parameters import *
-from src.ai.runtime_data_storage.storage_superset2 import StorageSuperset2
-from src.ai.runtime_data_storage import Storage
+from src.ai.runtime_storages.storage_superset2 import StorageSuperset2
+from src.ai.runtime_storages import Storage
 from typing import List, Dict, Union
 from src.utils import array_to_tensor, get_device
 from src.modules.pretty_display import pretty_display_reset, pretty_display_start, pretty_display, pretty_display_set

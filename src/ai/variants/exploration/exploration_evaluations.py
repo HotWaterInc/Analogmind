@@ -2,8 +2,8 @@ import numpy as np
 
 from src.ai.variants.exploration.utils_pure_functions import check_connection_already_existing
 import torch
-from src.ai.runtime_data_storage import Storage
-from src.ai.runtime_data_storage.storage_superset2 import StorageSuperset2
+from src.ai.runtime_storages import Storage
+from src.ai.runtime_storages.storage_superset2 import StorageSuperset2
 from src.ai.variants.exploration.networks.seen_network import SeenNetwork
 from src.utils import array_to_tensor, get_device
 from src.modules.time_profiler import start_profiler, profiler_checkpoint
@@ -19,8 +19,8 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 import numpy as np
-from src.ai.runtime_data_storage.storage_superset2 import *
-from src.ai.runtime_data_storage import Storage
+from src.ai.runtime_storages.storage_superset2 import *
+from src.ai.runtime_storages import Storage
 from typing import List, Dict, Union
 from src.utils import array_to_tensor
 import torch

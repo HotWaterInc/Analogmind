@@ -18,9 +18,9 @@ from src.ai.variants.exploration.utils import find_frontier_all_datapoint_and_di
 from src.modules.save_load_handlers.data_handle import read_data_from_file, read_other_data_from_file, \
     CollectedDataType
 from src.modules.save_load_handlers.ai_models_handle import load_latest_ai, load_manually_saved_ai, AIType
-from src.ai.runtime_data_storage.storage import Storage, Coords
-from src.ai.runtime_data_storage.storage_superset2 import StorageSuperset2
-from src.ai.runtime_data_storage.storage import RawConnectionData, RawEnvironmentData
+from src.ai.runtime_storages.storage import Storage, Coords
+from src.ai.runtime_storages.storage_superset2 import StorageSuperset2
+from src.ai.runtime_storages.storage import RawConnectionData, RawEnvironmentData
 from src.utils import array_to_tensor
 
 OPENGL_RENDERER = manim.RendererType.OPENGL

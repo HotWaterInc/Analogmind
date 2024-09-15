@@ -1,6 +1,6 @@
 import time
 from entry_test import visualize_datapoints_reconstructions
-from src.ai.runtime_data_storage.storage_superset2 import StorageSuperset2
+from src.ai.runtime_storages.storage_superset2 import StorageSuperset2
 from src.ai.variants.exploration.data_augmentation import load_storage_with_base_data, \
     storage_augment_with_saved_connections, augment_saved_connections_with_distances, \
     storage_augment_with_saved_augmented_connections, get_augmented_connections, \

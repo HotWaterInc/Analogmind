@@ -33,7 +33,7 @@ from src.modules.save_load_handlers.ai_models_handle import save_ai_manually
 from src.modules.save_load_handlers.data_handle import write_other_data_to_file
 import time
 import torch.nn as nn
-from src.ai.runtime_data_storage.storage_superset2 import *
+from src.ai.runtime_storages.storage_superset2 import *
 from typing import List, Dict
 from src.utils import get_device
 from src.ai.variants.exploration.networks.manifold_network import ManifoldNetwork, \

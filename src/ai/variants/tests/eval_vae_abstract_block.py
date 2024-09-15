@@ -2,8 +2,8 @@ import numpy as np
 import torch
 
 from src.ai.variants.exploration.networks.abstract_base_autoencoder_model import BaseAutoencoderModel
-from src.ai.runtime_data_storage import Storage
-from src.ai.runtime_data_storage.storage_superset2 import StorageSuperset2
+from src.ai.runtime_storages import Storage
+from src.ai.runtime_storages.storage_superset2 import StorageSuperset2
 from src.utils import array_to_tensor
 from src.modules.time_profiler import start_profiler, profiler_checkpoint
 from typing import List

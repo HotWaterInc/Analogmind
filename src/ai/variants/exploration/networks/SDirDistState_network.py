@@ -3,7 +3,7 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 import numpy as np
-from src.ai.runtime_data_storage.storage_superset2 import StorageSuperset2, RawConnectionData
+from src.ai.runtime_storages.storage_superset2 import StorageSuperset2, RawConnectionData
 from src.ai.variants.exploration.networks.abstract_base_autoencoder_model import BaseAutoencoderModel
 from src.ai.variants.exploration.params import MANIFOLD_SIZE, DIRECTION_THETAS_SIZE, DISTANCE_THETAS_SIZE, MAX_DISTANCE, \
     THRESHOLD_SDIRDISTSTATE_NETWORK

@@ -2,7 +2,7 @@ import time
 import math
 from typing import Dict, TypedDict, Generator, List
 from src.response_controller import ResponseController
-from src.ai.runtime_data_storage.storage_superset2 import StorageSuperset2
+from src.ai.runtime_storages.storage_superset2 import StorageSuperset2
 from src.ai.variants.exploration.networks.abstract_base_autoencoder_model import BaseAutoencoderModel
 from src.global_data_buffer import AgentResponseDataBuffer, empty_global_data_buffer
 from src.agent_actions import detach_robot_sample_distance, detach_robot_sample_image, \

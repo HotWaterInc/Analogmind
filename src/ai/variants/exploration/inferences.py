@@ -1,6 +1,6 @@
 import random
 import torch
-from src.ai.runtime_data_storage.storage_superset2 import StorageSuperset2
+from src.ai.runtime_storages.storage_superset2 import StorageSuperset2
 from src.ai.variants.exploration.networks.images_raw_distance_predictor import ImagesRawDistancePredictor
 from src.ai.variants.exploration.others.neighborhood_network import NeighborhoodDistanceNetwork
 from typing import List

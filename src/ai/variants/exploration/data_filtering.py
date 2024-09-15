@@ -1,7 +1,7 @@
 from src.ai.variants.exploration.algorithms import build_connections_hashmap, \
     find_minimum_distance_between_datapoints_on_graph_bfs
 from src.ai.variants.exploration.exploration_evaluations import evaluate_distance_metric
-from src.ai.runtime_data_storage.storage_superset2 import *
+from src.ai.runtime_storages.storage_superset2 import *
 from src.ai.variants.exploration.metric_builders import build_find_adjacency_heursitic_adjacency_network, \
     build_find_adjacency_heursitic_raw_data
 from src.ai.variants.exploration.params import REDUNDANCY_CONNECTION_ANGLE

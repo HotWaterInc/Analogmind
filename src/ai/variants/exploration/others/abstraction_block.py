@@ -10,8 +10,8 @@ from src.ai.variants.exploration.params import ROTATIONS_PER_FULL, OFFSETS_PER_D
 from src.modules.save_load_handlers.ai_models_handle import save_ai, save_ai_manually, load_latest_ai, \
     load_manually_saved_ai
 from src.modules.save_load_handlers.parameters import *
-from src.ai.runtime_data_storage.storage_superset2 import StorageSuperset2
-from src.ai.runtime_data_storage import Storage
+from src.ai.runtime_storages.storage_superset2 import StorageSuperset2
+from src.ai.runtime_storages import Storage
 from typing import List, Dict, Union
 from src.modules.time_profiler import profiler_checkpoint_blank, start_profiler, profiler_checkpoint
 from src.utils import array_to_tensor, get_device

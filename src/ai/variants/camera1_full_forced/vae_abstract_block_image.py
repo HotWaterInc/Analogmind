@@ -3,7 +3,7 @@ import numpy as np
 
 from src.ai.variants.exploration.networks.abstract_base_autoencoder_model import BaseAutoencoderModel
 from src.modules.save_load_handlers.ai_models_handle import save_ai_manually, load_manually_saved_ai
-from src.ai.runtime_data_storage.storage_superset2 import StorageSuperset2
+from src.ai.runtime_storages.storage_superset2 import StorageSuperset2
 from typing import List, Tuple
 from src.utils import array_to_tensor
 from src.modules.pretty_display import pretty_display_reset, pretty_display_start, pretty_display, pretty_display_set

@@ -7,7 +7,7 @@ from fontTools.misc.cython import returns
 from pyglet.input.linux.evdev import get_devices
 import torch
 
-from src.ai.runtime_data_storage.storage_superset2 import StorageSuperset2
+from src.ai.runtime_storages.storage_superset2 import StorageSuperset2
 from src.ai.variants.exploration.data_augmentation import load_storage_with_base_data
 from src.ai.variants.exploration.networks.abstract_base_autoencoder_model import BaseAutoencoderModel
 from src.ai.variants.exploration.params import MAX_DISTANCE

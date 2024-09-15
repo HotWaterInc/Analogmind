@@ -10,8 +10,8 @@ from src.ai.variants.exploration.others.neighborhood_network import Neighborhood
     run_neighborhood_network
 from src.ai.variants.exploration.others.neighborhood_network_thetas import NeighborhoodNetworkThetas
 from src.modules.save_load_handlers.parameters import *
-from src.ai.runtime_data_storage.storage_superset2 import *
-from src.ai.runtime_data_storage import Storage
+from src.ai.runtime_storages.storage_superset2 import *
+from src.ai.runtime_storages import Storage
 from typing import List, Dict, Union
 from src.utils import array_to_tensor
 import torch

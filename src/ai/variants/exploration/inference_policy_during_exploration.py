@@ -8,17 +8,16 @@ from src.ai.variants.exploration.utils import get_collected_data_distances, chec
     storage_to_manifold
 from src.ai.variants.exploration.utils_pure_functions import distance_percent_to_distance_thetas, \
     angle_percent_to_thetas_normalized_cached, direction_to_degrees_atan, degrees_to_percent, \
-    direction_thetas_to_radians, generate_dxdy, calculate_manifold_distances
+    direction_thetas_to_radians, generate_dxdy, calculate_manifold_distances, radians_to_degrees
 from src.modules.save_load_handlers.data_handle import write_other_data_to_file
 import time
 import torch.nn as nn
 import torch.optim as optim
 import numpy as np
-from src.ai.runtime_data_storage.storage_superset2 import StorageSuperset2
+from src.ai.runtime_storages.storage_superset2 import StorageSuperset2
 from src.utils import array_to_tensor, get_device
 from src.modules.policies.testing_image_data import test_images_accuracy, process_webots_image_to_embedding, \
-    squeeze_out_resnet_output
-from src.modules.policies.utils_lib import webots_radians_to_normal, radians_to_degrees
+    squeeze_out_resnet_output, webots_radians_to_normal
 import torch
 
 

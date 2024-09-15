@@ -7,7 +7,7 @@ import torch.optim as optim
 import numpy as np
 from triton.language import dtype
 import random
-from src.ai.runtime_data_storage.storage_superset2 import StorageSuperset2, RawConnectionData
+from src.ai.runtime_storages.storage_superset2 import StorageSuperset2, RawConnectionData
 from src.ai.variants.exploration.networks.abstract_base_autoencoder_model import BaseAutoencoderModel
 from src.ai.variants.exploration.params import THRESHOLD_ADJACENCY_DETECTOR, ROTATIONS
 from src.ai.variants.exploration.utils_pure_functions import sample_n_elements, calculate_coords_distance, \

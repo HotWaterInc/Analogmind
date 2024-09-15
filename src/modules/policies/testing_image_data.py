@@ -1,4 +1,4 @@
-from src.ai.runtime_data_storage.storage_superset2 import StorageSuperset2
+from src.ai.runtime_storages.storage_superset2 import StorageSuperset2
 import torch
 import math
 import torch

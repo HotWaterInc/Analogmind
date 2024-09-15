@@ -7,12 +7,11 @@ from src.ai.variants.exploration.utils_pure_functions import direction_to_degree
 from src.modules.agent_communication.response_data_buffer_class import AgentResponseDataBuffer, \
     response_data_empty_buffer
 from src.modules.policies.testing_image_data import process_webots_image_to_embedding, \
-    squeeze_out_resnet_output
-from src.ai.runtime_data_storage.storage_superset2 import StorageSuperset2
+    squeeze_out_resnet_output, webots_radians_to_normal
+from src.ai.runtime_storages.storage_superset2 import StorageSuperset2
 import torch
 import numpy as np
 import math
-from src.modules.policies.utils_lib import webots_radians_to_normal
 from src.utils import get_device
 
 

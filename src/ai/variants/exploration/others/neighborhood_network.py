@@ -3,7 +3,7 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 import numpy as np
-from src.ai.runtime_data_storage.storage_superset2 import StorageSuperset2, RawConnectionData
+from src.ai.runtime_storages.storage_superset2 import StorageSuperset2, RawConnectionData
 from src.ai.variants.exploration.networks.abstract_base_autoencoder_model import BaseAutoencoderModel
 from src.ai.variants.exploration.utils_pure_functions import calculate_coords_distance
 from src.modules.save_load_handlers.ai_models_handle import load_manually_saved_ai, save_ai_manually
