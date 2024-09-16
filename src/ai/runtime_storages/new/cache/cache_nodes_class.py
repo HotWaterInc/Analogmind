@@ -1,4 +1,4 @@
-from src.ai.runtime_storages.new.cache_abstract import CacheAbstract
+from src.ai.runtime_storages.new.cache.cache_abstract import CacheAbstract
 from src.ai.runtime_storages.new.types import NodeData
 
 
@@ -16,5 +16,4 @@ class CacheMapNodes(CacheAbstract):
         self.map[node["name"]] = None
 
     def invalidate_and_recalculate(self, storage):
-        nodes = storage
         pass

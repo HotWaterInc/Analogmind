@@ -16,7 +16,7 @@ class ConnectionData(TypedDict):
     direction: List[float]
 
 
-class TypeAlias(Enum):
+class DataAlias(Enum):
     NODE_DATA = "node_data"
     CONNECTIONS_DATA = "connections_data"
 

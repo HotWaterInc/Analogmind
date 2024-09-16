@@ -1,26 +1,16 @@
-from src.ai.variants.exploration.pipelines import test_pipeline
-from src.modules.visualizations.entry import visualization_3d_target_surface
-from functools import wraps
-from src.ai.runtime_storages.new.storage_runtime_data import *
+from src.ai.runtime_storages.new import storage_module as storage
 
 
-def randf(new_node):
-    print("randomfn")
+def my_func(storage, new_ndoej):
+    print("ceva", new_ndoej)
 
 
 if __name__ == "__main__":
-    st = StorageRuntimeData()
-    print(st)
+    storage_data = storage.create_storage()
 
-    st.subscribe_to_crud_operation(
-        data_alias=TypeAlias.NODE_DATA,
-        operation_type=OperationsAlias.CREATE,
-        subscriber=randf
-    )
-    st.create_node(
-        name="node_1",
-        data=[[1, 2, 3], [4, 5, 6]],
-        params={"param_1": 1, "param_2": 2}
-    )
+    storage.subscribe_to_crud_operation(storage=storage_data, data_alias=storage.DataAlias.NODE_DATA,
+                                        operation_type=storage.OperationsAlias.CREATE, subscriber=my_func)
+    # storage.create_node(self=storage_data, data=[1, 2, 3], name="node1", params={"param1": 1})
+    storage.create_node(storage_data, data=[[1]], name="node1", params={"param1": 1})
 
     pass
