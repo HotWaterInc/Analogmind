@@ -2,7 +2,6 @@ from typing import TYPE_CHECKING
 from src.ai.runtime_storages.cache_abstract import CacheAbstract
 from src.ai.runtime_storages.functions.cache_functions import cache_general_get
 from src.ai.runtime_storages.types import NodeData, CacheGeneralAlias
-
 from typing import Dict
 
 if TYPE_CHECKING:
@@ -11,29 +10,31 @@ if TYPE_CHECKING:
 
 class Cache(CacheAbstract):
     """
-    Fast retrieval for nodes from a map
+    Keeps track of th indexes of each node
     """
 
     def __init__(self):
         self.cache_map: Dict[str, any] = {}
 
-    def invalidate_and_recalculate(self, storage):
-        pass
-
 
 def on_create_node(storage: 'StorageStruct',
                    new_node: NodeData) -> None:
-    self = cache_general_get(storage, CacheGeneralAlias.NODE_CACHE_MAP)
-    self.cache_map[new_node["name"]] = new_node
+    self = cache_general_get(storage, CacheGeneralAlias.NODE_INDEX_MAP)
+    self.cache_map[new_node["name"]] = len(storage.environment_nodes_authentic) - 1
 
 
 def on_update_node(storage: 'StorageStruct',
                    old_node: NodeData, new_node: NodeData) -> None:
-    self = cache_general_get(storage, CacheGeneralAlias.NODE_CACHE_MAP)
-    self.cache_map[new_node["name"]] = new_node
+    pass
 
 
 def on_delete_node(storage: 'StorageStruct',
                    deleted_node: NodeData) -> None:
-    self = cache_general_get(storage, CacheGeneralAlias.NODE_CACHE_MAP)
-    del self.cache_map[deleted_node["name"]]
+    on_invalidate_and_recalculate(storage)
+
+
+def on_invalidate_and_recalculate(storage: 'StorageStruct') -> None:
+    self = cache_general_get(storage, CacheGeneralAlias.NODE_INDEX_MAP)
+    self.cache_map = {}
+    for i, node in enumerate(storage.environment_nodes_authentic):
+        self.cache_map[node["name"]] = i

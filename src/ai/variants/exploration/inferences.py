@@ -31,8 +31,8 @@ def fill_augmented_connections_directions(additional_connections: List[any], sto
 
         for i in range(SELECTIONS):
             i = random.randint(0, ROTATIONS - 1)
-            start_data = storage.get_datapoint_data_tensor_by_name(start)[i]
-            end_data = storage.get_datapoint_data_tensor_by_name(end)[i]
+            start_data = storage.node_get_datapoints_tensor(start)[i]
+            end_data = storage.node_get_datapoints_tensor(end)[i]
 
             start_data_array.append(start_data)
             end_data_array.append(end_data)
@@ -141,8 +141,8 @@ def fill_augmented_connections_distances(additional_connections: List[any], stor
 
         for i in range(SELECTIONS):
             i = random.randint(0, ROTATIONS - 1)
-            start_data = storage.get_datapoint_data_tensor_by_name(start)[i]
-            end_data = storage.get_datapoint_data_tensor_by_name(end)[i]
+            start_data = storage.node_get_datapoints_tensor(start)[i]
+            end_data = storage.node_get_datapoints_tensor(end)[i]
 
             start_data_array.append(start_data)
             end_data_array.append(end_data)

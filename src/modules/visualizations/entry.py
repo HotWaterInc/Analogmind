@@ -178,7 +178,7 @@ def build_datapoints_topology(scene, storage: StorageSuperset2):
                              DISTANCE_SCALE)
 
     # add null connections
-    null_connections = storage.get_all_connections_null_data()
+    null_connections = storage.connection_null_get_all()
     add_null_connections(scene, null_connections, datapoints_coordinates_map, DISTANCE_SCALE)
 
     # add possible directions
@@ -414,10 +414,10 @@ def build_3d_mse(scene):
     )
 
     target_x, target_y = -1, 2
-    target_name = storage.get_closest_datapoint_to_xy(target_x, target_y)
+    target_name = storage.node_get_closest_to_xy(target_x, target_y)
 
     def calculate_coords(name):
-        coords = storage.get_datapoint_metadata_coords(name)
+        coords = storage.node_get_metadata_coords(name)
         x, y = coords[0], coords[1]
         z = 0
         z = calculate_positions_manifold_distance(

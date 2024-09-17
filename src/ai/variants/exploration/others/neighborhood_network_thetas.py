@@ -72,8 +72,8 @@ def distance_loss(neighborgood_network, storage, sample_rate):
             start = connections_to_point[j]["start"]
             end = connections_to_point[j]["end"]
 
-            start_coords = storage.get_datapoint_metadata_coords(start)
-            end_coords = storage.get_datapoint_metadata_coords(end)
+            start_coords = storage.node_get_metadata_coords(start)
+            end_coords = storage.node_get_metadata_coords(end)
             real_life_distance = calculate_coords_distance(start_coords, end_coords)
             if real_life_distance > MAX_DISTANCE:
                 real_life_distance = MAX_DISTANCE - 0.01

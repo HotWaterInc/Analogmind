@@ -149,8 +149,8 @@ def data_augment_connection_distances(storage: StorageSuperset2, distance_networ
         pred_dist.append(synthetic_distances_hashmap[hash_index])
 
         if debug:
-            real_distance = get_real_distance_between_datapoints(storage.get_datapoint_by_name(connection["start"]),
-                                                                 storage.get_datapoint_by_name(connection["end"]))
+            real_distance = get_real_distance_between_datapoints(storage.node_get_by_name(connection["start"]),
+                                                                 storage.node_get_by_name(connection["end"]))
             real_distances.append(real_distance)
 
     if debug:

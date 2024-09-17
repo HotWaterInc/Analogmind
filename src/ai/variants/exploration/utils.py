@@ -29,7 +29,7 @@ def get_missing_connections_based_on_distance(storage: StorageSuperset2, datapoi
         if name in adjcent_names or name == current_name:
             continue
 
-        data = storage.get_datapoint_by_name(name)
+        data = storage.node_get_by_name(name)
 
         data_x = data["params"]["x"]
         data_y = data["params"]["y"]

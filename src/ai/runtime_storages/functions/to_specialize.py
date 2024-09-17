@@ -393,8 +393,8 @@ def get_datapoints_adjacent_at_degree_n_as_raw_connection_data(self, datapoint_n
         distance = degree
         direction = [0, 0]
         # calculate augmented direction
-        start_data = self.get_datapoint_by_name(start)["params"]
-        end_data = self.get_datapoint_by_name(end)["params"]
+        start_data = self.node_get_by_name(start)["params"]
+        end_data = self.node_get_by_name(end)["params"]
 
         x_start, y_start = start_data["x"], start_data["y"]
         x_end, y_end = end_data["x"], end_data["y"]
@@ -454,7 +454,7 @@ def build_datapoints_coordinates_map(self):
     explored_datapoints: Dict[str, bool] = {}
 
     # starts with first datapoint, could be any other one
-    first_name = self.get_datapoint_by_index(0)["name"]
+    first_name = self.node_get_by_index(0)["name"]
     x, y = 0, 0
     datapoints_coordinates_map[first_name] = Coords(x=x, y=y)
 

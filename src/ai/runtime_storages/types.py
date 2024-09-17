@@ -4,11 +4,26 @@ from enum import Enum
 
 class NodeData(TypedDict):
     name: str
-    data: List[List[any]]
+    datapoints_array: List[List[any]]
     params: Dict[str, any]
 
 
-class ConnectionData(TypedDict):
+class ConnectionNullData(TypedDict):
+    name: str
+    start: str
+    distance: float
+    direction: List[float]
+
+
+class ConnectionSyntheticData(TypedDict):
+    name: str
+    start: str
+    end: str
+    distance: float | None
+    direction: List[float] | None
+
+
+class ConnectionAuthenticData(TypedDict):
     name: str
     start: str
     end: str
@@ -17,12 +32,15 @@ class ConnectionData(TypedDict):
 
 
 class DataAlias(Enum):
-    NODE_DATA_AUTHENTIC = "node_data"
-    CONNECTIONS_DATA_AUTHENTIC = "connections_data"
+    NODE_AUTHENTIC = "node_data"
+    CONNECTIONS_AUTHENTIC = "connections_data_authentic"
+    CONNECTIONS_SYNTHETIC = "connections_data_synthetic"
+    CONNECTIONS_NULL = "connections_null"
 
 
-class CachesGeneralAlias(Enum):
-    NODE_CACHE_MAP_ID = "node_cache_map"
+class CacheGeneralAlias(Enum):
+    NODE_CACHE_MAP = "node_cache_map"
+    NODE_INDEX_MAP = "node_cache_map"
 
 
 class OperationsAlias(Enum):

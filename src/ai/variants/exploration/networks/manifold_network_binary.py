@@ -128,7 +128,7 @@ def permutation_adjustion_handling(autoencoder: BaseAutoencoderModel, storage: S
     Keeps the permutation of the data points close to each other
     """
     datapoints: List[str] = storage.sample_n_random_datapoints(samples)
-    datapoints_data = [storage.get_datapoint_data_tensor_by_name(name) for name in datapoints]
+    datapoints_data = [storage.node_get_datapoints_tensor(name) for name in datapoints]
     accumulated_loss = torch.tensor(0.0, device=get_device())
 
     datapoints_data = torch.stack(datapoints_data).to(get_device())

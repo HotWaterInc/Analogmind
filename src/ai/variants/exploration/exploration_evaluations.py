@@ -113,7 +113,7 @@ def evaluate_distance_metric_on_already_found_connections(storage: StorageSupers
         return found_datapoints
 
     for idx, new_datapoint in enumerate(new_datapoints):
-        new_datapoint = storage.get_datapoint_by_name(new_datapoint)
+        new_datapoint = storage.node_get_by_name(new_datapoint)
         pretty_display(idx)
 
         found_datapoints = metric(storage, new_datapoint)
@@ -167,7 +167,7 @@ def evaluate_distance_metric(storage: StorageSuperset2, metric, new_datapoints: 
 
     new_connections_pairs = []
     for idx, new_datapoint in enumerate(new_datapoints):
-        new_datapoint = storage.get_datapoint_by_name(new_datapoint)
+        new_datapoint = storage.node_get_by_name(new_datapoint)
         pretty_display(idx)
 
         found_datapoints = metric(storage, new_datapoint)
@@ -229,7 +229,7 @@ def _get_connection_distances_raw_data(storage: StorageSuperset2) -> any:
         end_name = connection["end"]
 
         start_data = storage.get_datapoint_data_selected_rotation_tensor_by_name_with_noise(start_name, 0)
-        end_data = storage.get_datapoint_data_tensor_by_name_and_index(end_name, 0)
+        end_data = storage.node_get_datapoint_tensor_at_index(end_name, 0)
 
         start_data_arr.append(start_data)
         end_data_arr.append(end_data)

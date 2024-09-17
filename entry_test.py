@@ -272,7 +272,7 @@ def _get_mse_losses_seen_network_on_dataset(storage: StorageSuperset2,
     for i in range(lng):
         pretty_display(i)
         name = datapoints[i]
-        metadata = storage.get_datapoint_metadata_coords(name)
+        metadata = storage.node_get_metadata_coords(name)
 
         data = storage.get_datapoint_data_random_rotation_tensor_by_name(name)
         coord = metadata[1]

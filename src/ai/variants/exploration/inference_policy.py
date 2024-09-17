@@ -202,8 +202,8 @@ def calculate_positions_manifold_distance(current_name: str, target_name: str,
     manifold_network.eval()
     manifold_network = manifold_network.to(get_device())
 
-    current_embeddings = storage.get_datapoint_data_tensor_by_name(current_name).to(get_device())
-    target_embeddings = storage.get_datapoint_data_tensor_by_name(target_name).to(get_device())
+    current_embeddings = storage.node_get_datapoints_tensor(current_name).to(get_device())
+    target_embeddings = storage.node_get_datapoints_tensor(target_name).to(get_device())
 
     current_manifold = manifold_network.encoder_inference(current_embeddings).mean(dim=0)
     target_manifold = manifold_network.encoder_inference(target_embeddings).mean(dim=0)
@@ -434,8 +434,8 @@ def teleportation_exploring_inference_evaluator(models_folder: str, manifold_enc
             if steps_count > STEPS:
                 break
 
-        target_name = storage.get_closest_datapoint_to_xy(x, y)
-        true_coords = storage.get_datapoint_metadata_coords(target_name)
+        target_name = storage.node_get_closest_to_xy(x, y)
+        true_coords = storage.node_get_metadata_coords(target_name)
         x = true_coords[0]
         y = true_coords[1]
         ORIGINAL_TARGETS.append((x, y))

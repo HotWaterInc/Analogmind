@@ -1,6 +1,5 @@
 from typing import TYPE_CHECKING
-
-from src.ai.runtime_storages.new.types import DataAlias, OperationsAlias
+from src.ai.runtime_storages.types import DataAlias, OperationsAlias
 
 if TYPE_CHECKING:
     from src.ai.runtime_storages.storage_struct import StorageStruct

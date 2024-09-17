@@ -41,7 +41,7 @@ def augment_data_testing_network_distance(storage: StorageSuperset2,
     average_loss_with_raw = 0
     for idx, new_datapoint in enumerate(new_datapoints):
         print("Processing", idx, "out of", len(new_datapoints))
-        new_datapoint = storage.get_datapoint_by_name(new_datapoint)
+        new_datapoint = storage.node_get_by_name(new_datapoint)
         average_loss_with_raw += find_adjacency_heuristic_distance_thetas(storage, new_datapoint, distance_raw,
                                                                           embedding_emtpy_policy)
     average_loss_with_thetas = 0
@@ -86,8 +86,8 @@ def find_adjacency_heuristic_distance_thetas(storage: StorageSuperset2, datapoin
         if name in adjacent_names or name == current_datapoint_name:
             continue
 
-        real_distance = get_real_distance_between_datapoints(storage.get_datapoint_by_name(current_datapoint_name),
-                                                             storage.get_datapoint_by_name(name))
+        real_distance = get_real_distance_between_datapoints(storage.node_get_by_name(current_datapoint_name),
+                                                             storage.node_get_by_name(name))
         if real_distance > MAX_DISTANCE - 2:
             continue
 
@@ -122,8 +122,8 @@ def find_adjacency_heuristic_distance_thetas(storage: StorageSuperset2, datapoin
     real_distances = []
     predicted_distances = []
     for name in name_keys:
-        datapoint1 = storage.get_datapoint_by_name(current_datapoint_name)
-        datapoint2 = storage.get_datapoint_by_name(name)
+        datapoint1 = storage.node_get_by_name(current_datapoint_name)
+        datapoint2 = storage.node_get_by_name(name)
         real_distance = get_real_distance_between_datapoints(datapoint1, datapoint2)
         predicted_distance = name_keys[name]
 

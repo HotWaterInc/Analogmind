@@ -170,7 +170,7 @@ def test_images_accuracy():
     emb2 = squeeze_out_resnet_output(emb2)
 
     print(torch.dist(emb1, emb2))
-    embedding_json_00 = storage.get_datapoint_data_tensor_by_name("0_0")[0].to(device)
+    embedding_json_00 = storage.node_get_datapoints_tensor("0_0")[0].to(device)
     print(torch.dist(emb1, embedding_json_00))
     print(torch.dist(emb2, embedding_json_00))
     yield

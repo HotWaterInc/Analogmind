@@ -282,7 +282,7 @@ def policy_thetas_navigation_next_manifold(current_manifold: torch.Tensor, next_
 def policy_thetas_navigation_next_close_target(index_rotation, current_embedding, next_target: str):
     global direction_network_SSD
 
-    next_embeddings = storage_raw.get_datapoint_data_tensor_by_name(next_target).to(device)
+    next_embeddings = storage_raw.node_get_datapoints_tensor(next_target).to(device)
     direction_network_SSD = direction_network_SSD.to(device)
     current_embedding = squeeze_out_resnet_output(current_embedding)
 
