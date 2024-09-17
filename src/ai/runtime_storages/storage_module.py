@@ -1,7 +1,6 @@
-from src.ai.runtime_storages.new.functions.crud_functions import *
+from src.ai.runtime_storages.functions.crud_functions import *
 from src.ai.runtime_storages.new.functions.subscriber_functions import *
 from src.ai.runtime_storages.new.functions.cache_functions import *
-from src.ai.runtime_storages.new.storage_struct import create_storage
 
 __all__ = ['create_node', 'delete_node', 'create_storage', 'update_node', 'create_connection', 'delete_connection',
            'update_connection', 'subscribers_list_initialization',

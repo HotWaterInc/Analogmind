@@ -1,13 +1,13 @@
 from typing import TYPE_CHECKING
 
-from src.ai.runtime_storages.new.types import NodeData, ConnectionData, DataAlias, OperationsAlias
+from src.ai.runtime_storages.new.types import DataAlias, OperationsAlias
 
 if TYPE_CHECKING:
-    from src.ai.runtime_storages.new.storage_struct import StorageStruct
+    from src.ai.runtime_storages.storage_struct import StorageStruct
 
 
-def subscribers_list_initialization(self, data_type: DataAlias):
-    self.DATA_CRUD_SUBSCRIBERS[data_type] = {
+def subscribers_list_initialization(storage: 'StorageStruct', data_type: DataAlias):
+    storage.data_crud_subscribers[data_type] = {
         OperationsAlias.CREATE: [],
         OperationsAlias.UPDATE: [],
         OperationsAlias.DELETE: [],
@@ -15,7 +15,7 @@ def subscribers_list_initialization(self, data_type: DataAlias):
     }
 
 
-def subscribe_to_crud_operations(storage, data_alias: DataAlias, create_subscriber,
+def subscribe_to_crud_operations(storage: 'StorageStruct', data_alias: DataAlias, create_subscriber,
                                  update_subscriber, delete_subscriber) -> None:
     subscribe_to_crud_operation(
         storage=storage,
@@ -37,5 +37,6 @@ def subscribe_to_crud_operations(storage, data_alias: DataAlias, create_subscrib
     )
 
 
-def subscribe_to_crud_operation(storage, data_alias: DataAlias, operation_type: OperationsAlias, subscriber):
-    storage.DATA_CRUD_SUBSCRIBERS[data_alias][operation_type].append(subscriber)
+def subscribe_to_crud_operation(storage: 'StorageStruct', data_alias: DataAlias, operation_type: OperationsAlias,
+                                subscriber):
+    storage.data_crud_subscribers[data_alias][operation_type].append(subscriber)

@@ -17,8 +17,12 @@ class ConnectionData(TypedDict):
 
 
 class DataAlias(Enum):
-    NODE_DATA = "node_data"
-    CONNECTIONS_DATA = "connections_data"
+    NODE_DATA_AUTHENTIC = "node_data"
+    CONNECTIONS_DATA_AUTHENTIC = "connections_data"
+
+
+class CachesGeneralAlias(Enum):
+    NODE_CACHE_MAP_ID = "node_cache_map"
 
 
 class OperationsAlias(Enum):

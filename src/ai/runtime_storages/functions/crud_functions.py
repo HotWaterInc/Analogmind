@@ -1,29 +1,22 @@
-from dataclasses import dataclass
-from enum import Enum
-from functools import wraps
-from typing import List, Dict, Union, Tuple
-import random
-from typing_extensions import TypedDict
-import numpy as np
-from src.ai.runtime_storages.new.storage_struct import StorageStruct
+from typing import List, Dict
+from src.ai.runtime_storages.storage_struct import StorageStruct
 from src.ai.runtime_storages.new.types import NodeData, ConnectionData, DataAlias, OperationsAlias
-from src.ai.runtime_storages.new.method_decorators import crud_operation
-from typing import TYPE_CHECKING
+from src.ai.runtime_storages.new.method_decorators import trigger_crud_subscribers
 
 
-@crud_operation(data_alias=DataAlias.NODE_DATA,
-                operation_alias=OperationsAlias.CREATE)
+@trigger_crud_subscribers(data_alias=DataAlias.NODE_DATA_AUTHENTIC,
+                          operation_alias=OperationsAlias.CREATE)
 def create_node(storage: StorageStruct, data: List[List[any]], name: str, params: Dict[str, any]) -> NodeData:
     new_node = NodeData(data=data, name=name, params=params)
-    storage.raw_env_data.append(new_node)
+    storage.environment_nodes_authentic.append(new_node)
     return new_node
 
 
-@crud_operation(data_alias=DataAlias.NODE_DATA,
-                operation_alias=OperationsAlias.DELETE)
+@trigger_crud_subscribers(data_alias=DataAlias.NODE_DATA_AUTHENTIC,
+                          operation_alias=OperationsAlias.DELETE)
 def delete_node(storage, name: str) -> NodeData:
     target_index = None
-    for i, node in enumerate(storage.raw_env_data):
+    for i, node in enumerate(storage.environment_nodes_authentic):
         if node["name"] == name:
             target_index = i
             break
@@ -31,17 +24,17 @@ def delete_node(storage, name: str) -> NodeData:
     if target_index is None:
         raise ValueError(f"Node with name {name} not found.")
 
-    deleted_node = storage.raw_env_data[target_index]
-    del storage.raw_env_data[target_index]
+    deleted_node = storage.environment_nodes_authentic[target_index]
+    del storage.environment_nodes_authentic[target_index]
     return deleted_node
 
 
-@crud_operation(data_alias=DataAlias.NODE_DATA,
-                operation_alias=OperationsAlias.UPDATE)
+@trigger_crud_subscribers(data_alias=DataAlias.NODE_DATA_AUTHENTIC,
+                          operation_alias=OperationsAlias.UPDATE)
 def update_node(storage, name: str, new_data: List[List[any]] = None, new_name: str = None,
                 new_params: Dict[str, any] = None) -> NodeData:
     target_index = None
-    for i, node in enumerate(storage.raw_env_data):
+    for i, node in enumerate(storage.environment_nodes_authentic):
         if node["uid"] == name:
             target_index = i
             break
@@ -49,7 +42,7 @@ def update_node(storage, name: str, new_data: List[List[any]] = None, new_name: 
     if target_index is None:
         raise ValueError(f"Node with name {name} not found.")
 
-    node = storage.raw_env_data[target_index]
+    node = storage.environment_nodes_authentic[target_index]
     if new_name is None:
         new_name = node["name"]
     if new_data is None:
@@ -64,20 +57,20 @@ def update_node(storage, name: str, new_data: List[List[any]] = None, new_name: 
     return node
 
 
-@crud_operation(data_alias=DataAlias.CONNECTIONS_DATA,
-                operation_alias=OperationsAlias.CREATE)
+@trigger_crud_subscribers(data_alias=DataAlias.CONNECTIONS_DATA_AUTHENTIC,
+                          operation_alias=OperationsAlias.CREATE)
 def create_connection(storage, start: str, end: str, distance: float, direction: List[float],
                       name: str) -> ConnectionData:
     new_connection = ConnectionData(start=start, end=end, distance=distance, direction=direction, name=name)
-    storage.raw_connections_data.append(new_connection)
+    storage.connections_data_authentic.append(new_connection)
     return new_connection
 
 
-@crud_operation(data_alias=DataAlias.CONNECTIONS_DATA,
-                operation_alias=OperationsAlias.DELETE)
+@trigger_crud_subscribers(data_alias=DataAlias.CONNECTIONS_DATA_AUTHENTIC,
+                          operation_alias=OperationsAlias.DELETE)
 def delete_connection(storage, name: str) -> ConnectionData:
     target_index = None
-    for i, connection in enumerate(storage.raw_connections_data):
+    for i, connection in enumerate(storage.connections_data_authentic):
         if connection["name"] == name:
             target_index = i
             break
@@ -85,17 +78,17 @@ def delete_connection(storage, name: str) -> ConnectionData:
     if target_index is None:
         raise ValueError(f"Connection with name {name} not found.")
 
-    deleted_connection = storage.raw_connections_data[target_index]
-    del storage.raw_connections_data[target_index]
+    deleted_connection = storage.connections_data_authentic[target_index]
+    del storage.connections_data_authentic[target_index]
     return deleted_connection
 
 
-@crud_operation(data_alias=DataAlias.CONNECTIONS_DATA,
-                operation_alias=OperationsAlias.UPDATE)
+@trigger_crud_subscribers(data_alias=DataAlias.CONNECTIONS_DATA_AUTHENTIC,
+                          operation_alias=OperationsAlias.UPDATE)
 def update_connection(storage, name: str, new_start: str = None, new_end: str = None, new_distance: float = None,
                       new_direction: List[float] = None) -> ConnectionData:
     target_index = None
-    for i, connection in enumerate(storage.raw_connections_data):
+    for i, connection in enumerate(storage.connections_data_authentic):
         if connection["uid"] == name:
             target_index = i
             break
@@ -103,7 +96,7 @@ def update_connection(storage, name: str, new_start: str = None, new_end: str = 
     if target_index is None:
         raise ValueError(f"Connection with name {name} not found.")
 
-    connection = storage.raw_connections_data[target_index]
+    connection = storage.connections_data_authentic[target_index]
     if new_start is None:
         new_start = connection["start"]
     if new_end is None:

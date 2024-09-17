@@ -49,7 +49,7 @@ class ImagesDirectionPredictor(nn.Module):
 def direction_loss(image_direction_predictor_network, storage, sample_rate: int = None):
     loss = torch.tensor(0.0)
 
-    connections: RawConnectionData = storage.get_all_connections_only_datapoints_authenticity_filter(
+    connections: RawConnectionData = storage.connections_get_authentic(
         authentic_distance=True)
     if sample_rate == None:
         sample_rate = len(connections)

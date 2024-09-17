@@ -1,26 +1,18 @@
-import numpy as np
 import matplotlib.pyplot as plt
-from numpy import ndarray
 from manim import *
 import torch
 import logging
 import manim
-from pyglet.resource import add_font
-from scipy.interpolate import griddata
 
 from src.ai.variants.exploration.data_augmentation import load_storage_with_base_data
-from src.ai.variants.exploration.data_filtering import data_filtering_redundant_datapoints
-from src.ai.variants.exploration.exploration_autonomous_policy import augment_data_raw_heuristic, \
-    augment_data_cheating_heuristic
 from src.ai.variants.exploration.inference_policy import calculate_positions_manifold_distance
 from src.ai.variants.exploration.networks.abstract_base_autoencoder_model import BaseAutoencoderModel
 from src.ai.variants.exploration.utils import find_frontier_all_datapoint_and_direction
-from src.modules.save_load_handlers.data_handle import read_data_from_file, read_other_data_from_file, \
-    CollectedDataType
-from src.modules.save_load_handlers.ai_models_handle import load_latest_ai, load_manually_saved_ai, AIType
-from src.ai.runtime_storages.storage import Storage, Coords
+from src.modules.save_load_handlers.data_handle import read_other_data_from_file
+from src.modules.save_load_handlers.ai_models_handle import load_manually_saved_ai
+from src.ai.runtime_storages.old.storage import Storage
 from src.ai.runtime_storages.storage_superset2 import StorageSuperset2
-from src.ai.runtime_storages.storage import RawConnectionData, RawEnvironmentData
+from src.ai.runtime_storages.old.storage import RawConnectionData, RawEnvironmentData
 from src.utils import array_to_tensor
 
 OPENGL_RENDERER = manim.RendererType.OPENGL

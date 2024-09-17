@@ -164,7 +164,7 @@ def linearity_distance_handling(autoencoder: BaseAutoencoderModel, storage: Stor
     """
     # sampled_pairs = storage.sample_datapoints_adjacencies(non_adjacent_sample_size)
     non_adjacent_sample_size = min(non_adjacent_sample_size, len(storage.get_all_connections_data()))
-    sampled_pairs = storage.sample_adjacent_datapoints_connections_raw_data(non_adjacent_sample_size)
+    sampled_pairs = storage.connections_sample(non_adjacent_sample_size)
 
     batch_datapoint1 = []
     batch_datapoint2 = []
