@@ -28,7 +28,7 @@ def create_caches_general(storage: 'StorageStruct'):
     """
     Creates caches which are simple and relied upon by many functions
     """
-    cache_registration(storage, CacheGeneralAlias.NODE_CACHE_MAP, cache_nodes.Cache())
+    cache_registration(storage, CacheGeneralAlias.NODE_CACHE_MAP, cache_nodes.CacheNodes())
     subscribe_to_crud_operations(
         storage=storage,
         data_alias=DataAlias.NODE_AUTHENTIC,
@@ -37,7 +37,7 @@ def create_caches_general(storage: 'StorageStruct'):
         delete_subscriber=cache_nodes.on_delete_node
     )
 
-    cache_registration(storage, CacheGeneralAlias.NODE_INDEX_MAP, cache_nodes_indexes.Cache())
+    cache_registration(storage, CacheGeneralAlias.NODE_INDEX_MAP, cache_nodes_indexes.CacheNodesIndexes())
     subscribe_to_crud_operations(
         storage=storage,
         data_alias=DataAlias.NODE_AUTHENTIC,
@@ -51,7 +51,7 @@ def cache_registration(storage: 'StorageStruct', name: CacheGeneralAlias, cache:
     storage.caches[name] = cache
 
 
-def cache_general_get(storage: 'StorageStruct', cache_type: CacheGeneralAlias):
+def cache_general_get(storage: 'StorageStruct', cache_type: CacheGeneralAlias) -> CacheAbstract:
     return storage.caches[cache_type]
 
 

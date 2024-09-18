@@ -2,7 +2,7 @@ from typing import Dict, List, TypedDict
 from enum import Enum
 
 
-class NodeData(TypedDict):
+class NodeAuthenticData(TypedDict):
     name: str
     datapoints_array: List[List[any]]
     params: Dict[str, any]

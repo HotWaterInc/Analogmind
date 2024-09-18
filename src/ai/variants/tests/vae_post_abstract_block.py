@@ -284,7 +284,7 @@ def run_autoencoder_post_abstract_block_img1() -> None:
     storage.load_raw_data_from_others(f"data{grid_data}x{grid_data}_rotated24_image_embeddings.json")
     storage.load_raw_data_connections_from_others(f"data{grid_data}x{grid_data}_connections.json")
 
-    storage.set_transformation(permutor)
+    storage.transformation_set(permutor)
     storage.build_permuted_data_raw_abstraction_block_1img()
 
     run_new_ai()

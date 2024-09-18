@@ -17,7 +17,7 @@ def filtering_metric_djakstra(storage: StorageSuperset2, datapoint: str) -> any:
     """
     connection_hashmap_without = build_connections_hashmap(storage.get_all_connections_only_datapoints(), [datapoint])
 
-    connections_neighbors = storage.get_datapoint_adjacent_connections_non_null(datapoint)
+    connections_neighbors = storage.connections_all_get(datapoint)
     neighbors_count = len(connections_neighbors)
 
     is_redundant = True

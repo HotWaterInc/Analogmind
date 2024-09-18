@@ -183,20 +183,20 @@ def data_to_random_manifold(data, index: int):
 
 
 def storage_to_binary_data(storage: StorageSuperset2):
-    storage.set_transformation(data_to_binary_data)
-    storage.transform_raw_data()
+    storage.transformation_set(data_to_binary_data)
+    storage.transformation_data_apply()
 
 
 def storage_to_random_manifold(storage: StorageSuperset2):
-    storage.set_transformation(data_to_random_manifold)
-    storage.transform_raw_data()
+    storage.transformation_set(data_to_random_manifold)
+    storage.transformation_data_apply()
 
 
 def storage_to_manifold(storage: StorageSuperset2, manifold_network: BaseAutoencoderModel):
     manifold_network.eval()
     manifold_network = manifold_network.to(get_device())
 
-    storage.set_transformation(manifold_network)
+    storage.transformation_set(manifold_network)
     storage.build_permuted_data_raw_abstraction_autoencoder_manifold()
 
 
@@ -229,7 +229,7 @@ def check_datapoint_density(storage: StorageSuperset2, datapoint_name: str):
     connections = storage.get_datapoint_adjacent_connections_direction_filled(datapoint_name)
     connections_non_null = [connection for connection in connections if connection["end"] is not None]
     connections = connections_non_null
-    connections_null = storage.get_datapoint_adjacent_connections_null_connections(datapoint_name)
+    connections_null = storage.node_get_connections_null(datapoint_name)
 
     return len(connections) > 20 and len(connections_null) == 0
 
@@ -265,7 +265,7 @@ def find_frontier_all_datapoint_and_direction(storage: StorageSuperset2, return_
     while queue:
         current_datapoint_name = queue.pop(0)
         connections = storage.get_datapoint_adjacent_connections_direction_filled(current_datapoint_name)
-        connections_null = storage.get_datapoint_adjacent_connections_null_connections(current_datapoint_name)
+        connections_null = storage.node_get_connections_null(current_datapoint_name)
 
         accumulated_thetas = np.zeros(DIRECTION_THETAS_SIZE)
 
@@ -318,7 +318,7 @@ def find_frontier_closest_datapoint_and_direction(storage: StorageSuperset2, cur
     while queue:
         current_datapoint_name = queue.pop(0)
         connections = storage.get_datapoint_adjacent_connections_direction_filled(current_datapoint_name)
-        connections_null = storage.get_datapoint_adjacent_connections_null_connections(current_datapoint_name)
+        connections_null = storage.node_get_connections_null(current_datapoint_name)
 
         accumulated_thetas = np.zeros(DIRECTION_THETAS_SIZE)
 

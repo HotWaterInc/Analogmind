@@ -139,7 +139,7 @@ def _get_connection_distances_adjacency_network_on_unknown_dataset(storage: Stor
         for j in range(i + 1, lng):
             start_name = datapoints[i]
             end_name = datapoints[j]
-            distance = storage.get_datapoints_real_distance(start_name, end_name)
+            distance = storage.get_distance_between_nodes_metadata(start_name, end_name)
 
             start_data = storage.get_datapoint_data_selected_rotation_tensor_by_name(start_name, 0)
             end_data = storage.get_datapoint_data_selected_rotation_tensor_by_name(end_name, 0)
@@ -191,7 +191,7 @@ def _get_connection_distances_adjacency_network_on_unknown_dataset(storage: Stor
             start_name = datapoints[i]
             end_name = datapoints[j]
             # print(start_names[index], end_names[index])
-            distance_real = storage.get_datapoints_real_distance(start_name, end_name)
+            distance_real = storage.get_distance_between_nodes_metadata(start_name, end_name)
 
             predicted_adjacency = predicted_adjacencies[index]
             # 0 true, 1 false
@@ -272,7 +272,7 @@ def _get_mse_losses_seen_network_on_dataset(storage: StorageSuperset2,
     for i in range(lng):
         pretty_display(i)
         name = datapoints[i]
-        metadata = storage.node_get_metadata_coords(name)
+        metadata = storage.node_get_coords_metadata(name)
 
         data = storage.get_datapoint_data_random_rotation_tensor_by_name(name)
         coord = metadata[1]
@@ -349,7 +349,7 @@ def _get_connection_distances_on_some_network_on_unknown_dataset(storage: Storag
             start_name = datapoints[i]
             end_name = datapoints[j]
 
-            distance_real = storage.get_datapoints_real_distance(start_name, end_name)
+            distance_real = storage.get_distance_between_nodes_metadata(start_name, end_name)
             distance_data = raw_diff_data[cnt].item()
             distance_embeddings = raw_diff_embeddings[cnt].item()
 
@@ -391,7 +391,7 @@ def _get_connection_distances_neigh_network_on_unknown_dataset(storage: StorageS
         for j in range(i + 1, lng):
             start_name = datapoints[i]
             end_name = datapoints[j]
-            distance = storage.get_datapoints_real_distance(start_name, end_name)
+            distance = storage.get_distance_between_nodes_metadata(start_name, end_name)
             if distance > 1:
                 continue
 
@@ -432,7 +432,7 @@ def _get_connection_distances_neigh_network_on_unknown_dataset(storage: StorageS
         for j in range(i + 1, lng):
             start_name = datapoints[i]
             end_name = datapoints[j]
-            distance_real = storage.get_datapoints_real_distance(start_name, end_name)
+            distance_real = storage.get_distance_between_nodes_metadata(start_name, end_name)
 
             if distance_real > 1:
                 # cnt += 1
@@ -473,7 +473,7 @@ def _get_connection_distances_neigh_network_on_training_dataset(storage: Storage
         start_name = connection["start"]
         end_name = connection["end"]
 
-        distance = storage.get_datapoints_real_distance(start_name, end_name)
+        distance = storage.get_distance_between_nodes_metadata(start_name, end_name)
         start_data = storage.get_datapoint_data_selected_rotation_tensor_by_name(start_name, 0)
         end_data = storage.get_datapoint_data_selected_rotation_tensor_by_name(end_name, 0)
 

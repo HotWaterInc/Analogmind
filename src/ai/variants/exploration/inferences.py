@@ -78,7 +78,7 @@ def fill_augmented_connections_directions_cheating(additional_connections: List[
         start = connection["start"]
         end = connection["end"]
         dist = connection["distance"]
-        direction = storage.get_datapoints_real_direction(start, end)
+        direction = storage.get_direction_between_nodes_metadata(start, end)
         distance_authenticity = connection["markings"]["distance"] == "authentic"
         direction_authenticity = connection["markings"]["direction"] == "authentic"
 
@@ -102,7 +102,7 @@ def fill_augmented_connections_distances_cheating(additional_connections: List[a
     for idx, connection in enumerate(additional_connections):
         start = connection["start"]
         end = connection["end"]
-        dist = storage.get_datapoints_real_distance(start, end)
+        dist = storage.get_distance_between_nodes_metadata(start, end)
         direction = connection["direction"]
         distance_authenticity = connection["markings"]["distance"] == "authentic"
         direction_authenticity = connection["markings"]["direction"] == "authentic"

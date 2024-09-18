@@ -159,8 +159,8 @@ def add_mobjects_datapoints(scene, mapped_data: Dict, distance_scale: float,
 
 
 def build_datapoints_topology(scene, storage: StorageSuperset2):
-    storage.build_sparse_datapoints_coordinates_map_based_on_xy(percent=1)
-    storage.recenter_datapoints_coordinates_map()
+    storage.build_nodes_coordinates_sparse(percent=1)
+    storage.recenter_nodes_coordinates()
     datapoints_coordinates_map = storage.get_datapoints_coordinates_map()
 
     DISTANCE_SCALE = 1
@@ -346,7 +346,7 @@ def build_scene_autoencoded_permuted():
 
     global storage_superset2
     permutor = load_manually_saved_ai("permutor_deshift_working.pth")
-    storage_superset2.set_transformation(permutor)
+    storage_superset2.transformation_set(permutor)
     storage_superset2.load_raw_data_from_others("data8x8_rotated20.json")
     storage_superset2.load_raw_data_connections_from_others("data8x8_connections.json")
     storage_superset2.normalize_all_data_super()
@@ -358,7 +358,7 @@ def build_scene_autoencoded_permuted():
     autoencoder = load_manually_saved_ai("autoencodPerm10k_(7).pth")
     storage_superset2.build_datapoints_coordinates_map()
     # quality of life, centered coords at 0,0
-    storage_superset2.recenter_datapoints_coordinates_map()
+    storage_superset2.recenter_nodes_coordinates()
     datapoints_coordinates_map = storage_superset2.get_datapoints_coordinates_map()
 
     distance_scale = 1
@@ -417,7 +417,7 @@ def build_3d_mse(scene):
     target_name = storage.node_get_closest_to_xy(target_x, target_y)
 
     def calculate_coords(name):
-        coords = storage.node_get_metadata_coords(name)
+        coords = storage.node_get_coords_metadata(name)
         x, y = coords[0], coords[1]
         z = 0
         z = calculate_positions_manifold_distance(

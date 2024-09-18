@@ -37,8 +37,8 @@ def find_adjacency_heuristic_raw_data(storage: StorageSuperset2, datapoint: Dict
             continue
 
         for i in range(ROTATIONS):
-            current_data = storage.get_datapoint_data_selected_rotation_tensor_by_name_with_noise(current_name, i)
-            existing_data = storage.get_datapoint_data_selected_rotation_tensor_by_name_with_noise(name, i)
+            current_data = storage.node_get_datapoint_tensor_at_index_noisy(current_name, i)
+            existing_data = storage.node_get_datapoint_tensor_at_index_noisy(name, i)
 
             current_data_arr.append(current_data)
             other_datapoints_data_arr.append(existing_data)
@@ -85,8 +85,8 @@ def find_adjacency_heuristic_adjacency_network(storage: StorageSuperset2, datapo
             continue
 
         for i in range(ROTATIONS):
-            current_data = storage.get_datapoint_data_selected_rotation_tensor_by_name_with_noise(current_name, i)
-            existing_data = storage.get_datapoint_data_selected_rotation_tensor_by_name_with_noise(name, i)
+            current_data = storage.node_get_datapoint_tensor_at_index_noisy(current_name, i)
+            existing_data = storage.node_get_datapoint_tensor_at_index_noisy(name, i)
 
             current_data_arr.append(current_data)
             other_datapoints_data_arr.append(existing_data)
@@ -143,7 +143,7 @@ def find_adjacency_heuristic_cheating(storage: StorageSuperset2, datapoint: Dict
     found_additional_connections = []
     for i in range(length):
         name = selected_names[i]
-        real_distance = storage.get_datapoints_real_distance(current_name, name)
+        real_distance = storage.get_distance_between_nodes_metadata(current_name, name)
         if real_distance < STEP_DISTANCE_CLOSE_THRESHOLD:
             found_additional_connections.append(name)
 

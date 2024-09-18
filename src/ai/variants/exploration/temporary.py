@@ -93,9 +93,9 @@ def find_adjacency_heuristic_distance_thetas(storage: StorageSuperset2, datapoin
 
         for i in range(SELECTIONS):
             i = random.randint(0, ROTATIONS - 1)
-            current_data = storage.get_datapoint_data_selected_rotation_tensor_by_name_with_noise(
+            current_data = storage.node_get_datapoint_tensor_at_index_noisy(
                 current_datapoint_name, i)
-            existing_data = storage.get_datapoint_data_selected_rotation_tensor_by_name_with_noise(name, i)
+            existing_data = storage.node_get_datapoint_tensor_at_index_noisy(name, i)
 
             current_data_arr.append(current_data)
             other_datapoints_data_arr.append(existing_data)

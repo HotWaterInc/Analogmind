@@ -435,7 +435,7 @@ def teleportation_exploring_inference_evaluator(models_folder: str, manifold_enc
                 break
 
         target_name = storage.node_get_closest_to_xy(x, y)
-        true_coords = storage.node_get_metadata_coords(target_name)
+        true_coords = storage.node_get_coords_metadata(target_name)
         x = true_coords[0]
         y = true_coords[1]
         ORIGINAL_TARGETS.append((x, y))

@@ -1,5 +1,5 @@
 from src.ai.runtime_storages.functions.subscriber_functions import subscribers_list_initialization
-from src.ai.runtime_storages.types import NodeData, ConnectionAuthenticData, DataAlias, OperationsAlias
+from src.ai.runtime_storages.types import NodeAuthenticData, ConnectionAuthenticData, DataAlias, OperationsAlias
 from functools import wraps
 
 

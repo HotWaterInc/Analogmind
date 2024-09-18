@@ -50,7 +50,7 @@ def evaluation_distance_ground_truth_metric(storage: StorageSuperset2, new_datap
 
     found_connections = []
     for name in selected_names:
-        distance = storage.get_datapoints_real_distance(current_name, name)
+        distance = storage.get_distance_between_nodes_metadata(current_name, name)
         if distance < upper_bound_distance_threshold and distance > lower_bound_distance_threshold:
             found_connections.append(name)
 
@@ -61,7 +61,7 @@ def print_datapoints_embeddings_distance(storage: StorageSuperset2, datapoint1, 
     """
     Print the distance between two datapoints
     """
-    distance = storage.get_datapoints_real_distance(datapoint1, datapoint2)
+    distance = storage.get_distance_between_nodes_metadata(datapoint1, datapoint2)
     embedding1 = storage.get_datapoint_data_selected_rotation_tensor_by_name(datapoint1, 0)
     embedding2 = storage.get_datapoint_data_selected_rotation_tensor_by_name(datapoint2, 0)
     distance_embeddings = torch.norm(embedding1 - embedding2).item()
@@ -123,7 +123,7 @@ def evaluate_distance_metric_on_already_found_connections(storage: StorageSupers
         true_found_datapoints.extend(true_datapoints_lower_end)
 
         for founddp in found_datapoints:
-            distance = storage.get_datapoints_real_distance(new_datapoint["name"], founddp)
+            distance = storage.get_distance_between_nodes_metadata(new_datapoint["name"], founddp)
 
             if distance < 0.5:
                 true_positive += 1
@@ -132,7 +132,7 @@ def evaluate_distance_metric_on_already_found_connections(storage: StorageSupers
                 avg_distant_true_positive += distance
             else:
                 really_bad_false_positive += 1
-                real_distance = storage.get_datapoints_real_distance(new_datapoint["name"], founddp)
+                real_distance = storage.get_distance_between_nodes_metadata(new_datapoint["name"], founddp)
                 false_positive_distances.append(real_distance)
 
     print("")
@@ -182,7 +182,7 @@ def evaluate_distance_metric(storage: StorageSuperset2, metric, new_datapoints: 
             if check_connection_already_existing(storage.get_all_connections_data(), new_datapoint["name"], founddp):
                 continue
 
-            distance = storage.get_datapoints_real_distance(new_datapoint["name"], founddp)
+            distance = storage.get_distance_between_nodes_metadata(new_datapoint["name"], founddp)
             new_connections_pairs.append({
                 "start": new_datapoint["name"],
                 "end": founddp,
@@ -197,7 +197,7 @@ def evaluate_distance_metric(storage: StorageSuperset2, metric, new_datapoints: 
                 avg_distant_true_positive += distance
             else:
                 really_bad_false_positive += 1
-                real_distance = storage.get_datapoints_real_distance(new_datapoint["name"], founddp)
+                real_distance = storage.get_distance_between_nodes_metadata(new_datapoint["name"], founddp)
                 false_positive_distances.append(real_distance)
 
     if debug:
@@ -228,7 +228,7 @@ def _get_connection_distances_raw_data(storage: StorageSuperset2) -> any:
         start_name = connection["start"]
         end_name = connection["end"]
 
-        start_data = storage.get_datapoint_data_selected_rotation_tensor_by_name_with_noise(start_name, 0)
+        start_data = storage.node_get_datapoint_tensor_at_index_noisy(start_name, 0)
         end_data = storage.node_get_datapoint_tensor_at_index(end_name, 0)
 
         start_data_arr.append(start_data)

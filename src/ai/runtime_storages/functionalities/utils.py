@@ -8,4 +8,4 @@ if TYPE_CHECKING:
 
 def cache_functionalities_create_new(storage: 'StorageStruct', functionality_type: FunctionalityAlias):
     if functionality_type == FunctionalityAlias.GET_ALL_CONNECTIONS:
-        storage.caches_functionalities[functionality_type] = get_all_connections.Cache()
+        storage.caches_functionalities[functionality_type] = get_all_connections.CacheNodesIndexes()

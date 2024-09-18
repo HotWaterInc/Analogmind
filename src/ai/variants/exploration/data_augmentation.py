@@ -119,8 +119,8 @@ def data_augment_connection_distances(storage: StorageSuperset2, distance_networ
 
         for i in range(SELECTIONS):
             i = random.randint(0, ROTATIONS - 1)
-            start_data = storage.get_datapoint_data_selected_rotation_tensor_by_name_with_noise(start, i)
-            end_data = storage.get_datapoint_data_selected_rotation_tensor_by_name_with_noise(end, i)
+            start_data = storage.node_get_datapoint_tensor_at_index_noisy(start, i)
+            end_data = storage.node_get_datapoint_tensor_at_index_noisy(end, i)
             index = idx
 
             start_data_arr.append(start_data)

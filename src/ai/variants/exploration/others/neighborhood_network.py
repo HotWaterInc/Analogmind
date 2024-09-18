@@ -71,8 +71,8 @@ def distance_loss(direction_network, storage, sample_rate):
             start = connections_to_point[j]["start"]
             end = connections_to_point[j]["end"]
 
-            start_coords = storage.node_get_metadata_coords(start)
-            end_coords = storage.node_get_metadata_coords(end)
+            start_coords = storage.node_get_coords_metadata(start)
+            end_coords = storage.node_get_coords_metadata(end)
             real_life_distance = calculate_coords_distance(start_coords, end_coords)
 
             start_data = storage.get_datapoint_data_tensor_by_name_permuted(start)
