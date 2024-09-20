@@ -1,18 +1,18 @@
 from typing import List, TYPE_CHECKING
 import random
 import torch
-from src.ai.runtime_storages.functions.cache_functions import cache_general_get
-from src.ai.runtime_storages.functions.crud_functions import update_node_by_index
-from src.ai.runtime_storages.functions.pure_functions import eulerian_distance
-from src.ai.runtime_storages.general_cache.cache_nodes import CacheNodes
-from src.ai.runtime_storages.general_cache.cache_nodes_indexes import CacheNodesIndexes
-from src.ai.runtime_storages.types import ConnectionAuthenticData, NodeAuthenticData, CacheGeneralAlias, \
-    ConnectionNullData, \
-    ConnectionSyntheticData
-from src.utils import array_to_tensor
+
+from src.runtime_storages.functions.cache_functions import cache_general_get
+from src.runtime_storages.functions.crud_functions import update_node_by_index
+from src.runtime_storages.functions.pure_functions import eulerian_distance
+from src.runtime_storages.general_cache.cache_nodes import CacheNodes
+from src.runtime_storages.general_cache.cache_nodes_indexes import CacheNodesIndexes
+from src.runtime_storages.types import ConnectionAuthenticData, NodeAuthenticData, CacheGeneralAlias, \
+    ConnectionNullData, ConnectionSyntheticData
+from src.utils.utils import array_to_tensor
 
 if TYPE_CHECKING:
-    from src.ai.runtime_storages.storage_struct import StorageStruct
+    from src.runtime_storages.storage_struct import StorageStruct
 
 
 def connections_authentic_get(self: 'StorageStruct') -> List[

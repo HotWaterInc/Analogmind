@@ -3,9 +3,9 @@ from abc import ABC, abstractmethod
 import torch
 
 
-class BaseAutoencoderModel(nn.Module, ABC):
+class MetricNetworkAbstract(nn.Module, ABC):
     def __init__(self):
-        super(BaseAutoencoderModel, self).__init__()
+        super(MetricNetworkAbstract, self).__init__()
 
     @abstractmethod
     def encoder_inference(self, x: torch.Tensor) -> torch.Tensor:

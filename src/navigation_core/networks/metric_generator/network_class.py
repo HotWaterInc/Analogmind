@@ -1,24 +1,26 @@
-from src.navigation_core import ResidualBlockSmallBatchNorm
-from src.navigation_core import BaseAutoencoderModel
-from src.navigation_core import MANIFOLD_SIZE
+from src.navigation_core.networks.blocks import BlockResidualSmall, LayerLeaky
+from src.navigation_core.networks.metric_network_abstract import MetricNetworkAbstract
+from src.navigation_core.params import MANIFOLD_SIZE
+
+import torch
 from torch import nn
 
 
-class ManifoldNetwork(BaseAutoencoderModel):
+class ManifoldNetwork(MetricNetworkAbstract):
     def __init__(self, dropout_rate: float = 0.2, embedding_size: int = MANIFOLD_SIZE, input_output_size: int = 512,
-                 hidden_size: int = 2048, num_blocks: int = 2):
+                 hidden_size: int = 512, num_blocks: int = 2):
         super(ManifoldNetwork, self).__init__()
         self.embedding_size = embedding_size
 
         self.input_layer = nn.Linear(input_output_size, hidden_size)
         self.encoding_blocks = nn.ModuleList(
-            [ResidualBlockSmallBatchNorm(hidden_size, dropout_rate) for _ in range(num_blocks)])
+            [BlockResidualSmall(hidden_size, dropout_rate) for _ in range(num_blocks)])
 
-        self.manifold_encoder = _make_layer_no_batchnorm_leaky(hidden_size, embedding_size)
-        self.manifold_decoder = _make_layer_no_batchnorm_leaky(embedding_size, hidden_size)
+        self.manifold_encoder = LayerLeaky(hidden_size, embedding_size)
+        self.manifold_decoder = LayerLeaky(embedding_size, hidden_size)
 
         self.decoding_blocks = nn.ModuleList(
-            [ResidualBlockSmallBatchNorm(hidden_size, dropout_rate) for _ in range(num_blocks)])
+            [BlockResidualSmall(hidden_size, dropout_rate) for _ in range(num_blocks)])
 
         self.output_layer = nn.Linear(hidden_size, input_output_size)
         self.leaky_relu = nn.LeakyReLU()
