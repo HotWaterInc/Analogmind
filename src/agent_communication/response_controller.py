@@ -1,4 +1,4 @@
-from src.modules.agent_communication.response_data_buffer_class import response_data_fill_buffer
+from src.agent_communication.response_data_buffer_class import response_data_fill_buffer
 
 
 class AgentResponseController:

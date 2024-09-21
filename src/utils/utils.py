@@ -1,10 +1,14 @@
 import numpy as np
+from rich import print
+from rich.console import Console
+from rich.table import Table
 import torch
 import json
 import time
 import os
 import sys
-from src.modules.agent_communication.communication_controller import CommunicationController
+
+from src.agent_communication import CommunicationController
 
 
 def string_to_json(data):
@@ -55,6 +59,13 @@ def get_instance():
     return CommunicationController.get_instance()
 
 
+def get_console() -> Console:
+    global console
+    if not console:
+        console = Console(force_terminal=True)
+    return console
+
+
 def get_device():
     global device
     if not device:
@@ -63,3 +74,4 @@ def get_device():
 
 
 device = None
+console = None

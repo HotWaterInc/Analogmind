@@ -1,6 +1,6 @@
-from src.modules.agent_communication.action_decorators import wait_agent_response
-from src.modules.agent_communication.communication_controller import agent_send_data
-from src.modules.agent_communication.action_types import *
+from src.agent_communication.action_decorators import wait_agent_response
+from src.agent_communication.communication_controller import agent_send_data
+from src.agent_communication.action_types import *
 
 
 @wait_agent_response

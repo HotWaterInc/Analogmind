@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from tqdm import tqdm
 from torch.optim import Optimizer
 import torch
 from torch import nn
@@ -6,7 +7,7 @@ from src.navigation_core.networks.abstract_types import NetworkTrainingData, Net
 from src.navigation_core.networks.network_abstract import NetworkAbstract
 from typing import List, Callable
 
-from src.utils.utils import get_device
+from src.utils.utils import get_device, get_console
 
 
 @dataclass
@@ -34,14 +35,51 @@ def handle_mutations(epoch: int, training_data: NetworkTrainingData, mutations: 
 def handle_losses(network: NetworkAbstract, training_data: NetworkTrainingData, losses: List[Loss], losses_dict: dict):
     for loss in losses:
         loss_tensor = loss.loss_function(network, training_data)
-        losses_dict[loss.name] += loss_tensor
+        losses_dict[loss.name] = loss_tensor
+
+
+def display_losses(epoch: int, losses: dict):
+    loss_display = f"[Epoch {epoch}] "
+    epoch_average_value = losses["epoch"]
+    loss_display += f"Epoch loss: [red]{epoch_average_value:.4f}[/red] | "
+    for name, value in losses.items():
+        if name == "epoch":
+            continue
+        loss_display += f"{name}: [red]{value:.4f}[/red] | "
+
+    loss_display = loss_display.rstrip(" | ")
+
+    console = get_console()
+    console.print(loss_display)
+
+
+def display_losses_periodically(loss_average_dict: dict, epoch_print_rate: int):
+    def iterator_wrapper(iterator):
+        for i, item in enumerate(iterator):
+            if (i + 1) % epoch_print_rate == 0:
+
+                for loss_name in loss_average_dict:
+                    loss_average_dict[loss_name] /= epoch_print_rate
+
+                display_losses(i, loss_average_dict)
+
+                for loss_name in loss_average_dict:
+                    loss_average_dict[loss_name] = 0
+
+            yield item
+
+    return iterator_wrapper
 
 
 def training_loop(network: NetworkAbstract, training_data: NetworkTrainingData, training_params: NetworkTrainingParams,
                   losses: List[Loss], mutations: List[Mutation], optimizer: Optimizer):
     loss_average_dict = {loss.name: 0 for loss in losses}
-    loss_average_epoch = 0
-    for epoch in range(training_params.epochs_count):
+    loss_average_dict["epoch"] = 0
+
+    display_losses_wrapper = display_losses_periodically(loss_average_dict, training_params.epoch_print_rate)
+    iterator = display_losses_wrapper(tqdm(range(training_params.epochs_count), desc="Network training"))
+
+    for epoch in iterator:
         handle_mutations(epoch, training_data, mutations)
         optimizer.zero_grad()
         losses_dict = {loss.name: torch.tensor(0.0, device=get_device()) for loss in losses}
@@ -58,35 +96,4 @@ def training_loop(network: NetworkAbstract, training_data: NetworkTrainingData, 
         accumulated_loss.backward()
         optimizer.step()
 
-        loss_average_epoch += epoch_loss.item()
-
-        # pretty_display(epoch % epoch_print_rate)
-        #
-        # if epoch % epoch_print_rate == 0 and epoch != 0:
-        #     epoch_average_loss /= epoch_print_rate
-        #
-        #     reconstruction_average_loss /= epoch_print_rate
-        #     non_adjacent_average_loss /= epoch_print_rate
-        #     adjacent_average_loss /= epoch_print_rate
-        #     permutation_average_loss /= epoch_print_rate
-        #
-        #     # Print average loss for this epoch
-        #     print("")
-        #     print(f"EPOCH:{epoch}/{num_epochs}")
-        #     print(
-        #         f"RECONSTRUCTION LOSS:{reconstruction_average_loss} | NON-ADJACENT LOSS:{non_adjacent_average_loss} | ADJACENT LOSS:{adjacent_average_loss} | PERMUTATION LOSS:{permutation_average_loss}")
-        #     print(f"AVERAGE LOSS:{epoch_average_loss}")
-        #     print("--------------------------------------------------")
-        #
-        #     if non_adjacent_average_loss < THRESHOLD_MANIFOLD_NON_ADJACENT_LOSS and permutation_average_loss < THRESHOLD_MANIFOLD_PERMUTATION_LOSS and stop_at_threshold:
-        #         print(f"Stopping at epoch {epoch} with loss {epoch_average_loss} because of threshold")
-        #         break
-        #
-        #     epoch_average_loss = 0
-        #     reconstruction_average_loss = 0
-        #     non_adjacent_average_loss = 0
-        #     adjacent_average_loss = 0
-        #     permutation_average_loss = 0
-        #
-        #     pretty_display_reset()
-        #     pretty_display_start(epoch)
+        loss_average_dict["epoch"] += epoch_loss.item()
