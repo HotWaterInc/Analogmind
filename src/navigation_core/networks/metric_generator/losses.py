@@ -1,5 +1,5 @@
 from src.navigation_core.networks.metric_generator.training_data_struct import MetricTrainingData
-from src.navigation_core.networks.metric_network_abstract import MetricNetworkAbstract
+from src.navigation_core.networks.metric_generator.metric_network_abstract import MetricNetworkAbstract
 import torch
 from torch import nn
 
@@ -10,7 +10,7 @@ def loss_rotations(metric_generator: MetricNetworkAbstract, training_data: Metri
     """
     Makes rotations to be mapped to the same point in the embedding space
     """
-    datapoints_data = training_data.rotations_array
+    datapoints_data = next(training_data.rotations_dataloader)
     datapoints_data = torch.stack(datapoints_data).to(get_device())
 
     original_shape = datapoints_data.shape
@@ -23,7 +23,7 @@ def loss_rotations(metric_generator: MetricNetworkAbstract, training_data: Metri
 
 
 def loss_walking_distance(metric_generator: MetricNetworkAbstract, training_data: MetricTrainingData,
-                          distance_scaling_factor: float, embedding_scaling_factor: float = 1) -> torch.Tensor:
+                          ) -> torch.Tensor:
     """
     Keeps non-adjacent pairs far from each other
 
@@ -32,6 +32,8 @@ def loss_walking_distance(metric_generator: MetricNetworkAbstract, training_data
     embedding scaling factor scales the embeddings to be further apart or closer together, without actually affecting the MSE loss
         * If we want generally smaller embeddings without leading to MSE collapsing to 0, we can use this parameter
     """
+    distance_scaling_factor: float = 0.1
+    embedding_scaling_factor: float = 1
 
     walk_start, walk_end, walk_expected_distances = next(training_data.walking_dataloader)
 

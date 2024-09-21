@@ -6,13 +6,12 @@ from .storage_superset import *
 from .storage import *
 from typing import List
 import math
-from src.navigation_core import build_connections_hashmap, floyd_warshall_algorithm, \
-    find_minimum_distance_between_datapoints_on_graph_bfs, find_minimum_distance_between_datapoints_on_graph_djakstra
 from src.navigation_core import ROTATIONS, STEP_DISTANCE, STEP_DISTANCE_CLOSE_THRESHOLD
 from src.navigation_core import get_real_distance_between_datapoints, \
     calculate_coords_distance
 from src.modules.time_profiler import start_profiler, profiler_checkpoint
 from src.utils import get_device
+from ...navigation_core.algorithms import floyd_warshall_algorithm, build_connections_hashmap
 
 
 class StorageSuperset2(StorageSuperset):

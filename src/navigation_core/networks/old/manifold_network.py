@@ -3,7 +3,6 @@ import time
 import torch.nn as nn
 import torch.optim as optim
 import numpy as np
-from torch.fx.experimental.proxy_tensor import ProxyTorchDispatchMode
 
 from src.navigation_core import BaseAutoencoderModel
 from src.navigation_core import MANIFOLD_SIZE, THRESHOLD_MANIFOLD_PERMUTATION_LOSS, \

@@ -2,8 +2,10 @@ from torch import nn
 from abc import ABC, abstractmethod
 import torch
 
+from src.navigation_core.networks.network_abstract import NetworkAbstract
 
-class MetricNetworkAbstract(nn.Module, ABC):
+
+class MetricNetworkAbstract(NetworkAbstract, ABC):
     def __init__(self):
         super(MetricNetworkAbstract, self).__init__()
 

@@ -1,10 +1,8 @@
 from typing import Dict, List
-
 from src.utils.pretty_display import pretty_display_set_and_start, pretty_display
 
 
-def build_connections_hashmap(connections_only_datapoints, exclude_datapoints: List[str]):
-    connections = connections_only_datapoints
+def build_connections_hashmap(connections, exclude_datapoints: List[str]):
     connections_hashmap = {}
     connections_hashmap_names = {}
 

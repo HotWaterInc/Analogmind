@@ -3,10 +3,10 @@ import random
 import torch
 
 from src.runtime_storages.functions.cache_functions import cache_general_get
-from src.runtime_storages.functions.crud_functions import update_node_by_index
+from src.runtime_storages.functions.crud_functions import update_nodes_by_index
 from src.runtime_storages.functions.pure_functions import eulerian_distance
 from src.runtime_storages.general_cache.cache_nodes import CacheNodes
-from src.runtime_storages.general_cache.cache_nodes_indexes import CacheNodesIndexes
+from src.runtime_storages.general_cache.cache_nodes_indexes import CacheNodesAuthenticIndexes
 from src.runtime_storages.types import ConnectionAuthenticData, NodeAuthenticData, CacheGeneralAlias, \
     ConnectionNullData, ConnectionSyntheticData
 from src.utils.utils import array_to_tensor
@@ -66,7 +66,7 @@ def node_get_index_by_name(self: 'StorageStruct', name: str) -> int:
 
     indexes_map = cache_general_get(self, CacheGeneralAlias.NODE_INDEX_MAP)
 
-    if not isinstance(indexes_map, CacheNodesIndexes):
+    if not isinstance(indexes_map, CacheNodesAuthenticIndexes):
         raise ValueError(f"Indexes map is not an instance of CacheNodesIndexes")
 
     if name not in indexes_map.cache_map:
@@ -149,7 +149,7 @@ def node_get_datapoint_tensor_at_random(self: 'StorageStruct', name: str) -> any
     return node_get_datapoint_tensor_at_index(self, name, index)
 
 
-def connections_all_get(self: 'StorageStruct', datapoint_name: str) -> List[
+def connections_all_get(self: 'StorageStruct') -> List[
     ConnectionAuthenticData | ConnectionSyntheticData]:
     found_connections = []
 
@@ -221,7 +221,7 @@ def transformation_data_apply(self: 'StorageStruct') -> None:
     for index, node in enumerate(nodes):
         data_tensor = array_to_tensor(node["datapoints_array"])
         transformed_data = transformation(data_tensor).tolist()
-        update_node_by_index(
+        update_nodes_by_index(
             storage=self,
             index=index,
             new_data=transformed_data,

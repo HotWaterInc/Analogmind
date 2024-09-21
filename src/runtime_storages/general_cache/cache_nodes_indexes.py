@@ -1,14 +1,14 @@
 from typing import TYPE_CHECKING
-from src.ai.runtime_storages.cache_abstract import CacheAbstract
-from src.ai.runtime_storages.functions.cache_functions import cache_general_get
-from src.ai.runtime_storages.types import NodeAuthenticData, CacheGeneralAlias
 from typing import Dict
+from src.runtime_storages import NodeAuthenticData, CacheGeneralAlias, cache_general_get
+from src.runtime_storages.cache_abstract import CacheAbstract
+from typing import List
 
 if TYPE_CHECKING:
-    from src.ai.runtime_storages.storage_struct import StorageStruct
+    from src.runtime_storages.storage_struct import StorageStruct
 
 
-class CacheNodesIndexes(CacheAbstract):
+class CacheNodesAuthenticIndexes(CacheAbstract):
     """
     Keeps track of th indexes of each node
     """
@@ -20,21 +20,24 @@ class CacheNodesIndexes(CacheAbstract):
         return self.cache_map[node_name]
 
 
-def on_create_node(storage: 'StorageStruct',
-                   new_node: NodeAuthenticData) -> None:
+def on_create_nodes(storage: 'StorageStruct',
+                    new_nodes: List[NodeAuthenticData]) -> None:
     self = cache_general_get(storage, CacheGeneralAlias.NODE_INDEX_MAP)
-    if not isinstance(self, CacheNodesIndexes):
+    if not isinstance(self, CacheNodesAuthenticIndexes):
         raise ValueError(f"Expected CacheNodesIndexes, got {type(self)}")
-    self.cache_map[new_node["name"]] = len(storage.nodes_authentic) - 1
+
+    start_index = len(storage.nodes_authentic) - len(new_nodes)
+    for i, new_node in enumerate(new_nodes):
+        self.cache_map[new_node["name"]] = start_index + i
 
 
-def on_update_node(storage: 'StorageStruct',
-                   old_node: NodeAuthenticData, new_node: NodeAuthenticData) -> None:
+def on_update_nodes(storage: 'StorageStruct',
+                    old_nodes: List[NodeAuthenticData], new_nodes: List[NodeAuthenticData]) -> None:
     pass
 
 
 def on_delete_node(storage: 'StorageStruct',
-                   deleted_node: NodeAuthenticData) -> None:
+                   deleted_nodes: List[NodeAuthenticData]) -> None:
     on_invalidate_and_recalculate(storage)
 
 

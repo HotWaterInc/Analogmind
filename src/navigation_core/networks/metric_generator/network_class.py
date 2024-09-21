@@ -1,5 +1,5 @@
 from src.navigation_core.networks.blocks import BlockResidualSmall, LayerLeaky
-from src.navigation_core.networks.metric_network_abstract import MetricNetworkAbstract
+from src.navigation_core.networks.metric_generator.metric_network_abstract import MetricNetworkAbstract
 from src.navigation_core.params import MANIFOLD_SIZE
 
 import torch

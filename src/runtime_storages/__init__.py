@@ -1,4 +1,5 @@
 from .functions.basic_functions import *
+from .functionalities.get_walk_distance import get_walk_distance
 
 __all__ = [
     "connections_authentic_get",
@@ -10,4 +11,5 @@ __all__ = [
     "node_get_datapoint_tensor_at_index",
     "node_get_datapoints_by_name",
     "node_get_index_by_name",
+    "get_walk_distance",
 ]

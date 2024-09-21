@@ -12,3 +12,14 @@ class WalkData(Dataset):
 
     def __getitem__(self, idx):
         return self.starts[idx], self.ends[idx], self.distances[idx]
+
+
+class RotationData(Dataset):
+    def __init__(self, rotations):
+        self.rotations = rotations
+
+    def __len__(self):
+        return len(self.rotations)
+
+    def __getitem__(self, idx):
+        return self.rotations[idx]

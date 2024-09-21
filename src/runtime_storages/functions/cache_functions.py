@@ -1,16 +1,16 @@
 from typing import TYPE_CHECKING
 
-from src.ai.runtime_storages.cache_abstract import CacheAbstract
-from src.ai.runtime_storages.functionalities.utils import cache_functionalities_create_new
-from src.ai.runtime_storages.functionalities.functionalities_types import FunctionalityAlias
-from src.ai.runtime_storages.functions.subscriber_functions import \
+from src.runtime_storages.cache_abstract import CacheAbstract
+from src.runtime_storages.functionalities.utils import cache_functionalities_create_new
+from src.runtime_storages.functionalities.functionalities_types import FunctionalityAlias
+from src.runtime_storages.functions.subscriber_functions import \
     subscribe_to_crud_operations
-from src.ai.runtime_storages.types import DataAlias, CacheGeneralAlias
-from src.ai.runtime_storages.functionalities import get_all_connections
-from src.ai.runtime_storages.general_cache import cache_nodes, cache_nodes_indexes
+from src.runtime_storages.types import DataAlias, CacheGeneralAlias
+from src.runtime_storages.general_cache import cache_nodes, cache_nodes_indexes
+from src.runtime_storages.functionalities import get_walk_distance
 
 if TYPE_CHECKING:
-    from src.ai.runtime_storages.storage_struct import StorageStruct
+    from src.runtime_storages.storage_struct import StorageStruct
 
 
 def create_caches_specialized(storage: 'StorageStruct'):
@@ -18,16 +18,23 @@ def create_caches_specialized(storage: 'StorageStruct'):
     subscribe_to_crud_operations(
         storage=storage,
         data_alias=DataAlias.CONNECTIONS_AUTHENTIC,
-        create_subscriber=get_all_connections.on_create_connection,
-        update_subscriber=get_all_connections.on_update_connection,
-        delete_subscriber=get_all_connections.on_delete_connection
+        create_subscriber=get_walk_distance.on_create_connections,
+        update_subscriber=get_walk_distance.on_update_connections,
+        delete_subscriber=get_walk_distance.on_delete_connections
     )
     subscribe_to_crud_operations(
         storage=storage,
         data_alias=DataAlias.CONNECTIONS_SYNTHETIC,
-        create_subscriber=get_all_connections.on_create_connection,
-        update_subscriber=get_all_connections.on_update_connection,
-        delete_subscriber=get_all_connections.on_delete_connection
+        create_subscriber=get_walk_distance.on_create_connections,
+        update_subscriber=get_walk_distance.on_update_connections,
+        delete_subscriber=get_walk_distance.on_delete_connections
+    )
+    subscribe_to_crud_operations(
+        storage=storage,
+        data_alias=DataAlias.NODE_AUTHENTIC,
+        create_subscriber=get_walk_distance.on_create_nodes,
+        update_subscriber=get_walk_distance.on_update_nodes,
+        delete_subscriber=get_walk_distance.on_delete_nodes
     )
 
 
@@ -39,17 +46,17 @@ def create_caches_general(storage: 'StorageStruct'):
     subscribe_to_crud_operations(
         storage=storage,
         data_alias=DataAlias.NODE_AUTHENTIC,
-        create_subscriber=cache_nodes.on_create_node,
-        update_subscriber=cache_nodes.on_update_node,
+        create_subscriber=cache_nodes.on_create_nodes,
+        update_subscriber=cache_nodes.on_update_nodes,
         delete_subscriber=cache_nodes.on_delete_node
     )
 
-    cache_registration(storage, CacheGeneralAlias.NODE_INDEX_MAP, cache_nodes_indexes.CacheNodesIndexes())
+    cache_registration(storage, CacheGeneralAlias.NODE_INDEX_MAP, cache_nodes_indexes.CacheNodesAuthenticIndexes())
     subscribe_to_crud_operations(
         storage=storage,
         data_alias=DataAlias.NODE_AUTHENTIC,
-        create_subscriber=cache_nodes_indexes.on_create_node,
-        update_subscriber=cache_nodes_indexes.on_update_node,
+        create_subscriber=cache_nodes_indexes.on_create_nodes,
+        update_subscriber=cache_nodes_indexes.on_update_nodes,
         delete_subscriber=cache_nodes_indexes.on_delete_node
     )
 
