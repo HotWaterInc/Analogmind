@@ -6,10 +6,10 @@ import torch
 from torch import nn
 
 
-class ManifoldNetwork(MetricNetworkAbstract):
+class MetricNetwork(MetricNetworkAbstract):
     def __init__(self, dropout_rate: float = 0.2, embedding_size: int = MANIFOLD_SIZE, input_output_size: int = 512,
                  hidden_size: int = 512, num_blocks: int = 2):
-        super(ManifoldNetwork, self).__init__()
+        super(MetricNetwork, self).__init__()
         self.embedding_size = embedding_size
 
         self.input_layer = nn.Linear(input_output_size, hidden_size)

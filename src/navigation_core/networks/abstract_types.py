@@ -9,6 +9,7 @@ class NetworkTrainingData:
 
 @dataclass
 class NetworkTrainingParams:
-    epochs_count = 1000
-    epoch_print_rate = 100
-    stop_at_threshold = False
+    epochs_count: int
+    epoch_print_rate: int
+    stop_at_threshold: bool
+    learning_rate: float

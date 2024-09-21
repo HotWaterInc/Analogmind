@@ -6,7 +6,7 @@ from src.navigation_core.params import ROTATIONS
 
 if TYPE_CHECKING:
     from src.runtime_storages import StorageStruct
-    from src.navigation_core.networks.metric_generator.training_data_struct import MetricTrainingData
+    from src.navigation_core.networks.metric_generator.training_data_struct import MetricTrainingData, WalkingMetadata
 
 from src import runtime_storages as storage
 
@@ -19,13 +19,6 @@ def build_rotations_data(storage_struct: 'StorageStruct', training_data: MetricT
         rotations_array.append(node_data)
 
     training_data.rotations_array = rotations_array
-
-
-def _create_metadata(node_name: str, datapoint_index: int) -> any:
-    return {
-        'name': node_name,
-        'datapoint_index': datapoint_index
-    }
 
 
 def build_walking_data(storage_struct: 'StorageStruct', training_data: MetricTrainingData) -> None:
@@ -49,8 +42,14 @@ def build_walking_data(storage_struct: 'StorageStruct', training_data: MetricTra
         random_rotation_index_start = random.randint(0, ROTATIONS - 1)
         random_rotation_index_end = random.randint(0, ROTATIONS - 1)
 
-        walking_batch_start_metadata.append(_create_metadata(walking_batch_start_names[i], random_rotation_index_start))
-        walking_batch_end_metadata.append(_create_metadata(walking_batch_end_names[i], random_rotation_index_end))
+        walking_batch_start_metadata.append(WalkingMetadata(
+            name=walking_batch_start_names[i],
+            datapoint_index=random_rotation_index_start
+        ))
+        walking_batch_end_metadata.append(WalkingMetadata(
+            name=walking_batch_end_names[i],
+            datapoint_index=random_rotation_index_end
+        ))
 
     walking_batch_start = []
     walking_batch_end = []
@@ -67,3 +66,9 @@ def build_walking_data(storage_struct: 'StorageStruct', training_data: MetricTra
         walking_batch_start.append(start_tensor)
         walking_batch_end.append(end_tensor)
         walking_batch_distance.append(distance)
+
+    training_data.walking_batch_start = walking_batch_start
+    training_data.walking_batch_end = walking_batch_end
+    training_data.walking_batch_distance = walking_batch_distance
+    training_data.walking_batch_start_metadata = walking_batch_start_metadata
+    training_data.walking_batch_end_metadata = walking_batch_end_metadata

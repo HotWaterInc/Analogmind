@@ -5,7 +5,7 @@ import torch
 from torch import nn
 from src.navigation_core.networks.abstract_types import NetworkTrainingData, NetworkTrainingParams
 from src.navigation_core.networks.network_abstract import NetworkAbstract
-from typing import List, Callable
+from typing import List, Callable, TypeVar
 
 from src.utils.utils import get_device, get_console
 
@@ -13,14 +13,17 @@ from src.utils.utils import get_device, get_console
 @dataclass
 class Loss:
     name: str
-    loss_function: Callable[[NetworkAbstract, NetworkTrainingData], torch.Tensor]
+    loss_function: Callable[[any, any], torch.Tensor]
     loss_scaling_factor: float
+
+
+T = TypeVar('T', bound=NetworkTrainingData)
 
 
 @dataclass
 class Mutation:
     name: str
-    mutation_function: Callable[[NetworkTrainingData], None]
+    mutation_function: Callable[[T], None]
     epochs_rate: int
 
 
@@ -72,7 +75,9 @@ def display_losses_periodically(loss_average_dict: dict, epoch_print_rate: int):
 
 
 def training_loop(network: NetworkAbstract, training_data: NetworkTrainingData, training_params: NetworkTrainingParams,
-                  losses: List[Loss], mutations: List[Mutation], optimizer: Optimizer):
+                  losses: List[Loss], mutations: List[Mutation]):
+    optimizer = torch.optim.Adam(network.parameters(), lr=training_params.learning_rate)
+
     loss_average_dict = {loss.name: 0 for loss in losses}
     loss_average_dict["epoch"] = 0
 
