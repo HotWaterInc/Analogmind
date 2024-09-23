@@ -57,3 +57,7 @@ class MetricNetwork(MetricNetworkAbstract):
 
     def get_embedding_size(self) -> int:
         return self.embedding_size
+
+
+def create_metric_network():
+    return MetricNetwork()
