@@ -7,5 +7,5 @@ if TYPE_CHECKING:
 
 
 def cache_functionalities_create_new(storage: 'StorageStruct', functionality_type: FunctionalityAlias):
-    if functionality_type == FunctionalityAlias.GET_ALL_CONNECTIONS:
+    if functionality_type == FunctionalityAlias.GET_WALK_DISTANCE:
         storage.caches_functionalities[functionality_type] = get_walk_distance.CacheGetWalkDistance()

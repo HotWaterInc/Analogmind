@@ -2,9 +2,6 @@ from typing import TYPE_CHECKING
 import random
 import numpy as np
 
-if TYPE_CHECKING:
-    from src.ai.runtime_storages.storage_struct import StorageStruct
-
 
 def eulerian_distance(x_a, y_a, x_b, y_b) -> float:
     return np.sqrt((x_a - x_b) ** 2 + (y_a - y_b) ** 2)

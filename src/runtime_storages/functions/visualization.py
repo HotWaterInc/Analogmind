@@ -1,11 +1,9 @@
 import random
 from typing import TYPE_CHECKING
 
-from src.ai.runtime_storages.functions.basic_functions import node_get_coords_metadata
-
 if TYPE_CHECKING:
-    from src.ai.runtime_storages.visualization_data_struct import VisualizationDataStruct
-    from src.ai.runtime_storages.storage_struct import StorageStruct
+    from src.runtime_storages.storage_struct import StorageStruct
+    from src.runtime_storages.visualization_data_struct import VisualizationDataStruct
 
 
 def recenter_nodes_coordinates(visualization_struct: VisualizationDataStruct):

@@ -1,3 +1,4 @@
+from linecache import cache
 from typing import List, TYPE_CHECKING
 import random
 import torch
@@ -5,8 +6,9 @@ import torch
 from src.runtime_storages.functions.cache_functions import cache_general_get
 from src.runtime_storages.functions.crud_functions import update_nodes_by_index
 from src.runtime_storages.functions.pure_functions import eulerian_distance
-from src.runtime_storages.general_cache.cache_nodes import CacheNodes
-from src.runtime_storages.general_cache.cache_nodes_indexes import CacheNodesAuthenticIndexes
+from src.runtime_storages.general_cache.cache_nodes_map import validate_cache_nodes_map
+from src.runtime_storages.general_cache.cache_nodes_indexes import \
+    validate_cache_nodes_indexes
 from src.runtime_storages.types import ConnectionAuthenticData, NodeAuthenticData, CacheGeneralAlias, \
     ConnectionNullData, ConnectionSyntheticData
 from src.utils.utils import array_to_tensor
@@ -39,7 +41,8 @@ def connections_authentic_sample(self, sample_size: int) -> List[ConnectionAuthe
 
 def node_get_by_name(self: 'StorageStruct', name: str) -> NodeAuthenticData:
     cache_map = cache_general_get(self, CacheGeneralAlias.NODE_CACHE_MAP)
-    return cache_map[name]
+    cache_map = validate_cache_nodes_map(cache_map)
+    return cache_map.read(node_name=name)
 
 
 def node_get_by_index(self: 'StorageStruct', index: int) -> NodeAuthenticData:
@@ -50,36 +53,38 @@ def node_get_datapoint_tensor_at_index(self: 'StorageStruct', node_name: str, da
     # OPTIMIZATION: specialized cache to cache tensor conversions
 
     node_map = cache_general_get(self, CacheGeneralAlias.NODE_CACHE_MAP)
-    return torch.tensor(node_map[node_name]["data"][datapoint_index], dtype=torch.float32)
+    node_map = validate_cache_nodes_map(node_map)
+    node: NodeAuthenticData = node_map.read(node_name=node_name)
+    return torch.tensor(node["datapoints_array"][datapoint_index], dtype=torch.float32)
 
 
 def node_get_datapoints_by_name(self: 'StorageStruct', name: str) -> any:
     node_map = cache_general_get(self, CacheGeneralAlias.NODE_CACHE_MAP)
-    return node_map[name]["data"]
+    node_map = validate_cache_nodes_map(node_map)
+    node: NodeAuthenticData = node_map.read(node_name=name)
+    return node["datapoints_array"]
 
 
 def node_get_index_by_name(self: 'StorageStruct', name: str) -> int:
     node_map = cache_general_get(self, CacheGeneralAlias.NODE_CACHE_MAP)
-
-    if not isinstance(node_map, CacheNodes):
-        raise ValueError(f"Node map is not an instance of CacheNodes")
-
+    node_map = validate_cache_nodes_map(node_map)
     indexes_map = cache_general_get(self, CacheGeneralAlias.NODE_INDEX_MAP)
+    indexes_map = validate_cache_nodes_indexes(indexes_map)
 
-    if not isinstance(indexes_map, CacheNodesAuthenticIndexes):
-        raise ValueError(f"Indexes map is not an instance of CacheNodesIndexes")
+    index = indexes_map.read(node_name=name)
+    if index is None:
+        raise ValueError(f"Node with name {name} not found in indexes cache")
 
-    if name not in indexes_map.cache_map:
-        raise ValueError(f"Node with name {name} not found in indexes map")
-
-    index = indexes_map.cache_map[name]
     return index
 
 
 def node_get_datapoints_tensor(self: 'StorageStruct', name: str) -> torch.Tensor:
     # OPTIMIZATION: cache for tensor conversion
     cache = cache_general_get(self, CacheGeneralAlias.NODE_CACHE_MAP)
-    return torch.tensor(cache[name]["data"], dtype=torch.float32)
+    cache = validate_cache_nodes_map(cache)
+
+    node = cache.read(node_name=name)
+    return torch.tensor(node["datapoints_array"], dtype=torch.float32)
 
 
 def connection_null_get_all(self: 'StorageStruct') -> List[ConnectionNullData]:
@@ -186,7 +191,6 @@ def node_get_connections_all(self: 'StorageStruct', node_name: str) -> List[
     connections_synthetic = self.connections_synthetic
 
     # OPTIMIZATION cache
-
     for connection in connections_authentic:
         start = connection["start"]
         end = connection["end"]

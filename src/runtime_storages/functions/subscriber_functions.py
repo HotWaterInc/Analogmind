@@ -1,8 +1,8 @@
 from typing import TYPE_CHECKING
-from src.ai.runtime_storages.types import DataAlias, OperationsAlias
+from src.runtime_storages.types import DataAlias, OperationsAlias
 
 if TYPE_CHECKING:
-    from src.ai.runtime_storages.storage_struct import StorageStruct
+    from src.runtime_storages.storage_struct import StorageStruct
 
 
 def subscribers_list_initialization(storage: 'StorageStruct', data_type: DataAlias):

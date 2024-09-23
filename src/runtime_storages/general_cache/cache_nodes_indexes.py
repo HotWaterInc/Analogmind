@@ -1,8 +1,9 @@
 from typing import TYPE_CHECKING
 from typing import Dict
-from src.runtime_storages import NodeAuthenticData, CacheGeneralAlias, cache_general_get
 from src.runtime_storages.cache_abstract import CacheAbstract
 from typing import List
+from src.runtime_storages.functions.cache_functions import cache_general_get
+from src.runtime_storages.types import NodeAuthenticData, CacheGeneralAlias
 
 if TYPE_CHECKING:
     from src.runtime_storages.storage_struct import StorageStruct
@@ -36,8 +37,8 @@ def on_update_nodes(storage: 'StorageStruct',
     pass
 
 
-def on_delete_node(storage: 'StorageStruct',
-                   deleted_nodes: List[NodeAuthenticData]) -> None:
+def on_delete_nodes(storage: 'StorageStruct',
+                    deleted_nodes: List[NodeAuthenticData]) -> None:
     on_invalidate_and_recalculate(storage)
 
 
@@ -46,3 +47,9 @@ def on_invalidate_and_recalculate(storage: 'StorageStruct') -> None:
     self.cache_map = {}
     for i, node in enumerate(storage.nodes_authentic):
         self.cache_map[node["name"]] = i
+
+
+def validate_cache_nodes_indexes(cache: CacheAbstract) -> CacheNodesAuthenticIndexes:
+    if not isinstance(cache, CacheNodesAuthenticIndexes):
+        raise ValueError(f"Expected CacheNodesIndexes, got {type(cache)}")
+    return cache

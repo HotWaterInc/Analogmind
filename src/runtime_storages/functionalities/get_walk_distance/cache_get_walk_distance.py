@@ -4,11 +4,12 @@ from src.navigation_core.algorithms import build_connections_hashmap, floyd_wars
 from src.runtime_storages.cache_abstract import CacheAbstract
 from src.runtime_storages.functionalities.functionalities_types import FunctionalityAlias
 from src.runtime_storages.functions.cache_functions import cache_specialized_get
-from src.runtime_storages.types import ConnectionNullData, ConnectionAuthenticData, ConnectionSyntheticData
-from src import runtime_storages as runtime_storage
 
 if TYPE_CHECKING:
     from src.runtime_storages.storage_struct import StorageStruct
+    from src.runtime_storages.types import ConnectionNullData, ConnectionAuthenticData, ConnectionSyntheticData
+
+from src import runtime_storages as runtime_storage
 
 
 class CacheGetWalkDistance(CacheAbstract):
@@ -20,21 +21,21 @@ class CacheGetWalkDistance(CacheAbstract):
 
 
 def on_create_connections(storage: 'StorageStruct',
-                          new_connections: List[any]) -> None:
+                          new_connections: 'List[any]') -> None:
     invalidate_and_recalculate(storage)
 
 
 def on_update_connections(storage: 'StorageStruct',
-                          new_connections: List[ConnectionAuthenticData | ConnectionSyntheticData]) -> None:
+                          new_connections: 'List[ConnectionAuthenticData | ConnectionSyntheticData]') -> None:
     pass
 
 
 def on_delete_connections(storage: 'StorageStruct',
-                          deleted_connection: ConnectionAuthenticData | ConnectionSyntheticData) -> None:
+                          deleted_connection: 'ConnectionAuthenticData | ConnectionSyntheticData') -> None:
     invalidate_and_recalculate(storage)
 
 
-def on_create_nodes(storage: 'StorageStruct', new_nodes: List[any]) -> None:
+def on_create_nodes(storage: 'StorageStruct', new_nodes: 'List[any]') -> None:
     invalidate_and_recalculate(storage)
 
 
@@ -47,10 +48,8 @@ def on_delete_nodes(storage: 'StorageStruct', deleted_node: any) -> None:
 
 
 def invalidate_and_recalculate(storage: 'StorageStruct') -> None:
-    cache = cache_specialized_get(storage, FunctionalityAlias.WALK_DISTANCE_CACHE)
-    if not isinstance(cache, CacheGetWalkDistance):
-        raise ValueError("Cache not found")
-
+    cache = cache_specialized_get(storage, FunctionalityAlias.GET_WALK_DISTANCE)
+    cache = validate_cache_get_walk_distance(cache)
     connections = runtime_storage.connections_all_get(
         self=storage,
 
@@ -58,3 +57,9 @@ def invalidate_and_recalculate(storage: 'StorageStruct') -> None:
     connection_hashmap = build_connections_hashmap(connections, [])
     distances = floyd_warshall_algorithm(connection_hashmap)
     cache.distances = distances
+
+
+def validate_cache_get_walk_distance(cache: CacheAbstract) -> CacheGetWalkDistance:
+    if not isinstance(cache, CacheGetWalkDistance):
+        raise ValueError(f"Expected CacheGetWalkDistance, got {type(cache)}")
+    return cache

@@ -40,7 +40,7 @@ class DataAlias(Enum):
 
 class CacheGeneralAlias(Enum):
     NODE_CACHE_MAP = "node_cache_map"
-    NODE_INDEX_MAP = "node_cache_map"
+    NODE_INDEX_MAP = "node_index_map"
 
 
 class OperationsAlias(Enum):
