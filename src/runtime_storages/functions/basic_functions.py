@@ -1,11 +1,11 @@
-from linecache import cache
 from typing import List, TYPE_CHECKING
 import random
 import torch
 
-from src.runtime_storages.functions.cache_functions import cache_general_get
-from src.runtime_storages.functions.crud_functions import update_nodes_by_index
+from src.runtime_storages.other.cache_functions import cache_general_get
 from src.runtime_storages.functions.pure_functions import eulerian_distance
+
+from src.runtime_storages.crud.crud_functions import update_nodes_by_index
 from src.runtime_storages.general_cache.cache_nodes_map import validate_cache_nodes_map
 from src.runtime_storages.general_cache.cache_nodes_indexes import \
     validate_cache_nodes_indexes
@@ -91,9 +91,11 @@ def connection_null_get_all(self: 'StorageStruct') -> List[ConnectionNullData]:
     return [item for item in self.connections_null]
 
 
-def node_get_coords_metadata(self: 'StorageStruct', name: str):
+def node_get_coords_metadata(self: 'StorageStruct', name: str) -> list[float]:
     cache_node_map = cache_general_get(self, CacheGeneralAlias.NODE_CACHE_MAP)
-    return [cache_node_map[name]["params"]["x"], cache_node_map[name]["params"]["y"]]
+    cache_node_map = validate_cache_nodes_map(cache_node_map)
+    node = cache_node_map.read(node_name=name)
+    return [node["params"]["x"], node["params"]["y"]]
 
 
 def node_get_closest_to_xy(self: 'StorageStruct', target_x: float, target_y: float) -> str:

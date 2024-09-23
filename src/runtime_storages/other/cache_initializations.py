@@ -1,9 +1,8 @@
 from typing import TYPE_CHECKING
 from src.runtime_storages.functionalities.utils import cache_functionalities_create_new
 from src.runtime_storages.functionalities.functionalities_types import FunctionalityAlias
-from src.runtime_storages.functions.cache_functions import cache_registration
-from src.runtime_storages.functions.subscriber_functions import \
-    subscribe_to_crud_operations
+from src.runtime_storages.other.cache_functions import cache_registration
+from src.runtime_storages.functions.subscriber_functions import subscribe_to_crud_operations
 from src.runtime_storages.types import DataAlias, CacheGeneralAlias
 from src.runtime_storages.general_cache import cache_nodes_map, cache_nodes_indexes
 from src.runtime_storages.functionalities import get_walk_distance

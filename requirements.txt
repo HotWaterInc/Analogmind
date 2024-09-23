@@ -4,3 +4,4 @@ numpy
 websockets
 manim
 tqdm
+pytest

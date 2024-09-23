@@ -1,7 +1,7 @@
 from typing import TYPE_CHECKING
 from typing import List
 from src.runtime_storages.cache_abstract import CacheAbstract
-from src.runtime_storages.functions.cache_functions import cache_general_get
+from src.runtime_storages.other import cache_general_get
 from src.runtime_storages.types import NodeAuthenticData, CacheGeneralAlias
 
 from typing import Dict

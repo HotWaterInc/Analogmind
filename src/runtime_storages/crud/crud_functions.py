@@ -1,7 +1,8 @@
 from typing import List, TYPE_CHECKING
 import copy
 from src.runtime_storages.types import NodeAuthenticData, ConnectionAuthenticData, ConnectionSyntheticData
-from src.runtime_storages.functions.method_decorators import trigger_update_subscribers, trigger_create_subscribers, \
+from src.runtime_storages.functions.method_decorators import trigger_update_subscribers, \
+    trigger_create_subscribers, \
     trigger_delete_subscribers
 from src.runtime_storages.types import DataAlias
 
