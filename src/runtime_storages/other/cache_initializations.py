@@ -49,7 +49,7 @@ def create_caches_general(storage: 'StorageStruct'):
         delete_subscriber=cache_nodes_map.on_delete_nodes
     )
 
-    cache_registration(storage, CacheGeneralAlias.NODE_INDEX_MAP, cache_nodes_indexes.CacheNodesAuthenticIndexes())
+    cache_registration(storage, CacheGeneralAlias.NODE_INDEX_MAP, cache_nodes_indexes.CacheNodesIndexes())
     subscribe_to_crud_operations(
         storage=storage,
         data_alias=DataAlias.NODE_AUTHENTIC,

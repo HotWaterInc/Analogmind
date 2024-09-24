@@ -58,7 +58,7 @@ def node_get_datapoint_tensor_at_index(self: 'StorageStruct', node_name: str, da
     return torch.tensor(node["datapoints_array"][datapoint_index], dtype=torch.float32)
 
 
-def node_get_datapoints_by_name(self: 'StorageStruct', name: str) -> any:
+def node_get_datapoints_by_name(self: 'StorageStruct', name: str) -> list:
     node_map = cache_general_get(self, CacheGeneralAlias.NODE_CACHE_MAP)
     node_map = validate_cache_nodes_map(node_map)
     node: NodeAuthenticData = node_map.read(node_name=name)
@@ -236,3 +236,10 @@ def transformation_data_apply(self: 'StorageStruct') -> None:
 
 def node_get_name_at_index(self: 'StorageStruct', index: int) -> str:
     return self.nodes_authentic[index]["name"]
+
+
+def node_get_datapoints_count(self: 'StorageStruct', name: str) -> int:
+    node_map = cache_general_get(self, CacheGeneralAlias.NODE_CACHE_MAP)
+    node_map = validate_cache_nodes_map(node_map)
+    node: NodeAuthenticData = node_map.read(node_name=name)
+    return len(node["datapoints_array"])

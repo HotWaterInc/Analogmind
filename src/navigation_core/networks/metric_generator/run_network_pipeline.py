@@ -1,11 +1,11 @@
 from typing import TYPE_CHECKING
-
 from src.navigation_core.networks.common import training_loop, Loss, Mutation
 from src.navigation_core.networks.metric_generator.build_dataloaders import build_dataloader_walking, \
     build_dataloader_rotations
 from src.navigation_core.networks.metric_generator.build_training_data import build_walking_data, build_rotations_data
 from src.navigation_core.networks.metric_generator.losses import loss_rotations, loss_walking_distance
-from src.navigation_core.networks.metric_generator.mutations import mutate_rotations, build_mutation_function
+from src.navigation_core.networks.metric_generator.mutations import mutate_walking_data_rotations, \
+    build_mutation_function
 from src.navigation_core.networks.metric_generator.network_class import MetricNetwork
 from src.navigation_core.networks.metric_generator.training_data_struct import MetricTrainingData
 from src.navigation_core.networks.metric_generator.training_params import MetricTrainingParams, \
@@ -49,6 +49,7 @@ def train_metric_generator_network(storage_struct: 'StorageStruct', network: Met
 
         mutations=[
             Mutation(name="rotation_permutations",
-                     mutation_function=build_mutation_function(storage_struct, mutate_rotations), epochs_rate=5),
+                     mutation_function=build_mutation_function(storage_struct, mutate_walking_data_rotations),
+                     epochs_rate=5),
         ]
     )

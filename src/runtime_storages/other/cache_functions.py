@@ -16,5 +16,5 @@ def cache_general_get(storage: 'StorageStruct', cache_type: 'CacheGeneralAlias')
     return storage.caches[cache_type]
 
 
-def cache_specialized_get(storage: 'StorageStruct', cache_type: FunctionalityAlias):
+def cache_specialized_get(storage: 'StorageStruct', cache_type: FunctionalityAlias) -> 'CacheAbstract':
     return storage.caches_functionalities[cache_type]

@@ -10,7 +10,7 @@ if TYPE_CHECKING:
     from src.runtime_storages.storage_struct import StorageStruct
 
 
-class CacheNodesAuthenticIndexes(CacheAbstract):
+class CacheNodesIndexes(CacheAbstract):
     """
     Keeps track of th indexes of each node
     """
@@ -25,9 +25,10 @@ class CacheNodesAuthenticIndexes(CacheAbstract):
 def on_create_nodes(storage: 'StorageStruct',
                     new_nodes: List[NodeAuthenticData]) -> None:
     self = cache_general_get(storage, CacheGeneralAlias.NODE_INDEX_MAP)
-    if not isinstance(self, CacheNodesAuthenticIndexes):
+    if not isinstance(self, CacheNodesIndexes):
         raise ValueError(f"Expected CacheNodesIndexes, got {type(self)}")
 
+    # calculating the number of nodes inside the index cache
     start_index = len(storage.nodes_authentic) - len(new_nodes)
     for i, new_node in enumerate(new_nodes):
         self.cache_map[new_node["name"]] = start_index + i
@@ -50,7 +51,7 @@ def on_invalidate_and_recalculate(storage: 'StorageStruct') -> None:
         self.cache_map[node["name"]] = i
 
 
-def validate_cache_nodes_indexes(cache: CacheAbstract) -> CacheNodesAuthenticIndexes:
-    if not isinstance(cache, CacheNodesAuthenticIndexes):
+def validate_cache_nodes_indexes(cache: CacheAbstract) -> CacheNodesIndexes:
+    if not isinstance(cache, CacheNodesIndexes):
         raise ValueError(f"Expected CacheNodesIndexes, got {type(cache)}")
     return cache

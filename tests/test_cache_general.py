@@ -1,21 +1,23 @@
 import unittest
 from src import runtime_storages as storage
+from src.runtime_storages.general_cache.cache_nodes_indexes import validate_cache_nodes_indexes, \
+    CacheNodesIndexes
 from src.runtime_storages.other.cache_functions import cache_general_get
 from src.runtime_storages.general_cache.cache_nodes_map import validate_cache_nodes_map, CacheNodesMap
 from src.runtime_storages.types import CacheGeneralAlias, NodeAuthenticData
 
 
-class CacheTests(unittest.TestCase):
+class TestsCacheGeneral(unittest.TestCase):
     """
     Testing cache capabilities inside of storage
     """
 
     @classmethod
-    def setUpClass(cls):
+    def setUp(cls):
         cls.storage_struct = storage.create_storage()
 
     @classmethod
-    def tearDownClass(cls):
+    def tearDown(cls):
         cls.storage_struct = None
 
     def test_node_cache_map(self):
@@ -64,3 +66,38 @@ class CacheTests(unittest.TestCase):
         storage.crud.delete_nodes(storage_struct, ["node2"])
         with self.assertRaises(KeyError):
             cache.read(node_name="node2")
+
+    def test_cache_node_index(self):
+        """Testing crud on data affecting the cache"""
+
+        storage_struct = self.storage_struct
+        cache_indexes = cache_general_get(storage_struct, CacheGeneralAlias.NODE_INDEX_MAP)
+        cache_nodes = cache_general_get(storage_struct, CacheGeneralAlias.NODE_CACHE_MAP)
+        cache_indexes = validate_cache_nodes_indexes(cache_indexes)
+        cache_nodes = validate_cache_nodes_map(cache_nodes)
+
+        self.assertTrue(isinstance(cache_indexes, CacheNodesIndexes))
+
+        # create node
+        node1 = NodeAuthenticData(name="node1", datapoints_array=[[1, 2, 3], [4, 5, 6]], params={"param1": 1})
+        node2 = NodeAuthenticData(name="node2", datapoints_array=[[1, 2, 3], [4, 5, 6]], params={"param1": 1})
+        node3 = NodeAuthenticData(name="node3", datapoints_array=[[1, 2, 3], [4, 5, 6]], params={"param1": 1})
+        with self.assertRaises(KeyError):
+            cache_nodes.read(node_name="node1")
+            cache_indexes.read(node_name="node1")
+
+        storage.crud.create_nodes(storage_struct, [node1, node2])
+        read_node1 = cache_indexes.read(node_name="node1")
+        read_node2 = cache_indexes.read(node_name="node2")
+        with self.assertRaises(KeyError):
+            cache_indexes.read(node_name="node3")
+
+        self.assertEqual(read_node1, 0)
+        self.assertEqual(read_node2, 1)
+
+        # deleting node
+        storage.crud.delete_nodes(storage_struct, ["node1"])
+        with self.assertRaises(KeyError):
+            cache_indexes.read(node_name="node1")
+        read_node2 = cache_indexes.read(node_name="node2")
+        self.assertEqual(read_node2, 0)

@@ -9,6 +9,7 @@ import os
 import sys
 
 from src.agent_communication import CommunicationController
+from src.utils.configs_loader import load_config_ini
 
 
 def string_to_json(data):
@@ -73,5 +74,25 @@ def get_device():
     return device
 
 
+def get_debug():
+    global DEBUG
+    if not DEBUG:
+        DEBUG = load_config_ini()
+
+    return DEBUG
+
+
+def get_testing():
+    global TESTING
+    return TESTING
+
+
+def set_testing(value):
+    global TESTING
+    TESTING = value
+
+
+TESTING = False
+DEBUG = None
 device = None
 console = None

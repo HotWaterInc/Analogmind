@@ -13,6 +13,8 @@ from .functions.basic_functions import (
     connections_all_get,
     connections_authentic_get,
     connection_null_get_all,
+    node_get_datapoints_tensor,
+    node_get_datapoints_count
 )
 from . import crud
 
@@ -26,6 +28,8 @@ __all__ = [
     "node_get_datapoint_tensor_at_index",
     "node_get_datapoints_by_name",
     "node_get_index_by_name",
+    "node_get_datapoints_tensor",
+    "node_get_datapoints_count",
     "connections_all_get",
     "connections_authentic_get",
     "connection_null_get_all",

@@ -5,3 +5,4 @@ websockets
 manim
 tqdm
 pytest
+python-dotenv
