@@ -1,7 +1,7 @@
 import json
 import pickle
-from src.utils import get_project_root, prefix_path_with_root
 from .parameters import CollectedDataType, get_data_file_path
+from ..utils.utils import prefix_path_with_root
 
 
 def read_data_from_file(data_sample: CollectedDataType):

@@ -1,5 +1,7 @@
 ## Ancora 1.0
 
+### UNDER REFACTORING !!!
+
 ### Purpose
 
 - A multi-agent system for learning, navigating and generalizing large environments

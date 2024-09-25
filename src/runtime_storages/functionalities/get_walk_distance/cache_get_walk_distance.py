@@ -1,6 +1,6 @@
 from typing import TYPE_CHECKING
 from typing import List, Dict
-from src.navigation_core.algorithms import build_connections_hashmap, floyd_warshall_algorithm
+from src.navigation_core.to_refactor.algorithms import build_connections_hashmap, floyd_warshall_algorithm
 from src.runtime_storages.cache_abstract import CacheAbstract
 from src.runtime_storages.functionalities.functionalities_types import FunctionalityAlias
 from src.runtime_storages.other import cache_specialized_get

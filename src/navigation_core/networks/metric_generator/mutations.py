@@ -1,6 +1,5 @@
 from src.navigation_core.networks.common import Mutation
 from src.navigation_core.networks.metric_generator.training_data_struct import MetricTrainingData, WalkingMetadata
-from src.navigation_core.params import ROTATIONS
 import random
 from typing import List, Callable, TYPE_CHECKING
 from src import runtime_storages as runtime_storage
