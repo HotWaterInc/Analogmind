@@ -44,7 +44,7 @@ def normalize_direction(direction):
     return direction
 
 
-def calculate_coords_distance(coords1, coords2):
+def calculate_coords_distance(coords1: list[float], coords2: list[float]) -> float:
     return math.sqrt((coords1[0] - coords2[0]) ** 2 + (coords1[1] - coords2[1]) ** 2)
 
 
