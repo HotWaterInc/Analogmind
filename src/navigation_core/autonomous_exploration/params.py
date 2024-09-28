@@ -1,0 +1,6 @@
+from src.navigation_core.to_refactor.params import STEP_DISTANCE
+
+STEP_DISTANCE_LOWER_BOUNDARY = STEP_DISTANCE / 2
+STEP_DISTANCE_UPPER_BOUNDARY = STEP_DISTANCE * 2
+
+NORTH = 0

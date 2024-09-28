@@ -2,6 +2,8 @@ from typing import List, TYPE_CHECKING
 import random
 import torch
 
+from src.navigation_core.to_refactor.params import STEP_DISTANCE_CLOSE_THRESHOLD
+from src.navigation_core.pure_functions import calculate_coords_distance
 from src.runtime_storages.other.cache_functions import cache_general_get
 from src.runtime_storages.functions.pure_functions import eulerian_distance
 
@@ -243,3 +245,17 @@ def node_get_datapoints_count(self: 'StorageStruct', name: str) -> int:
     node_map = validate_cache_nodes_map(node_map)
     node: NodeAuthenticData = node_map.read(node_name=name)
     return len(node["datapoints_array"])
+
+
+def check_node_is_known_metadata(self: 'StorageStruct', current_coords: list[float]) -> bool:
+    """
+    Check if the current coordinates are close to any known
+    """
+    nodes_names = nodes_get_all_names(self)
+    for name in nodes_names:
+        coords = node_get_coords_metadata(self, name)
+        calculate_coords_distance(coords, current_coords)
+        if calculate_coords_distance(coords, current_coords) < STEP_DISTANCE_CLOSE_THRESHOLD:
+            return True
+
+    return False

@@ -112,7 +112,7 @@ def check_position_is_known_cheating(random_walk_datapoints):
     current_datapoint = random_walk_datapoints[-1]
     current_x = current_datapoint["params"]["x"]
     current_y = current_datapoint["params"]["y"]
-    is_known = storage_raw.check_position_is_known_cheating([current_x, current_y])
+    is_known = storage_raw.check_node_is_known_metadata([current_x, current_y])
 
     return is_known
 
@@ -693,9 +693,6 @@ def exploration_policy_autonomous():
         exploration_policy_autonomous_exploration_cheating(step)
         # generator = exploration_policy_autonomous_exploration_full(step)
 
-
-storage_raw: StorageSuperset2 = None
-storage_manifold: StorageSuperset2 = None
 
 adjacency_network: AdjacencyDetector = None
 image_distance_network: ImagesRawDistancePredictor = None

@@ -4,7 +4,7 @@ from src.agent_communication.action_types import *
 
 
 @wait_agent_response
-def detach_robot_sample_distance():
+def detach_agent_sample_distances():
     json_data: SampleDistanceType = {
         "action_type": SAMPLE_DISTANCE_STRING
     }
@@ -12,7 +12,7 @@ def detach_robot_sample_distance():
 
 
 @wait_agent_response
-def detach_robot_sample_image():
+def detach_agent_sample_image():
     json_data: SampleImageType = {
         "action_type": SAMPLE_IMAGE_STRING
     }
@@ -20,7 +20,7 @@ def detach_robot_sample_image():
 
 
 @wait_agent_response
-def detach_robot_teleport_relative(dx: float, dy: float):
+def detach_agent_teleport_relative(dx: float, dy: float):
     json_data: TeleportRelativeType = {
         "action_type": TELEPORT_RELATIVE_STRING,
         "dx": dx,
@@ -30,7 +30,7 @@ def detach_robot_teleport_relative(dx: float, dy: float):
 
 
 @wait_agent_response
-def detach_robot_teleport_absolute(x: float, y: float):
+def detach_agent_teleport_absolute(x: float, y: float):
     json_data: TeleportAbsoluteType = {
         "action_type": TELEPORT_ABSOLUTE_STRING,
         "x": x,
@@ -40,7 +40,7 @@ def detach_robot_teleport_absolute(x: float, y: float):
 
 
 @wait_agent_response
-def detach_robot_rotate_absolute(angle: float):
+def detach_agent_rotate_absolute(angle: float):
     json_data: RotateAbsoluteType = {
         "action_type": ROTATE_ABSOLUTE_STRING,
         "angle": angle
@@ -49,7 +49,7 @@ def detach_robot_rotate_absolute(angle: float):
 
 
 @wait_agent_response
-def detach_robot_rotate_relative(dangle: float):
+def detach_agent_rotate_relative(dangle: float):
     json_data: RotateRelativeType = {
         "action_type": ROTATE_RELATIVE_STRING,
         "dangle": dangle

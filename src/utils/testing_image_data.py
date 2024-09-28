@@ -1,11 +1,8 @@
-from src.ai.runtime_storages.storage_superset2 import StorageSuperset2
 import torch
 import math
 import torch
 import time
-from src.modules.save_load_handlers.data_handle import read_other_data_from_file, write_other_data_to_file
 import torch
-import torchvision.models as models
 import torchvision.transforms as transforms
 
 
@@ -16,53 +13,6 @@ def load_everything():
 
     storage.load_raw_data_from_others(f"data{grid_dataset}x{grid_dataset}_rotated24_image_embeddings.json")
     storage.load_raw_data_connections_from_others(f"data{grid_dataset}x{grid_dataset}_connections.json")
-
-
-def build_pil_image_from_recv(image_array):
-    preprocess = transforms.Compose([
-        transforms.Resize(256),
-        transforms.CenterCrop(224),
-        transforms.ToTensor(),
-    ])
-    input_tensor_preprocess = preprocess(image_array)
-
-    return input_tensor_preprocess
-
-
-def pil_tensor_to_resnet18_embedding(pil_tensor) -> torch.Tensor:
-    weights = models.ResNet18_Weights.DEFAULT
-    model = models.resnet18(weights=weights)
-    model = torch.nn.Sequential(*list(model.children())[:-1])
-    model.eval()
-
-    preprocess2 = transforms.Compose([
-        transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
-    ])
-
-    # Preprocess the image
-    input_tensor_preprocess = preprocess2(pil_tensor)
-    # visualize_image_from_tensor(input_tensor, "image_recv_webots")
-    input_tensor = preprocess2(input_tensor_preprocess)
-
-    # Add batch dimension
-    input_batch = input_tensor.unsqueeze(0)
-
-    # Move the input and model to GPU if available
-    if torch.cuda.is_available():
-        input_batch = input_batch.to('cuda')
-        model = model.to('cuda')
-
-    # Disable gradient calculation for inference
-    embedding = None
-    with torch.no_grad():
-        # Get the embedding
-        embedding = model(input_batch)
-
-    return embedding
-
-
-def squeeze_out_resnet_output(embedding):
-    return embedding.squeeze(3).squeeze(2).squeeze(0)
 
 
 def build_pil_image_from_path(image_path):
@@ -76,10 +26,6 @@ def build_pil_image_from_path(image_path):
     image_preprocess = transform(image)
 
     return image_preprocess
-
-
-from PIL import Image
-import numpy as np
 
 
 def visualize_image_from_tensor(tensor_data, save_name: str):
@@ -120,21 +66,6 @@ def webots_radians_to_normal(x: float) -> float:
     if x < 0:
         x += 2 * math.pi
     return x
-
-
-def process_webots_image_to_embedding(webots_raw_image) -> torch.Tensor:
-    webots_image_np = np.array(webots_raw_image)
-    webots_image_np = webots_image_np.astype(np.uint8)
-
-    if webots_image_np.shape[-1] == 3:
-        webots_image_np = webots_image_np[:, :, [2, 1, 0]]
-
-    pil_image = Image.fromarray(webots_image_np)
-
-    input_batch_received = build_pil_image_from_recv(pil_image)
-    emb1 = pil_tensor_to_resnet18_embedding(input_batch_received)
-
-    return emb1
 
 
 def test_images_accuracy():

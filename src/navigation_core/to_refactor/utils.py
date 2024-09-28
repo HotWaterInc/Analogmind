@@ -1,18 +1,6 @@
-from src.navigation_core import BaseAutoencoderModel
-from src.navigation_core import DIRECTION_THETAS_SIZE, STEP_DISTANCE_BASIC_STEP, \
-    EXPERIMENTAL_BINARY_SIZE, MANIFOLD_SIZE
-from src.navigation_core import direction_to_degrees_atan, degrees_to_percent, \
-    angle_percent_to_thetas_normalized_cached, find_thetas_null_indexes, \
-    get_angle_percent_from_thetas_index, generate_dxdy, angle_percent_to_radians
-from src.modules.agent_communication.response_data_buffer_class import AgentResponseDataBuffer, \
-    response_data_empty_buffer
-from src.modules.testing_image_data import process_webots_image_to_embedding, \
-    squeeze_out_resnet_output, webots_radians_to_normal
-from src.ai.runtime_storages.storage_superset2 import StorageSuperset2
 import torch
 import numpy as np
 import math
-from src.utils import get_device
 
 
 def get_missing_connections_based_on_distance(storage: StorageSuperset2, datapoint, distance_threshold):
@@ -75,81 +63,6 @@ def adjust_distance_sensors_according_to_rotation(distance_sensors, rotation_per
         new_distance_sensors[new_index] = distance_sensors[i]
 
     return new_distance_sensors
-
-
-def check_direction_distance_validity_north(distance, direction, distance_sensors):
-    # works only for north, needs adaptation for full rotation
-    direction_percentage = direction / (2 * math.pi)
-    sensors_count = len(distance_sensors)
-    sensor_index_left = int(direction_percentage * sensors_count)
-    sensor_index_right = (sensor_index_left + 1) % sensors_count
-    wideness = 4
-
-    for offset in range(wideness):
-        left_index = sensor_index_left - offset
-        right_index = sensor_index_right + offset
-
-        if left_index < 0:
-            left_index = sensors_count + left_index
-
-        if right_index >= sensors_count:
-            right_index = right_index - sensors_count
-
-        sensor_left_distance = distance_sensors_transform(distance_sensors[left_index])
-        sensor_right_distance = distance_sensors_transform(distance_sensors[right_index])
-
-        if sensor_left_distance < distance or sensor_right_distance < distance:
-            return False
-
-    return True
-
-
-def distance_sensors_transform(distance):
-    # formula is roughly sensor_distance = 10 * distance + 2.5
-    return (distance - 2.5) / 10
-
-
-def get_collected_data_distances() -> tuple[torch.Tensor, float, list[float]]:
-    global_data_buffer: AgentResponseDataBuffer = AgentResponseDataBuffer.get_instance()
-    buffer = global_data_buffer.buffer
-    distances = buffer["data"]
-    response_data_empty_buffer()
-
-    nd_array_data = np.array(distances)
-    angle = buffer["params"]["angle"]
-    x = buffer["params"]["x"]
-    y = buffer["params"]["y"]
-    coords = [
-        round(x, 3),
-        round(y, 3)
-    ]
-    angle = webots_radians_to_normal(angle)
-
-    return distances, angle, coords
-
-
-def get_collected_data_image() -> tuple[torch.Tensor, float, list[float]]:
-    global_data_buffer: AgentResponseDataBuffer = AgentResponseDataBuffer.get_instance()
-    buffer = global_data_buffer.buffer
-    image_data = buffer["data"]
-    response_data_empty_buffer()
-
-    nd_array_data = np.array(image_data)
-    angle = buffer["params"]["angle"]
-    x = buffer["params"]["x"]
-    y = buffer["params"]["y"]
-    coords = [
-        round(x, 3),
-        round(y, 3)
-    ]
-    # trim coords to 3rd decimal
-
-    angle = webots_radians_to_normal(angle)
-
-    current_embedding = process_webots_image_to_embedding(nd_array_data).to(get_device())
-    current_embedding = squeeze_out_resnet_output(current_embedding)
-
-    return current_embedding, angle, coords
 
 
 def value_to_binary_array(value: int, bits_count: int) -> list:

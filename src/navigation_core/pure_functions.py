@@ -304,7 +304,7 @@ def get_angle_percent_from_thetas_index(index, thetas_length):
     return index / thetas_length
 
 
-def generate_dxdy(direction: float, distance):
+def generate_dxdy(direction: float, distance: float) -> tuple[float, float]:
     # direction in radians
     dx = -distance * math.sin(direction)
     dy = distance * math.cos(direction)
