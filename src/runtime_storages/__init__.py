@@ -12,20 +12,34 @@ from .functions.basic_functions import (
     node_get_index_by_name,
     connections_all_get,
     connections_authentic_get,
+    connections_classify_into_authentic_synthetic,
     connection_null_get_all,
     node_get_datapoints_tensor,
     node_get_datapoints_count,
-    check_node_is_known_metadata
+    node_get_coords_metadata,
+    node_get_connections_adjacent,
+    check_node_is_known_from_metadata,
+    get_distance_between_nodes_metadata,
+    get_direction_between_nodes_metadata,
+    connections_authentic_check_if_exists,
+    connections_synthetic_check_if_exists,
+    connections_synthetic_get,
+    node_get_connections_null,
+    nodes_get_all
 )
+
 from . import crud
 
 __all__ = [
     "connections_authentic_get",
+    "connections_synthetic_get",
     "nodes_get_all_names",
     "nodes_get_datapoints_arrays",
     "connections_authentic_sample",
     "node_get_by_name",
     "node_get_by_index",
+    "node_get_coords_metadata",
+    "node_get_connections_adjacent",
     "node_get_datapoint_tensor_at_index",
     "node_get_datapoints_by_name",
     "node_get_index_by_name",
@@ -34,8 +48,12 @@ __all__ = [
     "connections_all_get",
     "connections_authentic_get",
     "connection_null_get_all",
+    "node_get_connections_null",
+    "nodes_get_all",
     "get_walk_distance",
-    "check_node_is_known_metadata",
+    "get_distance_between_nodes_metadata",
+    "get_direction_between_nodes_metadata",
+    "check_node_is_known_from_metadata",
     "create_storage",
     "crud",
 ]

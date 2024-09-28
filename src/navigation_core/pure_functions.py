@@ -4,7 +4,8 @@ import torch
 import numpy as np
 import math
 
-from src.utils import get_device
+from src.runtime_storages.types import NodeAuthenticData, ConnectionAuthenticData, ConnectionSyntheticData
+from src.utils.utils import get_device
 
 
 def get_distance_coords_pair(coords1: any, coords2: any) -> float:
@@ -13,8 +14,8 @@ def get_distance_coords_pair(coords1: any, coords2: any) -> float:
     return math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2)
 
 
-def get_real_distance_between_datapoints(datapoint1: Dict[str, any], datapoint2: Dict[str, any]) -> float:
-    coords1 = datapoint1["params"]["x"], datapoint1["params"]["y"]
+def get_real_distance_between_datapoints(node1: NodeAuthenticData, datapoint2: NodeAuthenticData) -> float:
+    coords1 = node1["params"]["x"], node1["params"]["y"]
     coords2 = datapoint2["params"]["x"], datapoint2["params"]["y"]
     return get_distance_coords_pair(coords1, coords2)
 
@@ -74,7 +75,7 @@ def generate_connection(start, end, distance, direction, distance_authenticity,
     return connection
 
 
-def flag_data_authenticity(new_connections):
+def flag_data_authenticity(new_connections: List[ConnectionAuthenticData]):
     """
     Flags whether data is synthetically generated or authentic
     """
@@ -93,13 +94,13 @@ def flag_data_authenticity(new_connections):
         if distance is None:
             markings["distance"] = "synthetic"
 
-        connection["markings"] = markings
+        connection[""] = markings
         marked_connections.append(connection)
 
     return marked_connections
 
 
-def direction_to_degrees_atan(direction):
+def direction_to_degrees_atan(direction: list[float]) -> float:
     y = direction[1]
     x = direction[0]
 
@@ -219,7 +220,7 @@ def angle_percent_to_radians(angle_percent):
     return angle_percent * 2 * np.pi
 
 
-def angle_percent_to_thetas_normalized_cached(true_theta_percent, thetas_length):
+def angle_percent_to_thetas_normalized_cached(true_theta_percent: float, thetas_length: int) -> torch.Tensor:
     thetas = torch.zeros(thetas_length)
     if true_theta_percent == 1:
         true_theta_percent = 0
@@ -312,14 +313,15 @@ def generate_dxdy(direction: float, distance: float) -> tuple[float, float]:
     return dx, dy
 
 
-def check_connection_already_existing(connections_arr, start, end):
+def check_connection_already_existing(connections_arr: List[ConnectionAuthenticData | ConnectionSyntheticData],
+                                      start: str, end: str):
     """
     Check if the connection already exists
     """
-    for conn in connections_arr:
-        if conn["start"] == start and conn["end"] == end:
+    for connection in connections_arr:
+        if connection["start"] == start and connection["end"] == end:
             return True
-        if conn["start"] == end and conn["end"] == start:
+        if connection["start"] == end and connection["end"] == start:
             return True
     return False
 
@@ -349,3 +351,19 @@ def normal_radians_to_webots(x: float) -> float:
     if x > math.pi:
         x -= 2 * math.pi
     return x
+
+
+def build_connection_name(start: str, end: str) -> str:
+    return f"{start}_{end}"
+
+
+def connection_reverse_order(
+        connection: ConnectionAuthenticData | ConnectionSyntheticData) -> ConnectionSyntheticData:
+    new_connection = ConnectionSyntheticData(
+        name=connection["name"],
+        start=connection["end"],
+        end=connection["start"],
+        distance=connection["distance"],
+        direction=[-x for x in connection["direction"]],
+    )
+    return new_connection

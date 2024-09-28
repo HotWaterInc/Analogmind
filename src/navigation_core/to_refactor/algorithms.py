@@ -1,16 +1,19 @@
 from typing import Dict, List
+from typing import Dict
+import heapq
+from src.navigation_core.pure_functions import connection_reverse_order
+from src.runtime_storages.types import ConnectionAuthenticData, ConnectionSyntheticData
 
 
-def build_connections_hashmap(connections, exclude_datapoints: List[str]):
-    connections_hashmap = {}
-    connections_hashmap_names = {}
+def _ensure_node_exists(node: str, connections_hashmap: Dict):
+    if node not in connections_hashmap:
+        connections_hashmap[node] = []
 
-    def build_connection(start: str, end: str, distance: float) -> Dict[str, any]:
-        return {
-            "start": start,
-            "end": end,
-            "distance": distance
-        }
+
+def build_connections_hashmap(connections: List[ConnectionAuthenticData | ConnectionSyntheticData],
+                              exclude_datapoints: List[str]):
+    connections_hashmap: Dict[str, List[ConnectionAuthenticData | ConnectionSyntheticData]] = {}
+    connections_hashmap_names: Dict[str, List[str]] = {}
 
     for connection in connections:
         start = connection["start"]
@@ -20,26 +23,20 @@ def build_connections_hashmap(connections, exclude_datapoints: List[str]):
         if start in exclude_datapoints or end in exclude_datapoints:
             continue
 
-        if start not in connections_hashmap_names:
-            connections_hashmap[start] = []
-            connections_hashmap_names[start] = []
-
-        if end not in connections_hashmap_names:
-            connections_hashmap[end] = []
-            connections_hashmap_names[end] = []
+        _ensure_node_exists(start, connections_hashmap)
+        _ensure_node_exists(end, connections_hashmap)
+        _ensure_node_exists(start, connections_hashmap_names)
+        _ensure_node_exists(end, connections_hashmap_names)
 
         if end not in connections_hashmap_names[start]:
-            connections_hashmap[start].append(build_connection(start, end, distance))
+            connections_hashmap[start].append(connection)
             connections_hashmap_names[start].append(end)
+
         if start not in connections_hashmap_names[end]:
-            connections_hashmap[end].append(build_connection(end, start, distance))
+            connections_hashmap[end].append(connection_reverse_order(connection))
             connections_hashmap_names[end].append(start)
 
     return connections_hashmap
-
-
-from typing import Dict
-import heapq
 
 
 def find_minimum_distance_between_datapoints_on_graph_djakstra(starting_point: str, ending_point: str,

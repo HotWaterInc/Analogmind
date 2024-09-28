@@ -2,8 +2,8 @@ from typing import List, TYPE_CHECKING
 import random
 import torch
 
-from src.navigation_core.to_refactor.params import STEP_DISTANCE_CLOSE_THRESHOLD
-from src.navigation_core.pure_functions import calculate_coords_distance
+from src.navigation_core.autonomous_exploration.params import IS_CLOSE_THRESHOLD
+from src.navigation_core.pure_functions import calculate_coords_distance, connection_reverse_order
 from src.runtime_storages.other.cache_functions import cache_general_get
 from src.runtime_storages.functions.pure_functions import eulerian_distance
 
@@ -19,14 +19,23 @@ if TYPE_CHECKING:
     from src.runtime_storages.storage_struct import StorageStruct
 
 
+def connections_synthetic_get(self: 'StorageStruct') -> List[
+    ConnectionSyntheticData]:
+    return self.connections_synthetic
+
+
 def connections_authentic_get(self: 'StorageStruct') -> List[
-    any]:
+    ConnectionAuthenticData]:
     return self.connections_authentic
 
 
 def nodes_get_all_names(self: 'StorageStruct') -> List[str]:
     # OPTIMIZATION: cache
     return [item["name"] for item in self.nodes_authentic]
+
+
+def nodes_get_all(self: 'StorageStruct') -> List[NodeAuthenticData]:
+    return self.nodes_authentic
 
 
 def nodes_get_datapoints_arrays(self: 'StorageStruct') -> List[any]:
@@ -247,7 +256,7 @@ def node_get_datapoints_count(self: 'StorageStruct', name: str) -> int:
     return len(node["datapoints_array"])
 
 
-def check_node_is_known_metadata(self: 'StorageStruct', current_coords: list[float]) -> bool:
+def check_node_is_known_from_metadata(self: 'StorageStruct', current_coords: list[float]) -> bool:
     """
     Check if the current coordinates are close to any known
     """
@@ -255,7 +264,68 @@ def check_node_is_known_metadata(self: 'StorageStruct', current_coords: list[flo
     for name in nodes_names:
         coords = node_get_coords_metadata(self, name)
         calculate_coords_distance(coords, current_coords)
-        if calculate_coords_distance(coords, current_coords) < STEP_DISTANCE_CLOSE_THRESHOLD:
+        if calculate_coords_distance(coords, current_coords) < IS_CLOSE_THRESHOLD:
             return True
 
     return False
+
+
+def node_get_connections_adjacent(self: 'StorageStruct', node_name: str) -> List[
+    ConnectionAuthenticData | ConnectionSyntheticData]:
+    # OPTIMIZATION cache
+
+    found_connections = []
+    total_connections = connections_all_get(self)
+
+    for connection in total_connections:
+        start = connection["start"]
+        end = connection["end"]
+
+        if start == node_name:
+            found_connections.append(connection.copy())
+        elif end == node_name:
+            connection_copy = connection.copy()
+            reversed_connection = connection_reverse_order(connection_copy)
+            found_connections.append(reversed_connection)
+
+    return found_connections
+
+
+def connections_authentic_check_if_exists(self: 'StorageStruct', start: str, end: str) -> bool:
+    for connection in self.connections_authentic:
+        if connection["start"] == start and connection["end"] == end:
+            return True
+
+    return False
+
+
+def connections_synthetic_check_if_exists(self: 'StorageStruct', start: str, end: str) -> bool:
+    for connection in self.connections_synthetic:
+        if connection["start"] == start and connection["end"] == end:
+            return True
+
+    return False
+
+
+def connections_classify_into_authentic_synthetic(self: 'StorageStruct', connections: List[
+    ConnectionAuthenticData | ConnectionSyntheticData]) -> tuple[
+    List[ConnectionAuthenticData], List[ConnectionSyntheticData]]:
+    authentic = []
+    synthetic = []
+
+    for connection in connections:
+        start = connection["start"]
+        end = connection["end"]
+        check_authentic = connections_authentic_check_if_exists(self, start, end)
+        check_synthetic = connections_synthetic_check_if_exists(self, start, end)
+
+        if check_authentic and check_synthetic:
+            raise ValueError(f"Connection {start} -> {end} is both authentic and synthetic")
+
+        if check_authentic:
+            authentic.append(connection)
+
+        if check_synthetic:
+            synthetic.append(connection)
+
+    return authentic, synthetic

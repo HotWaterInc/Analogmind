@@ -1,6 +1,7 @@
 from typing import List, TYPE_CHECKING
 import copy
-from src.runtime_storages.types import NodeAuthenticData, ConnectionAuthenticData, ConnectionSyntheticData
+from src.runtime_storages.types import NodeAuthenticData, ConnectionAuthenticData, ConnectionSyntheticData, \
+    ConnectionNullData
 from src.runtime_storages.functions.method_decorators import trigger_update_subscribers, \
     trigger_create_subscribers, \
     trigger_delete_subscribers
@@ -199,7 +200,7 @@ def update_connections_synthetic(storage, names: List[str], updated_connections:
 
 
 @trigger_create_subscribers(data_alias=DataAlias.CONNECTIONS_NULL)
-def create_connections_null(storage, connections: List[ConnectionAuthenticData]) -> List[ConnectionAuthenticData]:
+def create_connections_null(storage, connections: List[ConnectionNullData]) -> List[ConnectionNullData]:
     storage.connections_null.extend(connections)
     return connections
 

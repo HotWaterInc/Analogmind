@@ -1,16 +1,20 @@
+import numpy as np
+
 # representation details, could be anything
-DIRECTION_THETAS_SIZE = 36
+
+DIRECTION_REPRESENTATION_SIZE = 36
 # The larger thetas size, the more sparse the distance representation will be
-DISTANCE_THETAS_SIZE = 100
+DISTANCE_REPRESENTATION_SIZE = 100
 # max distance that can go int SDDS network
 MAX_DISTANCE = 3
+MIN_DISTANCE = 0
+MIN_DIRECTION = 0
+MAX_DIRECTION = 2 * np.pi
 # what is considered the standard step. The robot distance sensors will detect null when they are smaller than step*2
 
 STEP_DISTANCE = 0.5
 
-STEP_DISTANCE_CLOSE_THRESHOLD = STEP_DISTANCE * 2
 INVALID_DIRECTION_THRESHOLD = STEP_DISTANCE
-STEP_DISTANCE_BASIC_STEP = STEP_DISTANCE
 
 # number of sampled rotations for each datapoint ( at roughly equal intervals )
 ROTATIONS = 24
@@ -40,6 +44,3 @@ THRESHOLD_SDIRDISTSTATE_NETWORK = 0.005
 
 # removes up to 80% of the connections without significant loss in the structure of the topological graph
 REDUNDANCY_CONNECTION_ANGLE = 5
-
-# different experimental parameters
-EXPERIMENTAL_BINARY_SIZE = 24

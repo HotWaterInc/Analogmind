@@ -7,18 +7,6 @@ import torch.optim as optim
 import numpy as np
 from triton.language import dtype
 import random
-from src.ai.runtime_storages.storage_superset2 import StorageSuperset2, RawConnectionData
-from src.navigation_core import BaseAutoencoderModel
-from src.navigation_core import THRESHOLD_ADJACENCY_DETECTOR, ROTATIONS
-from src.navigation_core import sample_n_elements, calculate_coords_distance, \
-    check_connection_already_existing
-from src.save_load_handlers.ai_models_handle import load_manually_saved_ai, save_ai_manually
-from src.modules.time_profiler import start_profiler, profiler_checkpoint
-from src.utils import array_to_tensor, get_device
-from typing import List
-import torch.nn.functional as F
-from src.utils.pretty_display import pretty_display, pretty_display_set, pretty_display_start, pretty_display_reset
-from src.ai.variants.blocks import ResidualBlockSmallBatchNorm, _make_layer
 
 
 class AdjacencyDetector(nn.Module):
