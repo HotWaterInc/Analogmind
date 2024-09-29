@@ -6,3 +6,4 @@ manim
 tqdm
 pytest
 python-dotenv
+matplotlib

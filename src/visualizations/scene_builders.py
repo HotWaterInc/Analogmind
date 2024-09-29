@@ -103,7 +103,7 @@ def _add_mobjects_datapoints(scene: Scene, visualization_struct: VisualizationDa
 
 def build_datapoints_topology(scene: Scene, visualization_struct: VisualizationDataStruct,
                               storage_struct: StorageStruct, show_null: bool = True, show_frontier: bool = True,
-                              show_connections=True):
+                              show_connections=True) -> None:
     visualization_storage.build_nodes_coordinates_map(
         visualization_struct=visualization_struct,
         storage_struct=storage_struct,
@@ -126,85 +126,84 @@ def build_datapoints_topology(scene: Scene, visualization_struct: VisualizationD
     if show_null:
         _add_connections_null(scene=scene, visualization_struct=visualization_struct, storage_struct=storage_struct)
 
-    return scene
 
-
-def build_inference_navigation(scene: Scene) -> Scene:
-    DISTANCE_SCALE = 1
-    RADIUS = 0.2
-    inference_policy_data = read_other_data_from_file("inference_policy_results_no_noise.json")
-    STEPS_TO_WIN = inference_policy_data["STEPS_TO_WIN"]
-    DISTANCE_FROM_TRUE_TARGET = inference_policy_data["DISTANCE_FROM_TRUE_TARGET"]
-    WINS = inference_policy_data["WINS"]
-    RECORDED_STEPS = inference_policy_data["RECORDED_STEPS"]
-    ORIGINAL_TARGETS = inference_policy_data["ORIGINAL_TARGETS"]
-    ACTUAL_POSITIONS = inference_policy_data["ACTUAL_POSITIONS"]
-
-    WALK_INDEX = 0
-    count = 1
-
-    for idx, steps in enumerate(RECORDED_STEPS):
-        if len(steps) < 25 and len(steps) > 20:
-            if count == 0:
-                count += 1
-                continue
-            WALK_INDEX = idx
-            break
-
-    # Create a group to hold all elements
-    all_elements = VGroup()
-
-    # add target circle
-    target_circle = Circle(radius=RADIUS, color=RED)
-    x_target = ORIGINAL_TARGETS[WALK_INDEX][0]
-    y_target = ORIGINAL_TARGETS[WALK_INDEX][1]
-    target_circle.move_to(x_target * DISTANCE_SCALE * RIGHT + y_target * DISTANCE_SCALE * UP)
-    all_elements.add(target_circle)
-
-    # add starting circle
-    starting_circle = Circle(radius=RADIUS, color=BLUE)
-    x_start = ACTUAL_POSITIONS[WALK_INDEX][0][0]
-    y_start = ACTUAL_POSITIONS[WALK_INDEX][0][1]
-    starting_circle.move_to(x_start * DISTANCE_SCALE * RIGHT + y_start * DISTANCE_SCALE * UP)
-    all_elements.add(starting_circle)
-
-    # add end path circle
-    end_circle = Circle(radius=RADIUS, color=GREEN)
-    x_end = ACTUAL_POSITIONS[WALK_INDEX][-1][0]
-    y_end = ACTUAL_POSITIONS[WALK_INDEX][-1][1]
-    end_circle.move_to(x_end * DISTANCE_SCALE * RIGHT + y_end * DISTANCE_SCALE * UP)
-    all_elements.add(end_circle)
-
-    # add path
-    current_x, current_y = x_start, y_start
-    for step in RECORDED_STEPS[WALK_INDEX]:
-        dx, dy = step[0], step[1]
-        line = Arrow(
-            start=current_x * DISTANCE_SCALE * RIGHT + current_y * DISTANCE_SCALE * UP,
-            end=(current_x + dx) * DISTANCE_SCALE * RIGHT + (current_y + dy) * DISTANCE_SCALE * UP,
-            color=WHITE
-        )
-        all_elements.add(line)
-        current_x += dx
-        current_y += dy
-
-    # Scale the entire group to fit the screen
-    screen_width = config.frame_width
-    screen_height = config.frame_height
-    group_width = all_elements.width
-    group_height = all_elements.height
-
-    scale_factor = min(
-        (screen_width - 1) / group_width,
-        (screen_height - 1) / group_height
-    )
-
-    all_elements.scale(scale_factor)
-
-    # Center the scaled group
-    all_elements.move_to(ORIGIN)
-
-    # Add the scaled and centered group to the scene
-    scene.add(all_elements)
-
-    return scene
+def build_inference_navigation(scene: Scene) -> None:
+    pass
+    # not refactored yet
+    # DISTANCE_SCALE = 1
+    # RADIUS = 0.2
+    # inference_policy_data = read_other_data_from_file("inference_policy_results_no_noise.json")
+    # STEPS_TO_WIN = inference_policy_data["STEPS_TO_WIN"]
+    # DISTANCE_FROM_TRUE_TARGET = inference_policy_data["DISTANCE_FROM_TRUE_TARGET"]
+    # WINS = inference_policy_data["WINS"]
+    # RECORDED_STEPS = inference_policy_data["RECORDED_STEPS"]
+    # ORIGINAL_TARGETS = inference_policy_data["ORIGINAL_TARGETS"]
+    # ACTUAL_POSITIONS = inference_policy_data["ACTUAL_POSITIONS"]
+    #
+    # WALK_INDEX = 0
+    # count = 1
+    #
+    # for idx, steps in enumerate(RECORDED_STEPS):
+    #     if len(steps) < 25 and len(steps) > 20:
+    #         if count == 0:
+    #             count += 1
+    #             continue
+    #         WALK_INDEX = idx
+    #         break
+    #
+    # # Create a group to hold all elements
+    # all_elements = VGroup()
+    #
+    # # add target circle
+    # target_circle = Circle(radius=RADIUS, color=RED)
+    # x_target = ORIGINAL_TARGETS[WALK_INDEX][0]
+    # y_target = ORIGINAL_TARGETS[WALK_INDEX][1]
+    # target_circle.move_to(x_target * DISTANCE_SCALE * RIGHT + y_target * DISTANCE_SCALE * UP)
+    # all_elements.add(target_circle)
+    #
+    # # add starting circle
+    # starting_circle = Circle(radius=RADIUS, color=BLUE)
+    # x_start = ACTUAL_POSITIONS[WALK_INDEX][0][0]
+    # y_start = ACTUAL_POSITIONS[WALK_INDEX][0][1]
+    # starting_circle.move_to(x_start * DISTANCE_SCALE * RIGHT + y_start * DISTANCE_SCALE * UP)
+    # all_elements.add(starting_circle)
+    #
+    # # add end path circle
+    # end_circle = Circle(radius=RADIUS, color=GREEN)
+    # x_end = ACTUAL_POSITIONS[WALK_INDEX][-1][0]
+    # y_end = ACTUAL_POSITIONS[WALK_INDEX][-1][1]
+    # end_circle.move_to(x_end * DISTANCE_SCALE * RIGHT + y_end * DISTANCE_SCALE * UP)
+    # all_elements.add(end_circle)
+    #
+    # # add path
+    # current_x, current_y = x_start, y_start
+    # for step in RECORDED_STEPS[WALK_INDEX]:
+    #     dx, dy = step[0], step[1]
+    #     line = Arrow(
+    #         start=current_x * DISTANCE_SCALE * RIGHT + current_y * DISTANCE_SCALE * UP,
+    #         end=(current_x + dx) * DISTANCE_SCALE * RIGHT + (current_y + dy) * DISTANCE_SCALE * UP,
+    #         color=WHITE
+    #     )
+    #     all_elements.add(line)
+    #     current_x += dx
+    #     current_y += dy
+    #
+    # # Scale the entire group to fit the screen
+    # screen_width = config.frame_width
+    # screen_height = config.frame_height
+    # group_width = all_elements.width
+    # group_height = all_elements.height
+    #
+    # scale_factor = min(
+    #     (screen_width - 1) / group_width,
+    #     (screen_height - 1) / group_height
+    # )
+    #
+    # all_elements.scale(scale_factor)
+    #
+    # # Center the scaled group
+    # all_elements.move_to(ORIGIN)
+    #
+    # # Add the scaled and centered group to the scene
+    # scene.add(all_elements)
+    #
