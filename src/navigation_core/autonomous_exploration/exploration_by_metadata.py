@@ -7,6 +7,7 @@ from src.agent_communication.action_detach import detach_agent_sample_distances,
     detach_agent_rotate_absolute, detach_agent_sample_image, detach_agent_teleport_absolute
 from src.navigation_core.autonomous_exploration.common import get_collected_data_distances, random_distance_generator, \
     random_direction_generator, check_direction_validity, get_collected_data_image
+from src.navigation_core.autonomous_exploration.data_filtering import filtering_redundant_connections
 from src.navigation_core.autonomous_exploration.metrics.functions import build_augmented_connections
 from src.navigation_core.autonomous_exploration.params import NORTH
 from src.navigation_core.pure_functions import generate_dxdy, get_real_distance_between_datapoints, \
@@ -190,7 +191,7 @@ def exploration_policy_autonomous_exploration_cheating(step: int):
         walk_nodes=walk_nodes,
         walk_connections_authentic=walk_connections_authentic,
         walk_connections_null=walk_connections_null,
-        max_steps=10,
+        max_steps=15,
         skip_checks=2
     )
 
@@ -221,7 +222,7 @@ def exploration_policy_autonomous_exploration_cheating(step: int):
         new_connections=synthetic_connections_found
     )
 
-    # filtering_redundant_connections(storage_struct, verbose=False)
+    filtering_redundant_connections(storage_struct, verbose=False)
     # data_filtering_redundant_datapoints(storage_raw, verbose=False)
 
     last_dp = walk_nodes[-1]
@@ -240,6 +241,8 @@ def exploration_policy_autonomous_exploration_cheating(step: int):
                              storage.connections_authentic_get(storage_struct))
     write_other_data_to_file(f"step{step}_connections_synthetic_walk.json",
                              storage.connections_synthetic_get(storage_struct))
+    write_other_data_to_file(f"step{step}_connections_null_walk.json",
+                             storage.connections_null_get(storage_struct))
 
     frontier_datapoint = frontier_connection["start"]
     frontier_direction = frontier_connection["direction"]

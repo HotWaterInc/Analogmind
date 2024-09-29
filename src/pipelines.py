@@ -4,6 +4,8 @@ from src.agent_communication.communication_controller import set_response_event
 from src.configs_setup import config_simulation_communication
 from src.navigation_core.autonomous_exploration.exploration_by_metadata import exploration_by_metadata
 from src import runtime_storages as storage
+from src.navigation_core.data_loading import load_storage_with_base_data
+from src.runtime_storages.storage_struct import StorageStruct
 
 
 def start_server_thread():
@@ -40,7 +42,20 @@ def inference_pipeline():
     # )
 
 
+def visualization_pipeline():
+    storage_struct = StorageStruct()
+    step = 5
+    load_storage_with_base_data(
+        storage_struct=storage_struct,
+        nodes_filename=f"step{step}_datapoints_walk.json",
+        connections_authentic_filename=f"step{step}_connections_authentic_walk.json",
+        connections_synthetic_filename=f"step{step}_connections_synthetic_walk.json",
+        connections_null_filename=f"step{step}_connections_null_walk.json"
+    )
+
+
 def test_pipeline():
+    # visualization_pipeline()
     exploration_autonomous_pipeline()
 
     pass

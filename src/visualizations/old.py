@@ -1,29 +1,17 @@
-import matplotlib.pyplot as plt
 from manim import *
 import torch
 import logging
 import manim
-
+from src.navigation_core.networks.metric_generator.metric_network_abstract import MetricNetworkAbstract
+from src.runtime_storages.storage_struct import StorageStruct
 from src.save_load_handlers.ai_models_handle import load_manually_saved_ai
-
-OPENGL_RENDERER = manim.RendererType.OPENGL
-storage: Storage = Storage()
-storage_superset2: StorageSuperset2 = StorageSuperset2()
-
-
-class Scene3D(ThreeDScene):
-    def on_key_press(self, symbol, modifiers):
-        """Called each time a key is pressed."""
-        super().on_key_press(symbol, modifiers)
+from src.visualizations.configs import manim_configs_png, manim_configs_opengl
+from src.visualizations.decorators import run_as_png_decorator, run_as_interactive_opengl
+from src.visualizations.run_functions import manim_run_opengl_scene
+from src.visualizations.scenes import Scene2D
 
 
-class Scene2D(Scene):
-    def on_key_press(self, symbol, modifiers):
-        """Called each time a key is pressed."""
-        super().on_key_press(symbol, modifiers)
-
-
-def add_mobjects_found_adjacencies(scene: Scene, model: BaseAutoencoderModel, datapoints: List[RawEnvironmentData],
+def add_mobjects_found_adjacencies(scene: Scene, model: MetricNetworkAbstract, datapoints: List[RawEnvironmentData],
                                    mapped_data: Dict, distance_scale: float):
     """
     Adds lines between the points found as adjacent
@@ -363,35 +351,6 @@ def build_scene_autoencoded_permuted():
     return scene
 
 
-def manim_configs_png():
-    config.renderer = manim.RendererType.CAIRO
-
-    config.disable_caching = True
-    config.preview = True
-    config.input_file = "entry.py"
-
-    # mutes manim logger
-    logger.setLevel(logging.WARNING)
-
-
-def manim_configs_opengl():
-    config.renderer = OPENGL_RENDERER
-    print(f"{config.renderer = }")
-
-    config.disable_caching = True
-    config.preview = True
-    config.write_to_movie = False
-
-    config.input_file = "entry.py"
-
-    # mutes manim logger
-    logger.setLevel(logging.WARNING)
-
-
-def run_opengl_scene(scene):
-    scene.interactive_embed()
-
-
 def build_3d_mse(scene):
     scene.set_camera_orientation(phi=45 * DEGREES, theta=-45 * DEGREES)
 
@@ -458,12 +417,12 @@ def build_3d_mse(scene):
 
 
 def visualization_3d_target_surface():
-    # manim_configs_opengl()
-    manim_configs_png()
+    manim_configs_opengl()
+    # manim_configs_png()
     scene = Scene3D()
     build_3d_mse(scene)
-    scene.render()
-    # run_opengl_scene(scene)
+    # scene.render()
+    run_opengl_scene(scene)
 
 
 def visualization_topological_graph(storage: StorageSuperset2):
@@ -480,7 +439,3 @@ def visualization_inference_navigation():
     scene = build_inference_navigation(scene)
     scene.render()
     # run_opengl_scene(scene)
-
-
-DEBUG_ARRAY = None
-storage_global: StorageSuperset2 = None

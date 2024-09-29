@@ -3,7 +3,8 @@ from torch import nn
 from .parameters import AI_MODELS_TRACKER_PATH
 from .parameters import AIType, get_model_path
 import json
-from src.utils import prefix_path_with_root
+
+from ..utils.utils import prefix_path_with_root
 
 
 def get_current_track_number(model_type: AIType):

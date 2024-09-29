@@ -1,4 +1,5 @@
 from typing import List, TYPE_CHECKING
+import numpy as np
 import random
 import torch
 from src.navigation_core.autonomous_exploration.params import IS_CLOSE_THRESHOLD
@@ -10,8 +11,9 @@ from src.runtime_storages.general_cache.cache_nodes_indexes import \
     validate_cache_nodes_indexes
 from src.runtime_storages.other import cache_general_get
 from src.runtime_storages.types import ConnectionAuthenticData, NodeAuthenticData, CacheGeneralAlias, \
-    ConnectionNullData, ConnectionSyntheticData
+    ConnectionNullData, ConnectionSyntheticData, Coords
 from src.utils.utils import array_to_tensor
+from src.visualizations.visualization_storage.types import NodesMapping
 
 if TYPE_CHECKING:
     from src.runtime_storages.storage_struct import StorageStruct
@@ -20,6 +22,10 @@ if TYPE_CHECKING:
 def connections_synthetic_get(storage: 'StorageStruct') -> List[
     ConnectionSyntheticData]:
     return storage.connections_synthetic
+
+
+def connections_null_get(storage: 'StorageStruct') -> List[ConnectionNullData]:
+    return storage.connections_null
 
 
 def connections_authentic_get(storage: 'StorageStruct') -> List[

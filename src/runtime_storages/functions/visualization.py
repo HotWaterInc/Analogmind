@@ -5,11 +5,11 @@ from src.runtime_storages.exposed_functions import node_get_coords_metadata
 
 if TYPE_CHECKING:
     from src.runtime_storages.storage_struct import StorageStruct
-    from src.runtime_storages.visualization_data_struct import VisualizationDataStruct
+    from src.visualizations.visualization_storage.visualization_struct import VisualizationDataStruct
 
 
 def recenter_nodes_coordinates(visualization_struct: VisualizationDataStruct):
-    nodes_coordinates_map = visualization_struct.nodes_coordinates
+    nodes_coordinates_map = visualization_struct.nodes_coordinates_map
     x_mean, y_mean = 0, 0
     total_datapoints = len(nodes_coordinates_map)
 
@@ -31,7 +31,7 @@ def build_nodes_coordinates(storage_struct: 'StorageStruct', visualization_struc
         name = node["name"]
         coords = node_get_coords_metadata(storage_struct, name)
         x, y = coords.x, coords.y
-        visualization_struct.nodes_coordinates[name] = _create_node_coordinates(x, y)
+        visualization_struct.nodes_coordinates_map[name] = _create_node_coordinates(x, y)
 
 
 def build_nodes_coordinates_sparse(storage_struct: 'StorageStruct', visualization_struct: VisualizationDataStruct,
@@ -42,7 +42,7 @@ def build_nodes_coordinates_sparse(storage_struct: 'StorageStruct', visualizatio
         name = node["name"]
         coords = node_get_coords_metadata(storage_struct, name)
         x, y = coords.x, coords.y
-        visualization_struct.nodes_coordinates[name] = _create_node_coordinates(x, y)
+        visualization_struct.nodes_coordinates_map[name] = _create_node_coordinates(x, y)
 
 
 def _create_node_coordinates(x, y):

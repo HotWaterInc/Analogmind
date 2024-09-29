@@ -48,3 +48,8 @@ class OperationsAlias(Enum):
     READ = "read"
     UPDATE = "update"
     DELETE = "delete"
+
+
+class Coords(TypedDict):
+    x: float
+    y: float

@@ -1,11 +1,12 @@
-from src.runtime_storages.functions.functionalities import get_walk_distance
 from .storage_struct import create_storage
-from src.runtime_storages.exposed_functions import (
+from .functions.functionalities.get_walk_distance.functions import get_walk_distance
+from .functions.basic_functions import (
     connections_authentic_get,
     nodes_get_all_names,
     nodes_get_datapoints_arrays,
     connections_authentic_sample,
     node_get_by_name,
+    connections_null_get,
     node_get_by_index,
     node_get_datapoint_tensor_at_index,
     node_get_datapoints_by_name,
@@ -21,11 +22,9 @@ from src.runtime_storages.exposed_functions import (
     check_node_is_known_from_metadata,
     get_distance_between_nodes_metadata,
     get_direction_between_nodes_metadata,
-    connections_authentic_check_if_exists,
-    connections_synthetic_check_if_exists,
     connections_synthetic_get,
     node_get_connections_null,
-    nodes_get_all
+    nodes_get_all,
 )
 
 from . import crud
@@ -33,6 +32,7 @@ from . import crud
 __all__ = [
     "connections_authentic_get",
     "connections_synthetic_get",
+    "connections_null_get",
     "nodes_get_all_names",
     "nodes_get_datapoints_arrays",
     "connections_authentic_sample",
@@ -54,6 +54,7 @@ __all__ = [
     "get_distance_between_nodes_metadata",
     "get_direction_between_nodes_metadata",
     "check_node_is_known_from_metadata",
+    "connections_classify_into_authentic_synthetic",
     "create_storage",
     "crud",
 ]

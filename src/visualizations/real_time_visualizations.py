@@ -60,7 +60,7 @@ def run_opengl_configs():
     config.disable_caching = True
     config.preview = True
     config.write_to_movie = False
-    config.input_file = "live_data_flow.py"
+    config.input_file = "real_time_visualizations.py"
     # mutes manim logger
     logger.setLevel(logging.WARNING)
 
