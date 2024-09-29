@@ -1,6 +1,6 @@
-from src.modules.agent_communication.response_controller import receive_response, AgentResponseController
-from src.modules.agent_communication.communication_controller import CommunicationController
+from src.agent_communication import CommunicationController
 from src.agent_communication.implementations.websocket_server import send_data_websockets, start_websockets
+from src.agent_communication.response_controller import AgentResponseController, receive_response
 
 
 def config_communication_controller() -> None:

@@ -1,6 +1,6 @@
 from typing import TYPE_CHECKING
 
-from src.runtime_storages.functionalities.functionalities_types import FunctionalityAlias
+from src.runtime_storages.functions.functionalities.functionalities_types import FunctionalityAlias
 from src.runtime_storages.types import CacheGeneralAlias
 from src.runtime_storages.cache_abstract import CacheAbstract
 

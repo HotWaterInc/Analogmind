@@ -1,14 +1,10 @@
 import unittest
 from src import runtime_storages as storage
-from src.runtime_storages.functionalities.functionalities_types import FunctionalityAlias
-from src.runtime_storages.functionalities.get_walk_distance.cache_get_walk_distance import \
+from src.runtime_storages.functions.functionalities.functionalities_types import FunctionalityAlias
+from src.runtime_storages.functions.functionalities.get_walk_distance import \
     validate_cache_get_walk_distance
-from src.runtime_storages.general_cache.cache_nodes_indexes import validate_cache_nodes_indexes, \
-    CacheNodesIndexes
 from src.runtime_storages.other import cache_specialized_get
-from src.runtime_storages.other.cache_functions import cache_general_get
-from src.runtime_storages.general_cache.cache_nodes_map import validate_cache_nodes_map, CacheNodesMap
-from src.runtime_storages.types import CacheGeneralAlias, NodeAuthenticData, ConnectionAuthenticData
+from src.runtime_storages.types import NodeAuthenticData, ConnectionAuthenticData
 
 
 class TestsCacheSpecialized(unittest.TestCase):

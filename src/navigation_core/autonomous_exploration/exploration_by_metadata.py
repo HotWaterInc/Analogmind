@@ -14,7 +14,7 @@ from src.navigation_core.pure_functions import generate_dxdy, get_real_distance_
 from src.navigation_core.autonomous_exploration.metrics.metric_builders import build_find_adjacency_heuristic_cheating
 from src.navigation_core.autonomous_exploration.others import \
     synthetic_connections_fill_distances, synthetic_connections_fill_directions
-from src.navigation_core.to_refactor.params import ROTATIONS, INVALID_DIRECTION_THRESHOLD
+from src.navigation_core.to_refactor.params import ROTATIONS, INVALID_DIRECTION_THRESHOLD, STEP_DISTANCE
 from src.navigation_core.utils import find_frontier_all_datapoint_and_direction
 from src.runtime_storages.storage_struct import StorageStruct
 from src.runtime_storages.types import NodeAuthenticData, ConnectionNullData, ConnectionAuthenticData, \
@@ -125,10 +125,11 @@ def collect_node_data_actions() -> tuple[NodeAuthenticData, List[ConnectionNullD
         valid = check_direction_validity(INVALID_DIRECTION_THRESHOLD, NORTH, distances)
 
         if not valid:
+            dx, dy = generate_dxdy(angle, STEP_DISTANCE)
             null_connection = ConnectionNullData(
                 name=name,
                 start=name,
-                direction=NORTH,
+                direction=[dx, dy],
                 distance=INVALID_DIRECTION_THRESHOLD
             )
             null_connections.append(null_connection)
@@ -189,17 +190,21 @@ def exploration_policy_autonomous_exploration_cheating(step: int):
         walk_nodes=walk_nodes,
         walk_connections_authentic=walk_connections_authentic,
         walk_connections_null=walk_connections_null,
-        max_steps=20,
+        max_steps=10,
         skip_checks=2
     )
 
+    storage.crud.create_nodes(
+        storage=storage_struct,
+        nodes=walk_nodes
+    )
     storage.crud.create_connections_authentic(
         storage=storage_struct,
-        connections=walk_connections_authentic
+        new_connections=walk_connections_authentic
     )
     storage.crud.create_connections_null(
         storage=storage_struct,
-        connections=walk_connections_null
+        new_connections=walk_connections_null
     )
 
     synthetic_connections_found: List[ConnectionSyntheticData] = []
@@ -250,7 +255,7 @@ def exploration_policy_autonomous_exploration_cheating(step: int):
     time.sleep(1)
 
 
-def exploration_policy_autonomous():
+def exploration_by_metadata():
     initial_setup()
     detach_agent_teleport_absolute(0, 0)
 

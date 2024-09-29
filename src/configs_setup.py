@@ -1,4 +1,4 @@
-from src.modules.agent_communication.configs import config_communication_controller, config_response_controller
+from src.agent_communication.configs import config_communication_controller, config_response_controller
 
 
 def config_simulation_communication(agent_responded_trigger):

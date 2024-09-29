@@ -3,8 +3,8 @@ import websockets
 import json
 from typing import Dict
 
-from src.modules.agent_communication import ai_receive_response
-from src.modules.agent_communication.communication_controller import set_server_started
+from src.agent_communication import ai_receive_response
+from src.agent_communication.communication_controller import set_server_started
 
 PORT = 8080
 websocket_global = None

@@ -1,6 +1,6 @@
-from .functionalities.get_walk_distance import get_walk_distance
+from src.runtime_storages.functions.functionalities import get_walk_distance
 from .storage_struct import create_storage
-from .functions.basic_functions import (
+from src.runtime_storages.exposed_functions import (
     connections_authentic_get,
     nodes_get_all_names,
     nodes_get_datapoints_arrays,

@@ -1,6 +1,5 @@
-from src.runtime_storages.functionalities.functionalities_types import FunctionalityAlias
-from src.runtime_storages.functionalities.get_walk_distance import CacheGetWalkDistance
-from src.runtime_storages.functionalities.get_walk_distance.cache_get_walk_distance import \
+from src.runtime_storages.functions.functionalities.functionalities_types import FunctionalityAlias
+from src.runtime_storages.functions.functionalities.get_walk_distance.cache_get_walk_distance import \
     validate_cache_get_walk_distance
 from src.runtime_storages.other import cache_specialized_get
 from src.runtime_storages.storage_struct import StorageStruct

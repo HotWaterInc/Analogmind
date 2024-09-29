@@ -1,7 +1,7 @@
 import random
 from typing import TYPE_CHECKING
 
-from src.runtime_storages.functions.basic_functions import node_get_coords_metadata
+from src.runtime_storages.exposed_functions import node_get_coords_metadata
 
 if TYPE_CHECKING:
     from src.runtime_storages.storage_struct import StorageStruct

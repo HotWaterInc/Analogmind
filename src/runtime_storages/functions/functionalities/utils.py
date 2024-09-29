@@ -1,6 +1,6 @@
 from typing import TYPE_CHECKING
-from src.runtime_storages.functionalities import get_walk_distance
-from src.runtime_storages.functionalities.functionalities_types import FunctionalityAlias
+from src.runtime_storages.functions.functionalities import get_walk_distance
+from src.runtime_storages.functions.functionalities.functionalities_types import FunctionalityAlias
 
 if TYPE_CHECKING:
     from src.runtime_storages.storage_struct import StorageStruct

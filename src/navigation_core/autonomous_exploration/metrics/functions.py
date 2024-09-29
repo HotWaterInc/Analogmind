@@ -1,7 +1,6 @@
 from src.navigation_core.pure_functions import check_connection_already_existing, build_connection_name
 from src.runtime_storages.storage_struct import StorageStruct
 from typing import List, Callable
-from tqdm import tqdm
 from src import runtime_storages as storage
 
 from src.runtime_storages.types import NodeAuthenticData, ConnectionSyntheticData
@@ -14,7 +13,7 @@ def build_augmented_connections(storage_struct: StorageStruct,
     synthetics_connections: List[ConnectionSyntheticData] = []
     found_connections: List[str] = []
 
-    for idx, current_name in enumerate(tqdm(nodes_names)):
+    for idx, current_name in enumerate(nodes_names):
         adjacent_node = storage.node_get_by_name(storage_struct, current_name)
 
         found_nodes: List[str] = metric(storage_struct, adjacent_node)

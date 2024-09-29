@@ -9,7 +9,7 @@ def trigger_create_subscribers(data_alias: DataAlias):
     def function_decorator(func):
         @wraps(func)
         def wrapper(*args, **kwargs):
-            storage = args[0]
+            storage = kwargs.get('storage', args[0] if args else None)
             element = func(*args, **kwargs)
             subscribers = storage.data_crud_subscribers[data_alias][operation_alias]
             for subscriber in subscribers:

@@ -1,7 +1,7 @@
 from dataclasses import dataclass, field
 from typing import List, Dict
 from src.runtime_storages.cache_abstract import CacheAbstract
-from src.runtime_storages.functionalities.functionalities_types import FunctionalityAlias
+from src.runtime_storages.functions.functionalities.functionalities_types import FunctionalityAlias
 from src.runtime_storages.functions.subscriber_functions import subscribers_list_initialization
 from src.runtime_storages.other import create_caches_specialized, create_caches_general
 from src.runtime_storages.types import DataAlias

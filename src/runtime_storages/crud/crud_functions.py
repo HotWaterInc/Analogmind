@@ -200,9 +200,10 @@ def update_connections_synthetic(storage, names: List[str], updated_connections:
 
 
 @trigger_create_subscribers(data_alias=DataAlias.CONNECTIONS_NULL)
-def create_connections_null(storage, connections: List[ConnectionNullData]) -> List[ConnectionNullData]:
-    storage.connections_null.extend(connections)
-    return connections
+def create_connections_null(storage: 'StorageStruct', new_connections: List[ConnectionNullData]) -> List[
+    ConnectionNullData]:
+    storage.connections_null.extend(new_connections)
+    return new_connections
 
 
 @trigger_delete_subscribers(data_alias=DataAlias.CONNECTIONS_NULL)

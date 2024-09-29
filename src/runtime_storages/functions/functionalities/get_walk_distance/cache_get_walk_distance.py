@@ -1,15 +1,15 @@
 from typing import TYPE_CHECKING
 from typing import List, Dict
 from src.navigation_core.to_refactor.algorithms import build_connections_hashmap, floyd_warshall_algorithm
+from ...basic_functions import connections_all_get
+
 from src.runtime_storages.cache_abstract import CacheAbstract
-from src.runtime_storages.functionalities.functionalities_types import FunctionalityAlias
+from src.runtime_storages.functions.functionalities.functionalities_types import FunctionalityAlias
 from src.runtime_storages.other import cache_specialized_get
 
 if TYPE_CHECKING:
     from src.runtime_storages.storage_struct import StorageStruct
-    from src.runtime_storages.types import ConnectionNullData, ConnectionAuthenticData, ConnectionSyntheticData
-
-from src import runtime_storages as runtime_storage
+    from src.runtime_storages.types import ConnectionAuthenticData, ConnectionSyntheticData
 
 
 class CacheGetWalkDistance(CacheAbstract):
@@ -50,10 +50,7 @@ def on_delete_nodes(storage: 'StorageStruct', deleted_node: any) -> None:
 def invalidate_and_recalculate(storage: 'StorageStruct') -> None:
     cache = cache_specialized_get(storage, FunctionalityAlias.GET_WALK_DISTANCE)
     cache = validate_cache_get_walk_distance(cache)
-    connections = runtime_storage.connections_all_get(
-        self=storage,
-
-    )
+    connections = connections_all_get(storage)
     connection_hashmap = build_connections_hashmap(connections, [])
     distances = floyd_warshall_algorithm(connection_hashmap)
     cache.distances = distances
