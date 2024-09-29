@@ -106,9 +106,9 @@ def check_datapoint_connections_completeness(storage_struct: StorageStruct, data
     return connection_completeness
 
 
-def find_frontier_all_datapoint_and_direction(storage_struct: StorageStruct, return_first: bool = False,
-                                              starting_point=None) -> List[
-                                                                          ConnectionFrontier] | ConnectionFrontier | None:
+def frontier_find_all_datapoints_and_directions(storage_struct: StorageStruct, return_first: bool = False,
+                                                starting_point=None) -> List[
+                                                                            ConnectionFrontier] | ConnectionFrontier | None:
     """
     Finds empty connections gaps and goes there to explore, starting from the current datapoint
     If no gaps are found it means the entire map was explored

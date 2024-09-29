@@ -100,10 +100,6 @@ def node_get_datapoints_tensor(storage: 'StorageStruct', name: str) -> torch.Ten
     return torch.tensor(node["datapoints_array"], dtype=torch.float32)
 
 
-def connection_null_get_all(storage: 'StorageStruct') -> List[ConnectionNullData]:
-    return [item for item in storage.connections_null]
-
-
 def node_get_coords_metadata(storage: 'StorageStruct', name: str) -> list[float]:
     cache_node_map = cache_general_get(storage, CacheGeneralAlias.NODE_CACHE_MAP)
     cache_node_map = validate_cache_nodes_map(cache_node_map)

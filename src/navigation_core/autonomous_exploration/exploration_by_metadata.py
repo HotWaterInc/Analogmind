@@ -16,7 +16,7 @@ from src.navigation_core.autonomous_exploration.metrics.metric_builders import b
 from src.navigation_core.autonomous_exploration.others import \
     synthetic_connections_fill_distances, synthetic_connections_fill_directions
 from src.navigation_core.to_refactor.params import ROTATIONS, INVALID_DIRECTION_THRESHOLD, STEP_DISTANCE
-from src.navigation_core.utils import find_frontier_all_datapoint_and_direction
+from src.navigation_core.utils import frontier_find_all_datapoints_and_directions
 from src.runtime_storages.storage_struct import StorageStruct
 from src.runtime_storages.types import NodeAuthenticData, ConnectionNullData, ConnectionAuthenticData, \
     ConnectionSyntheticData
@@ -226,15 +226,11 @@ def exploration_policy_autonomous_exploration_cheating(step: int):
     # data_filtering_redundant_datapoints(storage_raw, verbose=False)
 
     last_dp = walk_nodes[-1]
-    frontier_connection = find_frontier_all_datapoint_and_direction(
+    frontier_connection = frontier_find_all_datapoints_and_directions(
         storage_struct=storage_struct,
         return_first=True,
         starting_point=last_dp["name"]
     )
-
-    if frontier_connection is None:
-        print("NO FRONTIER FOUND, EXPLORATION FINISHED")
-        return
 
     write_other_data_to_file(f"step{step}_datapoints_walk.json", storage.nodes_get_all(storage_struct))
     write_other_data_to_file(f"step{step}_connections_authentic_walk.json",
@@ -243,6 +239,10 @@ def exploration_policy_autonomous_exploration_cheating(step: int):
                              storage.connections_synthetic_get(storage_struct))
     write_other_data_to_file(f"step{step}_connections_null_walk.json",
                              storage.connections_null_get(storage_struct))
+
+    if frontier_connection is None:
+        print("NO FRONTIER FOUND, EXPLORATION FINISHED")
+        return
 
     frontier_datapoint = frontier_connection["start"]
     frontier_direction = frontier_connection["direction"]

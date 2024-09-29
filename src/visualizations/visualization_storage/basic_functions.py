@@ -2,7 +2,7 @@ from typing import List, Dict, Tuple, TYPE_CHECKING
 
 from src.runtime_storages.types import Coords
 from src.utils.configs_loader import load_config_ini
-from src.visualizations.visualization_storage.types import NodesMapping
+from src.visualizations.visualization_storage.types import NodesMapping, MobjectsParams
 from src import runtime_storages as storage
 
 import numpy as np
@@ -19,6 +19,14 @@ def set_nodes_coordinates_map(visualization_struct: 'VisualizationDataStruct',
 
 def get_nodes_coordinates_map(visualization_struct: 'VisualizationDataStruct') -> NodesMapping:
     return visualization_struct.nodes_coordinates_map
+
+
+def set_mobjects_params(visualization_struct: 'VisualizationDataStruct', mobjects_params: MobjectsParams) -> None:
+    visualization_struct.params = mobjects_params
+
+
+def get_mobjects_params(visualization_struct: 'VisualizationDataStruct') -> MobjectsParams:
+    return visualization_struct.params
 
 
 def build_nodes_coordinates_map(visualization_struct: 'VisualizationDataStruct', storage_struct: 'StorageStruct',

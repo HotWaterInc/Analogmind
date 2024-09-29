@@ -1,24 +1,20 @@
+from src.navigation_core.utils import frontier_find_all_datapoints_and_directions
 from src.runtime_storages.storage_struct import StorageStruct
-from typing import TypedDict
+from src.runtime_storages.types import ConnectionNullData
 from src.save_load_handlers.data_handle import read_other_data_from_file
 from manim import *
 from src import runtime_storages as storage
-import visualization_storage as visualization_storage
 from src.visualizations.configs_loader import load_config_ini_visualization, ConfigParameters
-from src.visualizations.visualization_storage.types import NodesMapping
+from src.visualizations.visualization_storage.types import NodesMapping, MobjectsParams
 from src.visualizations.visualization_storage.visualization_struct import VisualizationDataStruct
+from . import visualization_storage
 
 
-class MobjectsParams(TypedDict):
-    radius: float
-    distance_scale: float
-
-
-def _add_mobjects_connections(scene: Scene, visualization_struct: VisualizationDataStruct,
-                              storage_struct: StorageStruct, params: MobjectsParams) -> None:
+def _add_nodes_connections(scene: Scene, visualization_struct: VisualizationDataStruct,
+                           storage_struct: StorageStruct) -> None:
     all_connections = storage.connections_all_get(storage_struct)
     mapped_data = visualization_storage.get_nodes_coordinates_map(visualization_struct)
-    distance_scale = params["distance_scale"]
+    distance_scale = visualization_storage.get_mobjects_params(visualization_struct)["distance_scale"]
 
     for connection in all_connections:
         start = connection["start"]
@@ -35,14 +31,59 @@ def _add_mobjects_connections(scene: Scene, visualization_struct: VisualizationD
         scene.add(line)
 
 
+def _add_connections_frontier(scene: Scene, visualization_struct: VisualizationDataStruct,
+                              storage_struct: StorageStruct,
+                              ) -> None:
+    params = visualization_storage.get_mobjects_params(visualization_struct)
+    distance_scale = params["distance_scale"]
+    connections_frontier = frontier_find_all_datapoints_and_directions(storage_struct)
+    mapped_data = visualization_storage.get_nodes_coordinates_map(visualization_struct)
+
+    for connection in connections_frontier:
+        start = connection["start"]
+        dx = connection["direction"][0]
+        dy = connection["direction"][1]
+
+        x_start, y_start = mapped_data[start]["x"], mapped_data[start]["y"]
+        x_end, y_end = x_start + dx, y_start + dy
+
+        line = Line(start=x_start * distance_scale * RIGHT + y_start * distance_scale * UP,
+                    end=x_end * distance_scale * RIGHT + y_end * distance_scale * UP, color=BLUE, stroke_width=1)
+        scene.add(line)
+
+
+def _add_connections_null(scene: Scene, visualization_struct: VisualizationDataStruct,
+                          storage_struct: StorageStruct) -> None:
+    """
+    Adds lines between the points in the connections_data
+    """
+    connections_null: List[ConnectionNullData] = storage.connections_null_get(storage_struct)
+    mapped_data: NodesMapping = visualization_storage.get_nodes_coordinates_map(visualization_struct)
+    distance_scale = visualization_storage.get_mobjects_params(visualization_struct)["distance_scale"]
+
+    for connection in connections_null:
+        start = connection["start"]
+        key = connection["start"]
+        dx = connection["direction"][0]
+        dy = connection["direction"][1]
+
+        x_start, y_start = mapped_data[start]["x"], mapped_data[start]["y"]
+        x_end, y_end = x_start + dx, y_start + dy
+
+        line = Line(start=x_start * distance_scale * RIGHT + y_start * distance_scale * UP,
+                    end=x_end * distance_scale * RIGHT + y_end * distance_scale * UP, color=YELLOW, stroke_width=1)
+        scene.add(line)
+
+
 def _add_mobjects_datapoints(scene: Scene, visualization_struct: VisualizationDataStruct,
-                             storage_struct: StorageStruct, params: MobjectsParams) -> None:
+                             storage_struct: StorageStruct) -> None:
     """
     Adds circles to the scene representing the data points, based on the built coordinates map
     """
     mapped_data: NodesMapping = visualization_storage.get_nodes_coordinates_map(visualization_struct)
-    radius = params["radius"]
+    params = visualization_storage.get_mobjects_params(visualization_struct)
     distance_scale = params["distance_scale"]
+    radius = params["radius"]
 
     for key in mapped_data:
         x, y = mapped_data[key]["x"], mapped_data[key]["y"]
@@ -61,7 +102,8 @@ def _add_mobjects_datapoints(scene: Scene, visualization_struct: VisualizationDa
 
 
 def build_datapoints_topology(scene: Scene, visualization_struct: VisualizationDataStruct,
-                              storage_struct: StorageStruct):
+                              storage_struct: StorageStruct, show_null: bool = True, show_frontier: bool = True,
+                              show_connections=True):
     visualization_storage.build_nodes_coordinates_map(
         visualization_struct=visualization_struct,
         storage_struct=storage_struct,
@@ -73,24 +115,16 @@ def build_datapoints_topology(scene: Scene, visualization_struct: VisualizationD
         radius=0.2,
         distance_scale=1
     )
+    visualization_storage.set_mobjects_params(visualization_struct, params)
 
     # datapoints and normal connections
-    _add_mobjects_datapoints(scene=scene, visualization_struct=visualization_struct, storage_struct=storage_struct,
-                             params=params)
-    _add_mobjects_connections(scene=scene, visualization_struct=visualization_struct, storage_struct=storage_struct,
-                              params=params)
-
-    # add null connections
-    null_connections = storage_struct.connection_null_get_all()
-    add_null_connections(scene, null_connections, datapoints_coordinates_map, DISTANCE_SCALE)
-
-    # add possible directions
-    possible_directions_connections = find_frontier_all_datapoint_and_direction(
-        storage=storage_struct,
-        return_first=False,
-        starting_point=None
-    )
-    add_frontier_connections(scene, possible_directions_connections, datapoints_coordinates_map, DISTANCE_SCALE)
+    _add_mobjects_datapoints(scene=scene, visualization_struct=visualization_struct, storage_struct=storage_struct)
+    if show_connections:
+        _add_nodes_connections(scene=scene, visualization_struct=visualization_struct, storage_struct=storage_struct)
+    if show_frontier:
+        _add_connections_frontier(scene=scene, visualization_struct=visualization_struct, storage_struct=storage_struct)
+    if show_null:
+        _add_connections_null(scene=scene, visualization_struct=visualization_struct, storage_struct=storage_struct)
 
     return scene
 
