@@ -23,6 +23,7 @@ from .functions.basic_functions import (
     get_direction_between_nodes_metadata,
     connections_synthetic_get,
     node_get_connections_null,
+    node_get_closest_to_xy,
     nodes_get_all,
 )
 
@@ -37,6 +38,7 @@ __all__ = [
     "connections_authentic_sample",
     "node_get_by_name",
     "node_get_by_index",
+    "node_get_closest_to_xy",
     "node_get_coords_metadata",
     "node_get_connections_adjacent",
     "node_get_datapoint_tensor_at_index",

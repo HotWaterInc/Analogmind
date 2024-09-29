@@ -1,4 +1,7 @@
+import numpy as np
+
 from src.navigation_core.utils import frontier_find_all_datapoints_and_directions
+from typing import Tuple, List, Dict
 from src.runtime_storages.storage_struct import StorageStruct
 from src.runtime_storages.types import ConnectionNullData
 from src.save_load_handlers.data_handle import read_other_data_from_file
@@ -8,6 +11,7 @@ from src.visualizations.configs_loader import load_config_ini_visualization, Con
 from src.visualizations.visualization_storage.types import NodesMapping, MobjectsParams
 from src.visualizations.visualization_storage.visualization_struct import VisualizationDataStruct
 from . import visualization_storage
+from ..navigation_core.networks.metric_generator.metric_network_abstract import MetricNetworkAbstract
 
 
 def _add_nodes_connections(scene: Scene, visualization_struct: VisualizationDataStruct,
@@ -101,9 +105,9 @@ def _add_mobjects_datapoints(scene: Scene, visualization_struct: VisualizationDa
         scene.add(circ)
 
 
-def build_datapoints_topology(scene: Scene, visualization_struct: VisualizationDataStruct,
-                              storage_struct: StorageStruct, show_null: bool = True, show_frontier: bool = True,
-                              show_connections=True) -> None:
+def build_nodes_topology(scene: Scene, visualization_struct: VisualizationDataStruct,
+                         storage_struct: StorageStruct, show_null: bool = True, show_frontier: bool = True,
+                         show_connections=True) -> None:
     visualization_storage.build_nodes_coordinates_map(
         visualization_struct=visualization_struct,
         storage_struct=storage_struct,
@@ -127,7 +131,62 @@ def build_datapoints_topology(scene: Scene, visualization_struct: VisualizationD
         _add_connections_null(scene=scene, visualization_struct=visualization_struct, storage_struct=storage_struct)
 
 
-def build_inference_navigation(scene: Scene) -> None:
+def calculate_coords(storage_struct: StorageStruct, name: str, metric_network: MetricNetworkAbstract) -> Tuple[
+    List[float], List[float], List[float]]:
+    nodes_names = storage.nodes_get_all_names(storage_struct)
+    x_arr, y_arr, z_arr = [], [], []
+    for node_name in nodes_names:
+        coords = storage.node_get_coords_metadata(storage_struct, node_name)
+        x = coords[0]
+        y = coords[1]
+        z = x + y
+
+        x_arr.append(x)
+        y_arr.append(y)
+        z_arr.append(z)
+
+    return x_arr, y_arr, z_arr
+
+
+def build_metric_space_surface(scene: ThreeDScene, visualization_struct: VisualizationDataStruct,
+                               storage_struct: StorageStruct, metric_network: any, target_x: float,
+                               target_y: float) -> None:
+    scene.set_camera_orientation(phi=45 * DEGREES, theta=-45 * DEGREES)
+    target_name: str = storage.node_get_closest_to_xy(storage_struct, target_x, target_y)
+    nodes_names = storage.nodes_get_all_names(storage_struct)
+    x, y, z = calculate_coords(storage_struct, target_name, metric_network)
+    # Add axes
+    axes = ThreeDAxes(
+        x_length=6,
+        y_length=6,
+        z_length=6
+    )
+    z_norm = [(i - min(z)) / (max(z) - min(z)) for i in z]
+
+    scatter = VGroup(
+        *[Dot3D(point=[x[i], y[i], z[i]], radius=0.05,
+                color=color_gradient([BLUE, GREEN, YELLOW, RED], 101)[int(z_norm[i] * 100)]
+                ) for i in
+          range(len(x))])
+
+    print("scatter done")
+
+    lines = VGroup(
+        *[Line(start=np.array([x[i], y[i], 0]), end=np.array([x[i], y[i], z[i] - 0.05]), color=WHITE, stroke_width=1,
+               stroke_opacity=0.5)
+          for i in range(len(x))]
+    )
+
+    print("lines done")
+
+    scene.add(axes, scatter, lines)
+
+    # Rotate the camera
+    scene.begin_ambient_camera_rotation(rate=0.1)
+    scene.wait(10)
+
+
+def build_navigation_path(scene: Scene) -> None:
     pass
     # not refactored yet
     # DISTANCE_SCALE = 1

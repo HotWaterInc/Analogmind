@@ -7,24 +7,33 @@ from src.save_load_handlers.ai_models_handle import load_manually_saved_ai
 from src.visualizations.configs import manim_configs_png, manim_configs_opengl
 from src.visualizations.decorators import run_as_png, run_as_interactive_opengl
 from src.visualizations.run_functions import manim_run_opengl_scene
-from src.visualizations.scene_builders import build_inference_navigation, build_datapoints_topology
+from src.visualizations.scene_builders import build_navigation_path, build_nodes_topology, build_metric_space_surface
 from src.visualizations.scenes import Scene2D, Scene3D
 from src.visualizations import visualization_storage as visualization_storage
 
 
 @run_as_interactive_opengl("entry_dev.py")
-def visualization_3d_target_surface():
+def visualization_3d_target_surface(storage_struct: StorageStruct) -> None:
+    # TODO: Implement with the networks actually trained
     scene = Scene3D()
-    build_3d_mse(scene)
+    visualization_struct = visualization_storage.create_visualization_struct()
+    build_metric_space_surface(
+        scene=scene,
+        visualization_struct=visualization_struct,
+        storage_struct=storage_struct,
+        target_x=0,
+        target_y=0,
+        metric_network=None
+    )
 
 
 @run_as_png("entry_dev.py")
-def visualization_topological_graph(storage: StorageStruct) -> Scene:
+def visualization_topological_graph(storage_struct: StorageStruct) -> Scene:
     scene = Scene2D()
     visualization_struct = visualization_storage.create_visualization_struct()
-    build_datapoints_topology(
+    build_nodes_topology(
         scene=scene,
-        storage_struct=storage,
+        storage_struct=storage_struct,
         visualization_struct=visualization_struct,
     )
     return scene
@@ -34,7 +43,7 @@ def visualization_topological_graph(storage: StorageStruct) -> Scene:
 def visualization_navigation_paths() -> Scene:
     # TODO: Implement again
     scene = Scene2D()
-    build_inference_navigation(scene)
+    build_navigation_path(scene)
     return scene
 
 

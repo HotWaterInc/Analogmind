@@ -60,7 +60,7 @@ def run_opengl_configs():
     config.disable_caching = True
     config.preview = True
     config.write_to_movie = False
-    config.input_file = "real_time_visualizations.py"
+    config.input_file = "visualizations_real_time.py"
     # mutes manim logger
     logger.setLevel(logging.WARNING)
 
@@ -68,6 +68,8 @@ def run_opengl_configs():
 global scene_global
 
 if __name__ == "__main__":
+    # Only a small demo
+    # TODO: Needs to be implemented at a basic level on the new infrastructure
     run_opengl_configs()
     scene = build_scene()
     scene_global = scene

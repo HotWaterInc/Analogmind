@@ -6,7 +6,7 @@ from src.navigation_core.autonomous_exploration.exploration_by_metadata import e
 from src import runtime_storages as storage
 from src.navigation_core.data_loading import load_storage_with_base_data
 from src.runtime_storages.storage_struct import StorageStruct
-from src.visualizations.static_visualizations import visualization_topological_graph
+from src.visualizations.visualizations_static import visualization_topological_graph, visualization_3d_target_surface
 
 
 def start_server_thread():
@@ -45,7 +45,7 @@ def inference_pipeline():
 
 def visualization_pipeline():
     storage_struct = StorageStruct()
-    step = 40
+    step = 10
     load_storage_with_base_data(
         storage_struct=storage_struct,
         nodes_filename=f"step{step}_datapoints_walk.json",
@@ -53,7 +53,8 @@ def visualization_pipeline():
         connections_synthetic_filename=f"step{step}_connections_synthetic_walk.json",
         connections_null_filename=f"step{step}_connections_null_walk.json"
     )
-    visualization_topological_graph(storage_struct)
+    # visualization_topological_graph(storage_struct)
+    visualization_3d_target_surface(storage_struct)
 
 
 def test_pipeline():
