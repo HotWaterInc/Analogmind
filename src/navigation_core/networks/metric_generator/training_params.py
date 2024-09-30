@@ -10,5 +10,5 @@ class MetricTrainingParams(NetworkTrainingParams):
 
 
 def create_metric_training_params():
-    return MetricTrainingParams(epochs_count=100, epoch_print_rate=10, stop_at_threshold=False, walking_samples=100,
+    return MetricTrainingParams(epochs_count=1000, epoch_print_rate=100, stop_at_threshold=False, walking_samples=100,
                                 rotations_samples=100, learning_rate=0.0001)

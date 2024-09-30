@@ -3,10 +3,11 @@ from src.agent_communication import start_server
 from src.agent_communication.communication_controller import set_response_event
 from src.configs_setup import config_simulation_communication
 from src.navigation_core.autonomous_exploration.exploration_by_metadata import exploration_by_metadata
-from src import runtime_storages as storage
 from src.navigation_core.data_loading import load_storage_with_base_data
+from src.navigation_core.networks.metric_generator import create_metric_network, train_metric_generator_network
 from src.runtime_storages.storage_struct import StorageStruct
-from src.visualizations.visualizations_static import visualization_topological_graph, visualization_3d_target_surface
+from src.visualizations.visualizations_static import visualization_3d_target_surface, visualization_topological_graph
+from src import runtime_storages as storage
 
 
 def start_server_thread():
@@ -15,13 +16,13 @@ def start_server_thread():
     print("server thread started")
 
 
-def exploration_autonomous_pipeline():
+def pipeline_exploration_autonomous():
     config_simulation_communication(set_response_event)
     start_server_thread()
     exploration_by_metadata()
 
 
-def inference_pipeline():
+def pipeline_navigation():
     pass
     # config_simulation_communication(set_response_event)
     #
@@ -43,7 +44,7 @@ def inference_pipeline():
     # )
 
 
-def visualization_pipeline():
+def pipeline_visualization_metric3D():
     storage_struct = StorageStruct()
     step = 10
     load_storage_with_base_data(
@@ -53,12 +54,38 @@ def visualization_pipeline():
         connections_synthetic_filename=f"step{step}_connections_synthetic_walk.json",
         connections_null_filename=f"step{step}_connections_null_walk.json"
     )
-    # visualization_topological_graph(storage_struct)
-    visualization_3d_target_surface(storage_struct)
+    # also get the metric network here and pass it
+    visualization_3d_target_surface(storage_struct, metric_network=None)
+
+
+def pipeline_visualization_topology():
+    storage_struct = StorageStruct()
+    step = 10
+    load_storage_with_base_data(
+        storage_struct=storage_struct,
+        nodes_filename=f"step{step}_datapoints_walk.json",
+        connections_authentic_filename=f"step{step}_connections_authentic_walk.json",
+        connections_synthetic_filename=f"step{step}_connections_synthetic_walk.json",
+        connections_null_filename=f"step{step}_connections_null_walk.json"
+    )
+    visualization_topological_graph(storage_struct)
+
+
+def pipeline_train_metric_network():
+    storage_struct = StorageStruct()
+    step = 10
+    load_storage_with_base_data(
+        storage_struct=storage_struct,
+        nodes_filename=f"step{step}_datapoints_walk.json",
+        connections_authentic_filename=f"step{step}_connections_authentic_walk.json",
+        connections_synthetic_filename=f"step{step}_connections_synthetic_walk.json",
+        connections_null_filename=f"step{step}_connections_null_walk.json"
+    )
+    metric_network = create_metric_network()
+    train_metric_generator_network(storage_struct=storage_struct, network=metric_network)
+    pass
 
 
 def test_pipeline():
-    visualization_pipeline()
-    # exploration_autonomous_pipeline()
-
+    pipeline_train_metric_network()
     pass

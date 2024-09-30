@@ -48,6 +48,11 @@ def prefix_path_with_root(path):
     return root_path + "/" + path
 
 
+def tensor_to_dtype(data) -> torch.Tensor:
+    data = data.to(torch.float32)
+    return data
+
+
 def array_to_tensor(data):
     return torch.tensor(data, dtype=torch.float32)
 

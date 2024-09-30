@@ -13,7 +13,7 @@ from src.visualizations import visualization_storage as visualization_storage
 
 
 @run_as_interactive_opengl("entry_dev.py")
-def visualization_3d_target_surface(storage_struct: StorageStruct) -> None:
+def visualization_3d_target_surface(storage_struct: StorageStruct, metric_network: any) -> None:
     # TODO: Implement with the networks actually trained
     scene = Scene3D()
     visualization_struct = visualization_storage.create_visualization_struct()

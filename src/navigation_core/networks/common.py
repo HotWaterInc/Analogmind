@@ -82,7 +82,7 @@ def training_loop(network: NetworkAbstract, training_data: NetworkTrainingData, 
     loss_average_dict["epoch"] = 0
 
     display_losses_wrapper = display_losses_periodically(loss_average_dict, training_params.epoch_print_rate)
-    iterator = display_losses_wrapper(tqdm(range(training_params.epochs_count), desc="Network training"))
+    iterator = display_losses_wrapper(range(training_params.epochs_count))
 
     for epoch in iterator:
         handle_mutations(epoch, training_data, mutations)

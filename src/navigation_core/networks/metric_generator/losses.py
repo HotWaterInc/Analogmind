@@ -3,7 +3,7 @@ from src.navigation_core.networks.metric_generator.metric_network_abstract impor
 import torch
 from torch import nn
 
-from src.utils.utils import get_device
+from src.utils.utils import get_device, array_to_tensor, tensor_to_dtype
 
 
 def loss_rotations(metric_generator: MetricNetworkAbstract, training_data: MetricTrainingData) -> torch.Tensor:
@@ -11,7 +11,7 @@ def loss_rotations(metric_generator: MetricNetworkAbstract, training_data: Metri
     Makes rotations to be mapped to the same point in the embedding space
     """
     datapoints_data = next(training_data.rotations_dataloader)
-    datapoints_data = torch.stack(datapoints_data).to(get_device())
+    datapoints_data = tensor_to_dtype(datapoints_data).to(get_device())
 
     original_shape = datapoints_data.shape
     to_encode = datapoints_data.view(-1, original_shape[-1])
@@ -37,9 +37,10 @@ def loss_walking_distance(metric_generator: MetricNetworkAbstract, training_data
 
     walk_start, walk_end, walk_expected_distances = next(training_data.walking_dataloader)
 
-    walk_start = torch.stack(walk_start).to(get_device())
-    walk_end = torch.stack(walk_end).to(get_device())
-    walk_expected_distances = torch.stack(walk_expected_distances).to(get_device())
+    walk_start = tensor_to_dtype(walk_start).to(get_device())
+    walk_end = tensor_to_dtype(walk_end).to(get_device())
+    walk_expected_distances = tensor_to_dtype(walk_expected_distances).to(get_device())
+
     walk_expected_distances = walk_expected_distances * distance_scaling_factor
 
     encoded_i = metric_generator.encoder_training(walk_start)

@@ -10,6 +10,8 @@ from src.navigation_core.networks.metric_generator.network_class import MetricNe
 from src.navigation_core.networks.metric_generator.training_data_struct import MetricTrainingData
 from src.navigation_core.networks.metric_generator.training_params import MetricTrainingParams, \
     create_metric_training_params
+from src.save_load_handlers.ai_models_handle import save_ai_manually
+from src.utils.utils import get_device
 
 if TYPE_CHECKING:
     from src.runtime_storages import StorageStruct
@@ -18,6 +20,9 @@ if TYPE_CHECKING:
 def train_metric_generator_network(storage_struct: 'StorageStruct', network: MetricNetwork):
     training_params: MetricTrainingParams = create_metric_training_params()
     training_data: MetricTrainingData = MetricTrainingData()
+
+    network = network.to(get_device())
+    network = network.float()
 
     build_rotations_data(
         storage_struct=storage_struct,
@@ -53,3 +58,4 @@ def train_metric_generator_network(storage_struct: 'StorageStruct', network: Met
                      epochs_rate=5),
         ]
     )
+    save_ai_manually(name="metric_generator", model=network)
