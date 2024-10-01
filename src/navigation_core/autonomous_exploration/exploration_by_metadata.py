@@ -104,7 +104,6 @@ def collect_node_data_actions() -> tuple[NodeAuthenticData, List[ConnectionNullD
 
     for k in range(ROTATIONS):
         angle = k * rotation_step
-        detach_agent_sample_image()
 
         detach_agent_rotate_absolute(angle)
         detach_agent_sample_image()

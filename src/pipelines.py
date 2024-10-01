@@ -1,8 +1,12 @@
 import threading
+import time
+
 from src.agent_communication import start_server
+from src.agent_communication.action_detach import detach_agent_teleport_absolute
 from src.agent_communication.communication_controller import set_response_event
 from src.configs_setup import config_simulation_communication
 from src.navigation_core.autonomous_exploration.exploration_by_metadata import exploration_by_metadata
+from src.navigation_core.autonomous_exploration.exploration_profiling import exploration_profiling
 from src.navigation_core.data_loading import load_storage_with_base_data
 from src.navigation_core.networks.metric_generator import create_metric_network, train_metric_generator_network
 from src.runtime_storages.storage_struct import StorageStruct
@@ -14,6 +18,12 @@ def start_server_thread():
     server_thread = threading.Thread(target=start_server, name="ServerThread")
     server_thread.start()
     print("server thread started")
+
+
+def pipeline_exploration_profiling():
+    config_simulation_communication(set_response_event)
+    start_server_thread()
+    exploration_profiling()
 
 
 def pipeline_exploration_autonomous():
@@ -87,5 +97,6 @@ def pipeline_train_metric_network():
 
 
 def test_pipeline():
-    pipeline_train_metric_network()
+    pipeline_exploration_profiling()
+
     pass

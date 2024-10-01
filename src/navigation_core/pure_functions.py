@@ -3,7 +3,6 @@ from scipy.stats import norm
 import torch
 import numpy as np
 import math
-
 from src.runtime_storages.types import NodeAuthenticData, ConnectionAuthenticData, ConnectionSyntheticData
 from src.utils.utils import get_device
 
@@ -132,27 +131,6 @@ def atan2_to_standard_radians(atan2):
 
 def degrees_to_percent(angle_degrees):
     return angle_degrees / 360
-
-
-def coordinate_pair_to_radians_cursed_tranform(x_component, y_component):
-    """
-    wizard magic
-
-    In webots we measure angle counter clockwise from 0 to 2pi
-    Only positive range can be transformed easily in percents
-    counter clockwise because of some webots weird behavior when setting the rotation
-
-    So [0,1] is 0 degrees
-    [-1,0] is 90 degrees
-    [0,-1] is 180 degrees
-    [1,0] is 270 degrees
-
-    You can infer the rest
-    """
-    # atan2 = math.atan2(y_component, x_component)
-    atan2_inversed = math.atan2(x_component, y_component)
-    radians_only_positive = atan2_to_standard_radians(atan2_inversed)
-    return radians_only_positive
 
 
 def radians_to_percent(radians):
@@ -341,18 +319,6 @@ def degrees_to_radians(degrees: float) -> float:
     return degrees * math.pi / 180
 
 
-def webots_radians_to_normal(x: float) -> float:
-    if x < 0:
-        x += 2 * math.pi
-    return x
-
-
-def normal_radians_to_webots(x: float) -> float:
-    if x > math.pi:
-        x -= 2 * math.pi
-    return x
-
-
 def build_connection_name(start: str, end: str) -> str:
     return f"{start}_{end}"
 
@@ -367,3 +333,26 @@ def connection_reverse_order(
         direction=[-x for x in connection["direction"]],
     )
     return new_connection
+
+
+def direction_radians_to_xy(radians: float, distance: float) -> List[float]:
+    x = distance * math.cos(radians)
+    y = distance * math.sin(radians)
+    return [x, y]
+
+
+def xy_direction_to_xy_webots(x, y):
+    """
+    Counterclockwise rotation of 90 degrees. Webots is just weird.
+    """
+    rotation_matrix = np.array([[0, -1],
+                                [1, 0]])
+    coordinates = np.array([x, y])
+    rotated_coordinates = np.dot(rotation_matrix, coordinates)
+    return [rotated_coordinates[0], rotated_coordinates[1]]
+
+
+def direction_to_xy_webots(radians: float, distance: float) -> List[float]:
+    x = distance * math.cos(radians)
+    y = distance * math.sin(radians)
+    return xy_direction_to_xy_webots(x, y)
